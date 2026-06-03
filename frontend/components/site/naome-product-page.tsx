@@ -1,6 +1,7 @@
 import { ArticleSection, normalizeReferenceKey } from "@/components";
 import { JsonLd } from "@/components/site/json-ld";
 import { NaomeFeatureGrid } from "@/components/site/naome-feature-grid";
+import { NaomeParallaxHero } from "@/components/site/naome-parallax-hero";
 import type { Locale } from "@/domain/site/content";
 import { naomeArticles } from "@/domain/site/naome-page";
 import {
@@ -104,7 +105,7 @@ export function NaomeProductPage({
 
   return (
     <main className="ds-product-page ds-product-page--naome" aria-label={ariaLabel}>
-      <section className="ds-page-boundary ds-naome-hero" aria-labelledby={titleId}>
+      <NaomeParallaxHero titleId={titleId}>
         <div className="ds-naome-field" aria-hidden="true" />
         <div className="ds-naome-hero__text">
           <h1 id={titleId} className={`ds-product-title ${titleClassName}`}>
@@ -112,7 +113,7 @@ export function NaomeProductPage({
           </h1>
           <p className="ds-naome-hero__tagline">{tagline}</p>
         </div>
-      </section>
+      </NaomeParallaxHero>
       <section className="ds-naome-loop" aria-label="NAOME operating loop">
         <div className="ds-page-boundary ds-naome-loop__grid">
           {naomeOperatingLoopItems[locale].map(([label, text], index) => (
