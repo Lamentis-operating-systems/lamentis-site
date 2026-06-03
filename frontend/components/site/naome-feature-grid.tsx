@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 
 type NaomeFeatureGridProps = {
+  ariaLabel: string;
   items: readonly {
     id: string;
     label: string;
   }[];
 };
 
-export function NaomeFeatureGrid({ items }: NaomeFeatureGridProps) {
+export function NaomeFeatureGrid({ ariaLabel, items }: NaomeFeatureGridProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export function NaomeFeatureGrid({ items }: NaomeFeatureGridProps) {
   };
 
   return (
-    <nav className="ds-naome-section-nav" aria-label="Naome article sections">
+    <nav className="ds-naome-section-nav" aria-label={ariaLabel}>
       {items.map((item, index) => {
         const className =
           index === activeIndex

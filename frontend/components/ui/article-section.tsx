@@ -23,7 +23,7 @@ type ArticleSectionProps = {
   referenceTargets?: Record<string, string>;
 };
 
-function normalizeReferenceKey(value: string) {
+export function normalizeReferenceKey(value: string) {
   return value
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")

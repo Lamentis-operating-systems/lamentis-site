@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./site-home.css";
 @import "./product-page.css";
+@import "./naome-product-page.css";
+@import "./naome-content-page.css";
 @import "./article-section.css";
 @import "./site-navigation.css";
 @import "./site-footer.css";
