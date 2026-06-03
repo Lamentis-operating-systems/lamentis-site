@@ -106,8 +106,8 @@
 
   --ds-gradient-product-naome: linear-gradient(
     to bottom right,
-    rgb(5, 150, 105) 0%,
-    rgb(210, 255, 32) 100%
+    rgb(0, 168, 56) 0%,
+    rgb(222, 255, 0) 100%
   );
   --ds-gradient-product-nox: linear-gradient(
     to bottom right,
@@ -121,7 +121,6 @@
     rgb(14, 165, 233) 46%,
     rgb(139, 92, 246) 100%
   );
-  --ds-image-placeholder-naome-texture: url("data:image/webp;base64,UklGRloAAABXRUJQVlA4IE4AAABQAwCdASogABgAPv1mqVC/paQit+gD8B+JZgCsOUABtFSRgAD+7PyDB/zBP/ST/jdzjP0B+89JmaeFMvlv+1fDjw9DPVLDHS8fs4QAAAA=");
 
   --ds-color-cta-bg-light: rgb(16, 19, 23);
   --ds-color-cta-bg-dark: rgb(255, 255, 255);

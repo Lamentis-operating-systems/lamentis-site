@@ -73,24 +73,12 @@ function naomeGeoKeywords(locale: Locale): Record<string, string> {
   };
 }
 
-function naomeSocialMetaImage() {
-  return {
-    url: "/assets/images/naome-texture-20260523.webp",
-    width: 1800,
-    height: 1012,
-    alt: "NAOME project visual on Lamentis.",
-  } as const;
-}
-
 export function naomeMetadata(locale: Locale): Metadata {
-  const image = naomeSocialMetaImage();
-
   const metadata = createLocalizedMetadata({
     locale,
     path: "naome",
     title: naomeSeoData[locale].title,
     description: naomeSeoData[locale].description,
-    images: [image],
     noIndex: false,
   });
 

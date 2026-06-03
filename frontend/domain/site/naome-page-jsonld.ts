@@ -95,12 +95,6 @@ export function naomeJsonLd({ locale }: { locale: Locale }) {
       name: base.siteName,
       url: localizedUrl(locale, "/"),
     },
-    primaryImageOfPage: {
-      "@type": "ImageObject",
-      url: new URL("/assets/images/naome-texture-20260523.webp", "https://lamentis.de")
-        .toString(),
-      caption: "NAOME project visual.",
-    },
     mainEntity: naomeSoftwareApplication({
       description: base.description,
       keywords: base.keywords,
