@@ -35,11 +35,6 @@
 
   .ds-product-title--naome {
     background-image: var(--ds-gradient-product-naome);
-    text-shadow:
-      0 0 0.28em rgba(222, 255, 0, 0.32),
-      0 0 0.72em rgba(0, 168, 56, 0.26),
-      0 0 1.34em rgba(0, 168, 56, 0.18),
-      0 0 2.05em rgba(222, 255, 0, 0.12);
   }
 
   .ds-product-title--nox {
