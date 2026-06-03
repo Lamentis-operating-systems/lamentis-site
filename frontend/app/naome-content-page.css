@@ -71,19 +71,7 @@
     text-align: left;
   }
 
-  .ds-naome-article-layout > .ds-naome-section-nav,
-  .ds-naome-article-stack {
-    transform: translate3d(0, 0, 0);
-    will-change: transform;
-  }
-
   @supports (animation-timeline: view()) {
-    .ds-naome-article-layout > .ds-naome-section-nav {
-      animation: ds-naome-map-depth linear both;
-      animation-range: entry 0% cover 55%;
-      animation-timeline: view(block);
-    }
-
     .ds-naome-article-stack {
       animation: ds-naome-copy-depth linear both;
       animation-range: entry 0% cover 42%;
@@ -94,62 +82,36 @@
   .ds-naome-article-stack {
     display: grid;
     gap: clamp(7.2rem, 10vw, 12.8rem);
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
   }
 
   .ds-naome-section-nav {
-    position: sticky;
-    top: 22.4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    padding: 0;
+    display: grid;
+    gap: 0.4rem;
     align-self: start;
-  }
-
-  .ds-naome-section-nav::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 1px;
-    background: color-mix(in srgb, var(--ds-color-line) 64%, transparent);
-    content: "";
+    max-width: 22rem;
+    padding-top: 0.4rem;
   }
 
   .ds-naome-section-nav__item {
-    position: relative;
     border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ds-color-line) 42%, transparent);
     background: transparent;
     color: var(--ds-color-tertiary-text);
     cursor: pointer;
     font: inherit;
-    font-size: 1.35rem;
+    font-size: 1.3rem;
     font-weight: var(--ds-font-weight-medium);
-    line-height: 1.25;
-    padding: 0.8rem 0 0.8rem var(--ds-space-5);
+    line-height: 1.35;
+    padding: 0.85rem 0;
     text-align: left;
     transition: color 160ms ease;
-  }
-
-  .ds-naome-section-nav__item::before {
-    position: absolute;
-    top: 0.75rem;
-    bottom: 0.75rem;
-    left: 0;
-    width: 1px;
-    background: transparent;
-    content: "";
-    transition: background 160ms ease;
   }
 
   .ds-naome-section-nav__item:hover,
   .ds-naome-section-nav__item--active {
     color: var(--ds-color-primary-text);
-  }
-
-  .ds-naome-section-nav__item:hover::before,
-  .ds-naome-section-nav__item--active::before {
-    background: var(--ds-color-primary-text);
   }
 
   .ds-naome-section-nav__item:focus-visible {
@@ -218,21 +180,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .ds-naome-article-layout > .ds-naome-section-nav,
     .ds-naome-article-stack {
       animation: none;
       transform: none;
       will-change: auto;
-    }
-  }
-
-  @keyframes ds-naome-map-depth {
-    from {
-      transform: translate3d(0, 2.4rem, 0);
-    }
-
-    to {
-      transform: translate3d(0, -1.2rem, 0);
     }
   }
 
