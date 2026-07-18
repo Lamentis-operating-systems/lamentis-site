@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import {
   Cousine,
-  Covered_By_Your_Grace,
   Inter,
   Noto_Serif_JP,
 } from "next/font/google";
@@ -11,12 +10,6 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-});
-
-const productDisplay = Covered_By_Your_Grace({
-  variable: "--font-product-display",
-  subsets: ["latin"],
-  weight: "400",
 });
 
 const productMono = Cousine({
@@ -54,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${productDisplay.variable} ${productMono.variable} ${productSerifJp.variable} h-full antialiased`}
+      className={`${inter.variable} ${productMono.variable} ${productSerifJp.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

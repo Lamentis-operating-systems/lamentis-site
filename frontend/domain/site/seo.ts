@@ -152,7 +152,7 @@ export function organizationJsonLd(locale: Locale) {
     name: siteName,
     url: localizedUrl(locale, "/"),
     logo: new URL("/assets/images/app-logo-20260424.png", siteUrl).toString(),
-    sameAs: [externalProfileUrls.github, externalProfileUrls.linkedin],
+    sameAs: [externalProfileUrls.github],
   };
 }
 
@@ -163,7 +163,7 @@ export function personJsonLd(locale: Locale) {
     name: "Elias Papavlassopoulos",
     url: localizedUrl(locale, "/about/elias-papavlassopoulos"),
     image: new URL("/assets/images/elias-portrait.JPG", siteUrl).toString(),
-    sameAs: [externalProfileUrls.github, externalProfileUrls.linkedin],
+    sameAs: [externalProfileUrls.github],
     worksFor: {
       "@type": "Organization",
       name: siteName,

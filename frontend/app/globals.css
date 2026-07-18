@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "./site-home.css";
 @import "./product-page.css";
-@import "./article-section.css";
 @import "./site-navigation.css";
 @import "./site-footer.css";
 @import "./site-footer-language.css";
@@ -16,8 +15,6 @@
   --ds-font-family: var(--font-inter), -apple-system, BlinkMacSystemFont,
     "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial,
     sans-serif;
-  --ds-font-family-product-display: var(--font-product-display),
-    var(--ds-font-family);
   --ds-font-family-product-mono: var(--font-product-mono),
     "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --ds-font-family-product-serif-jp: var(--font-product-serif-jp),
@@ -102,11 +99,6 @@
   --ds-color-dark-gradient-light: rgb(128, 32, 233);
   --ds-color-dark-gradient-dark: rgb(113, 45, 233);
 
-  --ds-gradient-product-naome: linear-gradient(
-    to bottom right,
-    rgb(5, 150, 105) 0%,
-    rgb(210, 255, 32) 100%
-  );
   --ds-gradient-product-nox: linear-gradient(
     to bottom right,
     rgb(249, 115, 22) 0%,
@@ -119,8 +111,6 @@
     rgb(14, 165, 233) 46%,
     rgb(139, 92, 246) 100%
   );
-  --ds-image-placeholder-naome-texture: url("data:image/webp;base64,UklGRloAAABXRUJQVlA4IE4AAABQAwCdASogABgAPv1mqVC/paQit+gD8B+JZgCsOUABtFSRgAD+7PyDB/zBP/ST/jdzjP0B+89JmaeFMvlv+1fDjw9DPVLDHS8fs4QAAAA=");
-
   --ds-color-cta-bg-light: rgb(16, 19, 23);
   --ds-color-cta-bg-dark: rgb(255, 255, 255);
   --ds-color-cta-text-light: rgb(255, 255, 255);
@@ -188,7 +178,6 @@
   --color-ds-danger: var(--ds-color-error);
   --color-ds-surface-subtle: var(--ds-color-surface-subtle);
   --color-ds-line: var(--ds-color-line);
-  --background-image-product-naome: var(--ds-gradient-product-naome);
   --background-image-product-nox: var(--ds-gradient-product-nox);
   --background-image-product-noma: var(--ds-gradient-product-noma);
 

@@ -29,7 +29,7 @@ Placeholder pages may have complete titles and descriptions but should use
 - `/en/about/elias-papavlassopoulos` and `/de/about/elias-papavlassopoulos`:
   Person metadata, portrait Open Graph image, and page-specific favicon.
 - `/en/legal-notice` and `/de/legal-notice`: indexable legal entries.
-- `/naome`, `/nox`, and `/noma` localized routes: noindex placeholders.
+- `/nox` and `/noma` localized routes: noindex placeholders.
 
 ## Verification
 

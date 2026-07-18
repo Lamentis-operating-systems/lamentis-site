@@ -27,7 +27,6 @@ type SetMobileMenuOpen = Dispatch<SetStateAction<boolean>>;
 
 const desktopNavigationQuery = "(min-width: 641px)";
 const productGithubHrefs = {
-  naome: "https://github.com/Lamentis-O/naome",
   nox: "https://github.com/Lamentis-O/nox",
   noma: "https://github.com/Lamentis-O/noma",
 } satisfies Record<ProductSlug, string>;

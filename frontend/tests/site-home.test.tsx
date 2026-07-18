@@ -46,10 +46,9 @@ describe("Site navigation", () => {
     expect(
       screen.getByRole("button", { name: "Open product navigation" }),
     ).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("link", { name: "Naome ASOS" })).toHaveAttribute(
-      "href",
-      "/en/naome",
-    );
+    expect(
+      screen.queryByRole("link", { name: "Naome ASOS" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Noma Tasks" })).toHaveAttribute(
       "href",
       "/en/noma",
@@ -99,8 +98,11 @@ describe("Footer", () => {
       screen.getByRole("link", { name: "GitHub" }),
     ).toHaveAttribute("target", "_blank");
     expect(
-      screen.getByRole("link", { name: "Naome ASOS" }),
-    ).toHaveAttribute("href", "/en/naome");
+      screen.queryByRole("link", { name: "LinkedIn" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Naome ASOS" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Nox - Social Events" }),
     ).toHaveAttribute("href", "/en/nox");
@@ -109,7 +111,7 @@ describe("Footer", () => {
     ).toHaveAttribute("href", "/en/noma");
     expect(
       contentByLocale.en.footer.platform.links.map((link) => link.label),
-    ).toEqual(["Naome ASOS", "Noma Tasks", "Nox - Social Events"]);
+    ).toEqual(["Noma Tasks", "Nox - Social Events"]);
 
     expect(screen.getByRole("option", { name: "English" })).toHaveAttribute("href", "/en");
     expect(screen.getByRole("option", { name: "Deutsch" })).toHaveAttribute("href", "/de");
