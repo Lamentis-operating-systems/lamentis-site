@@ -1,46 +1,28 @@
-import { type Metadata } from "next";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/site/json-ld";
 import { SiteHome } from "@/components/site/site-home";
-import {
-  contentByLocale,
-  isSupportedLocale,
-  supportedLocales,
-} from "@/domain/site/content";
-import { homeMetadata, organizationJsonLd } from "@/domain/site/seo";
+import { contentByLocale } from "@/domain/site/content";
+import { isSupportedLocale } from "@/domain/site/routes";
+import { metadataForRoute, organizationJsonLd } from "@/domain/site/seo";
 
-export function generateStaticParams() {
-  return supportedLocales.map((locale) => ({ locale }));
+type LocalePageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: LocalePageProps): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isSupportedLocale(locale)) notFound();
+  return metadataForRoute(locale, "home");
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
+export default async function HomePage({ params }: LocalePageProps) {
   const { locale } = await params;
-
-  if (!isSupportedLocale(locale)) {
-    notFound();
-  }
-
-  return homeMetadata(locale);
-}
-
-export default async function LocalizedHomePage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-
-  if (!isSupportedLocale(locale)) {
-    notFound();
-  }
+  if (!isSupportedLocale(locale)) notFound();
 
   return (
     <>
-      <SiteHome copy={contentByLocale[locale]} />
+      <SiteHome title={contentByLocale[locale].home.title} statusLabel={contentByLocale[locale].home.statusLabel} />
       <JsonLd data={organizationJsonLd(locale)} />
     </>
   );

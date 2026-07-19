@@ -1,190 +1,293 @@
-export const supportedLocales = ["en", "de"] as const;
+import {
+  externalLinks,
+  productOrder,
+  products,
+  routePath,
+  type ExternalLink,
+  type InternalLink,
+  type Locale,
+  type ProductId,
+  type SiteRouteId,
+} from "./routes";
 
-export type Locale = (typeof supportedLocales)[number];
+export type RouteCopy = {
+  title: string;
+  description: string;
+};
 
-export type FooterSectionLink = {
+type ProductCopy = RouteCopy & {
+  displayTitle: string;
+  navigationLabel: string;
+  tagline: string;
+};
+
+type LocalizedSiteContent = {
+  home: RouteCopy & { statusLabel: string };
+  products: Record<ProductId, ProductCopy>;
+  placeholders: Record<Extract<SiteRouteId, "legalNotice" | "about">, RouteCopy>;
+  placeholderStatus: string;
+  navigation: {
+    ariaLabel: string;
+    homeLabel: string;
+    openMenuLabel: string;
+    closeMenuLabel: string;
+    githubLabel: string;
+  };
+  footer: {
+    platformTitle: string;
+    legalTitle: string;
+    linksTitle: string;
+    legalNoticeLabel: string;
+    aboutLabel: string;
+    githubLabel: string;
+    languageLabel: string;
+    copyright: string;
+    productionCredit: string;
+  };
+  notFound: {
+    title: string;
+    description: string;
+    homeLabel: string;
+  };
+};
+
+export const contentByLocale = {
+  en: {
+    home: {
+      title: "Projects by Elias Papavlassopoulos",
+      description:
+        "Lamentis landing page: plan, coordinate, and host private and public events with your social circle.",
+      statusLabel: "Coming soon",
+    },
+    products: {
+      noma: {
+        title: "Noma",
+        displayTitle: "Noma Tasks",
+        navigationLabel: "Noma Tasks",
+        description: "Noma project page on Lamentis.",
+        tagline:
+          "An iOS task manager built around a calm daily flow: capture today's todos, organize them into projects, complete what matters, and let unfinished tasks roll into tomorrow automatically.",
+      },
+      nox: {
+        title: "Nox",
+        displayTitle: "NOX",
+        navigationLabel: "Nox - Social Events",
+        description: "Nox project page on Lamentis.",
+        tagline:
+          "A mobile platform for nightclubs to host events, sell tickets, and understand their audiences, paired with a social experience that helps guests connect with their circle before, during, and after the night.",
+      },
+    },
+    placeholders: {
+      legalNotice: {
+        title: "Legal Notice",
+        description: "The legal notice is in preparation.",
+      },
+      about: {
+        title: "About Me",
+        description: "This page is in preparation.",
+      },
+    },
+    placeholderStatus: "In preparation",
+    navigation: {
+      ariaLabel: "Product navigation",
+      homeLabel: "Lamentis home",
+      openMenuLabel: "Open product navigation",
+      closeMenuLabel: "Close product navigation",
+      githubLabel: "Open product repository on GitHub",
+    },
+    footer: {
+      platformTitle: "Platform",
+      legalTitle: "Legal",
+      linksTitle: "Links",
+      legalNoticeLabel: "Legal Notice",
+      aboutLabel: "About Me",
+      githubLabel: "GitHub",
+      languageLabel: "Language",
+      copyright: "© 2026 Lamentis.",
+      productionCredit: "An Elias Papavlassopoulos production.",
+    },
+    notFound: {
+      title: "Page not found",
+      description: "The requested page does not exist.",
+      homeLabel: "Back to Lamentis",
+    },
+  },
+  de: {
+    home: {
+      title: "Projekte von Elias Papavlassopoulos",
+      description:
+        "Lamentis-Startseite: Plane, koordiniere und organisiere private und öffentliche Events.",
+      statusLabel: "Demnächst",
+    },
+    products: {
+      noma: {
+        title: "Noma",
+        displayTitle: "Noma Tasks",
+        navigationLabel: "Noma Tasks",
+        description: "Noma-Projektseite auf Lamentis.",
+        tagline:
+          "Ein iOS-Task-Manager für einen klaren Tagesablauf: heutige Todos erfassen, in Projekte sortieren, Wichtiges abschließen und unerledigte Aufgaben automatisch in den nächsten Tag übernehmen.",
+      },
+      nox: {
+        title: "Nox",
+        displayTitle: "NOX",
+        navigationLabel: "Nox - Social Events",
+        description: "Nox-Projektseite auf Lamentis.",
+        tagline:
+          "Eine mobile Plattform, mit der Nightclubs Events veranstalten, Tickets verkaufen und ihre Zielgruppen besser verstehen, kombiniert mit einem sozialen Erlebnis, das Gäste vor, während und nach der Nacht mit ihrem Freundeskreis verbindet.",
+      },
+    },
+    placeholders: {
+      legalNotice: {
+        title: "Impressum",
+        description: "Das Impressum ist in Vorbereitung.",
+      },
+      about: {
+        title: "Über mich",
+        description: "Diese Seite ist in Vorbereitung.",
+      },
+    },
+    placeholderStatus: "In Vorbereitung",
+    navigation: {
+      ariaLabel: "Produktnavigation",
+      homeLabel: "Lamentis-Startseite",
+      openMenuLabel: "Produktnavigation öffnen",
+      closeMenuLabel: "Produktnavigation schließen",
+      githubLabel: "Produkt-Repository auf GitHub öffnen",
+    },
+    footer: {
+      platformTitle: "Plattform",
+      legalTitle: "Rechtliches",
+      linksTitle: "Links",
+      legalNoticeLabel: "Impressum",
+      aboutLabel: "Über mich",
+      githubLabel: "GitHub",
+      languageLabel: "Sprache",
+      copyright: "© 2026 Lamentis.",
+      productionCredit: "Eine Elias Papavlassopoulos Produktion.",
+    },
+    notFound: {
+      title: "Seite nicht gefunden",
+      description: "Die angeforderte Seite existiert nicht.",
+      homeLabel: "Zurück zu Lamentis",
+    },
+  },
+} as const satisfies Record<Locale, LocalizedSiteContent>;
+
+type NavigationItem = InternalLink & {
+  productId: ProductId;
   label: string;
-  href?: string;
-  disabled?: boolean;
-  action?: boolean;
-  external?: boolean;
-  product?: "nox" | "noma";
-  productName?: string;
-  productSuffix?: string;
-  icon?: "github" | "about";
-  iconSrc?: string;
+  href: string;
+  repositoryUrl: string;
+};
+
+export type NavigationContent = {
+  ariaLabel: string;
+  homeLabel: string;
+  openMenuLabel: string;
+  closeMenuLabel: string;
+  githubLabel: string;
+  items: NavigationItem[];
+};
+
+export type FooterLink = (
+  | (InternalLink & { href: string })
+  | ExternalLink
+) & {
+  label: string;
+  icon?: "github";
 };
 
 export type FooterSection = {
+  id: "platform" | "legal" | "links";
   title: string;
-  links: FooterSectionLink[];
+  links: FooterLink[];
 };
 
-export type FooterCopy = {
-  brand: string;
-  platform: FooterSection;
-  account: FooterSection;
-  legal: FooterSection;
-  social: FooterSection;
+export type FooterContent = {
+  sections: FooterSection[];
   languageLabel: string;
-  languageOptions: { code: Locale; label: string }[];
+  languageOptions: readonly { code: Locale; label: string }[];
   copyright: string;
   productionCredit: string;
 };
 
-export type HomepageCopy = {
-  metaTitle: string;
-  metaDescription: string;
-  statusLabel: string;
-  footer: FooterCopy;
-};
+export function getRouteCopy(locale: Locale, routeId: SiteRouteId): RouteCopy {
+  const content = contentByLocale[locale];
 
-const languageOptions = [{ code: "en", label: "English" }, { code: "de", label: "Deutsch" }] satisfies FooterCopy["languageOptions"];
-
-const platformLinks = [
-  { product: "noma", productName: "Noma", productSuffix: "Tasks" },
-  { product: "nox", productName: "Nox", productSuffix: "- Social Events" },
-] as const;
-
-export const externalProfileUrls = {
-  github: "https://github.com/Lamentis-O",
-} as const;
-
-const sharedExternalLinks: FooterSectionLink[] = [
-  {
-    label: "GitHub",
-    href: externalProfileUrls.github,
-    external: true,
-    icon: "github",
-  },
-];
-
-function localizedPlatformLinks(locale: Locale): FooterSectionLink[] {
-  return platformLinks.map(({ product, productName, productSuffix }) => ({
-    product,
-    productName,
-    productSuffix,
-    label: `${productName} ${productSuffix}`,
-    href: `/${locale}/${product}`,
-  }));
+  if (routeId === "home") return content.home;
+  if (routeId === "noma" || routeId === "nox") return content.products[routeId];
+  return content.placeholders[routeId];
 }
 
-function socialLinks(locale: Locale, aboutLabel: string): FooterSectionLink[] {
-  return [
-    {
-      label: aboutLabel,
-      href: `/${locale}/about/elias-papavlassopoulos`,
-      icon: "about",
-      iconSrc: "/assets/images/elias-portrait.JPG",
-    },
-    ...sharedExternalLinks,
-  ];
-}
-
-type LocalizedCopy = readonly [
-  metaTitle: string,
-  metaDescription: string,
-  statusLabel: string,
-  platformTitle: string,
-  accountTitle: string,
-  accountLinks: FooterSectionLink[],
-  legalTitle: string,
-  legalLinks: FooterSectionLink[],
-  aboutLabel: string,
-  languageLabel: string,
-  copyright: string,
-  productionCredit: string,
-];
-
-const localizedCopy = {
-  en: [
-    "Projects by Elias Papavlassopoulos",
-    "Lamentis landing page: plan, coordinate, and host private and public events with your social circle.",
-    "Coming soon",
-    "Platform",
-    "Account",
-    [{ label: "Log in", disabled: true }, { label: "Sign up", disabled: true }, { label: "Safety", disabled: true }, { label: "View roadmap", disabled: true }],
-    "Legal",
-    [{ label: "Privacy Policy", disabled: true }, { label: "Terms of Service", disabled: true }, { label: "Legal Notice", href: "/en/legal-notice" }],
-    "About Me",
-    "Language",
-    "© 2026 Lamentis.",
-    "An Elias Papavlassopoulos production.",
-  ],
-  de: [
-    "Projekte von Elias Papavlassopoulos",
-    "Lamentis-Startseite: Plane, koordiniere und organisiere private und öffentliche Events.",
-    "Demnächst",
-    "Plattform",
-    "Konto",
-    [{ label: "Einloggen", disabled: true }, { label: "Registrieren", disabled: true }, { label: "Sicherheit", disabled: true }, { label: "Roadmap ansehen", disabled: true }],
-    "Rechtliches",
-    [{ label: "Datenschutzerklärung", disabled: true }, { label: "Nutzungsbedingungen", disabled: true }, { label: "Impressum", href: "/de/legal-notice" }],
-    "Über mich",
-    "Sprache",
-    "© 2026 Lamentis.",
-    "Eine Elias Papavlassopoulos Produktion.",
-  ],
-} satisfies Record<Locale, LocalizedCopy>;
-
-function footerCopy(locale: Locale, copy: LocalizedCopy): FooterCopy {
-  const [, , , platformTitle, accountTitle, accountLinks, legalTitle, legalLinks, aboutLabel, languageLabel, copyright, productionCredit] = copy;
-
+export function getNavigationContent(locale: Locale): NavigationContent {
+  const content = contentByLocale[locale];
   return {
-    brand: "Lamentis",
-    platform: { title: platformTitle, links: localizedPlatformLinks(locale) },
-    account: { title: accountTitle, links: accountLinks },
-    legal: { title: legalTitle, links: legalLinks },
-    social: { title: "Links", links: socialLinks(locale, aboutLabel) },
-    languageLabel,
-    languageOptions,
-    copyright,
-    productionCredit,
+    ...content.navigation,
+    items: productOrder.map((productId) => ({
+      kind: "internal",
+      id: `navigation-${productId}`,
+      routeId: products[productId].routeId,
+      productId,
+      label: content.products[productId].navigationLabel,
+      href: routePath(locale, products[productId].routeId),
+      repositoryUrl: products[productId].repositoryUrl,
+    })),
   };
 }
 
-export const contentByLocale = Object.fromEntries(
-  supportedLocales.map((locale) => {
-    const copy = localizedCopy[locale];
-    const [metaTitle, metaDescription, statusLabel] = copy;
+export function getFooterContent(locale: Locale): FooterContent {
+  const content = contentByLocale[locale];
+  const platformLinks: FooterLink[] = productOrder.map((productId) => ({
+    kind: "internal",
+    id: `footer-${productId}`,
+    routeId: products[productId].routeId,
+    href: routePath(locale, products[productId].routeId),
+    label: content.products[productId].navigationLabel,
+  }));
 
-    return [locale, {
-      metaTitle,
-      metaDescription,
-      statusLabel,
-      footer: footerCopy(locale, copy),
-    }];
-  }),
-) as Record<Locale, HomepageCopy>;
-
-export function isSupportedLocale(value: string | null | undefined): value is Locale {
-  if (!value) {
-    return false;
-  }
-
-  return (supportedLocales as readonly string[]).includes(value);
-}
-
-export function resolveLocaleFromAcceptLanguage(
-  acceptLanguage: string | null,
-): Locale {
-  if (!acceptLanguage) {
-    return "en";
-  }
-
-  const requested = acceptLanguage
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .map((entry) => entry.split(";")[0]);
-
-  for (const raw of requested) {
-    if (raw.startsWith("de")) {
-      return "de";
-    }
-    if (raw.startsWith("en")) {
-      return "en";
-    }
-  }
-
-  return "en";
+  return {
+    sections: [
+      { id: "platform", title: content.footer.platformTitle, links: platformLinks },
+      {
+        id: "legal",
+        title: content.footer.legalTitle,
+        links: [{
+          kind: "internal",
+          id: "footer-legal-notice",
+          routeId: "legalNotice",
+          href: routePath(locale, "legalNotice"),
+          label: content.footer.legalNoticeLabel,
+        }],
+      },
+      {
+        id: "links",
+        title: content.footer.linksTitle,
+        links: [
+          {
+            kind: "internal",
+            id: "footer-about",
+            routeId: "about",
+            href: routePath(locale, "about"),
+            label: content.footer.aboutLabel,
+          },
+          {
+            kind: "external",
+            id: "footer-github",
+            href: externalLinks.github,
+            newWindow: true,
+            label: content.footer.githubLabel,
+            icon: "github",
+          },
+        ],
+      },
+    ],
+    languageLabel: content.footer.languageLabel,
+    languageOptions: [
+      { code: "en", label: "English" },
+      { code: "de", label: "Deutsch" },
+    ],
+    copyright: content.footer.copyright,
+    productionCredit: content.footer.productionCredit,
+  };
 }

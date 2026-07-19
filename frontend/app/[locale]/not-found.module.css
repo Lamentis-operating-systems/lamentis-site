@@ -1,0 +1,38 @@
+.page {
+  display: grid;
+  min-height: var(--layout-page-min-height);
+  flex: 1 0 auto;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-3);
+  padding: var(--space-16) var(--layout-gutter);
+  text-align: center;
+}
+
+.code,
+.title,
+.description {
+  margin: var(--space-0);
+}
+
+.code {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+
+.title {
+  font-size: var(--text-display-page);
+  line-height: var(--line-display);
+}
+
+.description {
+  color: var(--color-text-muted);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-medium);
+}
+
+.link {
+  margin-top: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--text-label);
+}

@@ -1,22 +1,24 @@
 import Image from "next/image";
-import type { HomepageCopy } from "@/domain/site/content";
+import styles from "./site-home.module.css";
 
 type SiteHomeProps = {
-  copy: HomepageCopy;
+  title: string;
+  statusLabel: string;
 };
 
-export function SiteHome({ copy }: SiteHomeProps) {
+export function SiteHome({ title, statusLabel }: SiteHomeProps) {
   return (
-    <main className="ds-home-empty ds-home-loader-preview" aria-label={copy.metaTitle}>
-      <div className="ds-home-loader-preview__content">
+    <main className={styles.page} aria-label={title}>
+      <div className={styles.content}>
         <Image
-          src="/assets/images/lamentis-loader-logo-20260523.webp"
+          src="/assets/images/lamentis-loader-logo-static.png"
           alt=""
-          className="ds-home-loader-preview__image"
-          width="256"
-          height="256"
+          className={styles.image}
+          width={256}
+          height={256}
+          priority
         />
-        <p className="ds-home-loader-preview__label">{copy.statusLabel}</p>
+        <p className={styles.label}>{statusLabel}</p>
       </div>
     </main>
   );

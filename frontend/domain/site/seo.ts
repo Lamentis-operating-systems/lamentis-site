@@ -1,111 +1,51 @@
 import type { Metadata } from "next";
-import { defaultSiteIcons } from "@/domain/site/assets";
+import { iconsForRoute } from "./assets";
+import { getRouteCopy } from "./content";
 import {
-  contentByLocale,
-  externalProfileUrls,
-  type Locale,
+  externalLinks,
+  routeAlternates,
+  routePath,
+  routeUrl,
+  siteName,
+  siteRoutes,
+  siteUrl,
   supportedLocales,
-} from "@/domain/site/content";
+  type Locale,
+  type SiteRouteId,
+} from "./routes";
 
-export const siteUrl = "https://lamentis.de";
-
-export const siteName = "Lamentis";
-
-export const defaultLocale: Locale = "en";
-
-export const aboutPersonIcons = {
-  icon: [
-    { url: "/assets/images/about-favicon-elias-20260523-32.png", type: "image/png", sizes: "32x32" },
-    { url: "/assets/images/about-favicon-elias-20260523-64.png", type: "image/png", sizes: "64x64" },
-  ],
-  shortcut: "/assets/images/about-favicon-elias-20260523-32.png",
-  apple: "/assets/images/about-apple-touch-elias-20260523.png",
-} satisfies Metadata["icons"];
-
-export const aboutPersonImages = [
-  {
-    url: "/assets/images/elias-portrait.JPG",
-    width: 1200,
-    height: 1200,
-    alt: "Elias Papavlassopoulos",
-  },
-] satisfies NonNullable<Metadata["openGraph"]>["images"];
-
-const localeMetadata: Record<Locale, { language: string; openGraphLocale: string }> = {
-  en: {
-    language: "en",
-    openGraphLocale: "en_US",
-  },
-  de: {
-    language: "de",
-    openGraphLocale: "de_DE",
-  },
+const localeMetadata: Record<Locale, { openGraphLocale: string }> = {
+  en: { openGraphLocale: "en_US" },
+  de: { openGraphLocale: "de_DE" },
 };
 
-export type SeoInput = {
-  locale: Locale;
-  path: string;
-  title: string;
-  description: string;
-  images?: NonNullable<Metadata["openGraph"]>["images"];
-  icons?: Metadata["icons"];
-  noIndex?: boolean;
-};
+const defaultSocialImages = [{
+  url: "/assets/images/app-logo-20260424.png",
+  width: 1024,
+  height: 1024,
+  alt: siteName,
+}];
 
-export function localizedPath(locale: Locale, path: string) {
-  const normalizedPath = path === "/" ? "" : path.replace(/^\/+/, "");
-
-  return normalizedPath ? `/${locale}/${normalizedPath}` : `/${locale}`;
-}
-
-export function localizedUrl(locale: Locale, path: string) {
-  return new URL(localizedPath(locale, path), siteUrl).toString();
-}
-
-export function languageAlternates(path: string) {
-  return {
-    ...Object.fromEntries(
-      supportedLocales.map((locale) => [
-        localeMetadata[locale].language,
-        localizedPath(locale, path),
-      ]),
-    ),
-    "x-default": localizedPath(defaultLocale, path),
-  };
-}
-
-export function createLocalizedMetadata({
-  locale,
-  path,
-  title,
-  description,
-  images = [
-    {
-      url: "/assets/images/app-logo-20260424.png",
-      width: 1024,
-      height: 1024,
-      alt: siteName,
-    },
-  ],
-  icons = defaultSiteIcons,
-  noIndex = false,
-}: SeoInput): Metadata {
-  const canonical = localizedPath(locale, path);
+export function metadataForRoute(locale: Locale, routeId: SiteRouteId): Metadata {
+  const copy = getRouteCopy(locale, routeId);
+  const route = siteRoutes[routeId];
+  const canonical = routePath(locale, routeId);
   const alternateLocales = supportedLocales
-    .filter((supportedLocale) => supportedLocale !== locale)
-    .map((supportedLocale) => localeMetadata[supportedLocale].openGraphLocale);
+    .filter((candidate) => candidate !== locale)
+    .map((candidate) => localeMetadata[candidate].openGraphLocale);
+  const images = route.kind === "placeholder" ? undefined : defaultSocialImages;
 
   return {
-    title,
-    description,
-    icons,
+    title: copy.title,
+    description: copy.description,
+    icons: iconsForRoute(routeId),
     alternates: {
       canonical,
-      languages: languageAlternates(path),
+      languages: routeAlternates(routeId),
     },
     openGraph: {
-      title,
-      description,
+      title: copy.title,
+      description: copy.description,
       url: canonical,
       siteName,
       locale: localeMetadata[locale].openGraphLocale,
@@ -114,35 +54,16 @@ export function createLocalizedMetadata({
       images,
     },
     twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images:
-        Array.isArray(images) && typeof images[0] === "object" && "url" in images[0]
-          ? [String(images[0].url)]
-          : undefined,
+      card: images ? "summary_large_image" : "summary",
+      title: copy.title,
+      description: copy.description,
+      images: images?.map((image) => image.url),
     },
-    robots: noIndex
-      ? {
-          index: false,
-          follow: true,
-        }
-      : {
-          index: true,
-          follow: true,
-        },
+    robots: {
+      index: route.indexable,
+      follow: true,
+    },
   };
-}
-
-export function homeMetadata(locale: Locale) {
-  const copy = contentByLocale[locale];
-
-  return createLocalizedMetadata({
-    locale,
-    path: "/",
-    title: copy.metaTitle,
-    description: copy.metaDescription,
-  });
 }
 
 export function organizationJsonLd(locale: Locale) {
@@ -150,24 +71,8 @@ export function organizationJsonLd(locale: Locale) {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: siteName,
-    url: localizedUrl(locale, "/"),
+    url: routeUrl(locale, "home"),
     logo: new URL("/assets/images/app-logo-20260424.png", siteUrl).toString(),
-    sameAs: [externalProfileUrls.github],
-  };
-}
-
-export function personJsonLd(locale: Locale) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    name: "Elias Papavlassopoulos",
-    url: localizedUrl(locale, "/about/elias-papavlassopoulos"),
-    image: new URL("/assets/images/elias-portrait.JPG", siteUrl).toString(),
-    sameAs: [externalProfileUrls.github],
-    worksFor: {
-      "@type": "Organization",
-      name: siteName,
-      url: siteUrl,
-    },
+    sameAs: [externalLinks.github],
   };
 }

@@ -1,0 +1,71 @@
+const stylelintConfig = {
+  extends: ["stylelint-config-standard"],
+  plugins: ["stylelint-declaration-strict-value"],
+  ignoreFiles: [".next/**", "coverage/**", "playwright-report/**", "test-results/**"],
+  rules: {
+    "custom-property-pattern": null,
+    "selector-class-pattern": null,
+    "declaration-property-value-disallowed-list": {
+      transition: ["/\\ball\\b/"],
+    },
+    "scale-unlimited/declaration-strict-value": [
+      [
+        "/color$/",
+        "background",
+        "background-color",
+        "border-color",
+        "border-radius",
+        "box-shadow",
+        "font-family",
+        "font-size",
+        "font-weight",
+        "line-height",
+        "z-index",
+        "transition-duration",
+        "animation-duration",
+        "width",
+        "min-width",
+        "max-width",
+        "height",
+        "min-height",
+        "max-height",
+        "outline",
+        "filter",
+        "transform",
+        "gap",
+        "margin",
+        "margin-top",
+        "padding",
+        "padding-block",
+        "padding-inline",
+      ],
+      {
+        ignoreValues: [
+          "0",
+          "auto",
+          "currentColor",
+          "inherit",
+          "none",
+          "fit-content",
+          "solid",
+          "transparent",
+          "CanvasText",
+          "100%",
+          "0s",
+        ],
+        disableFix: true,
+      },
+    ],
+  },
+  overrides: [
+    {
+      files: ["styles/tokens.css"],
+      rules: {
+        "custom-property-empty-line-before": null,
+        "scale-unlimited/declaration-strict-value": null,
+      },
+    },
+  ],
+};
+
+export default stylelintConfig;

@@ -23,7 +23,7 @@ jobs:
   verify:
     name: Verify repository
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -34,48 +34,29 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install --no-audit
+        run: npm ci --no-audit
 
       - name: Audit production dependency risk
         working-directory: frontend
         run: npm audit --audit-level=high
 
-      - name: Run NAOME repository gates when harness is available
-        run: |
-          if [[ ! -f .naome/bin/naome.js || ! -f .naome/bin/check-harness-health.js ]]; then
-            echo "Skipping NAOME gates: local harness files are not present in this checkout."
-            exit 0
-          fi
-
-          node .naome/bin/check-harness-health.js
-
-          if [[ -f .naome/bin/check-task-state.js && -f .naome/task-state.json ]]; then
-            node .naome/bin/check-task-state.js
-          else
-            echo "Skipping NAOME task-state validation: local task-state is not present in this checkout."
-          fi
-
-          node .naome/bin/naome.js quality check --changed
-          node .naome/bin/naome.js semantic check --changed
-          node .naome/bin/naome.js arch validate --changed-only
-
-      - name: Run frontend lint
+      - name: Run frontend verification
         working-directory: frontend
-        run: npm run lint
+        run: npm run verify
 
-      - name: Run frontend unit tests
+      - name: Install Chromium
         working-directory: frontend
-        run: npm run test
+        run: npx playwright install --with-deps chromium
 
-      - name: Build frontend
+      - name: Run browser tests
         working-directory: frontend
-        run: npm run build
+        run: npm run test:e2e
 
       - name: Check whitespace errors
         run: |
