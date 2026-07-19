@@ -20,16 +20,16 @@ Produktions-Build. Die CI verwendet Node.js 24 und dieselben npm-Skripte.
 - Modelltests prüfen eindeutige Pfade, vollständige EN-/DE-Inhalte, Links und
   konsistente Navigation-, Footer-, SEO- und Sitemap-Projektionen.
 - Komponententests prüfen Menü-Zustände, Fokus und semantische Links.
-- Routingtests prüfen Locale-Verhandlung, alle zehn öffentlichen URLs,
+- Routingtests prüfen Locale-Verhandlung, alle 13 öffentlichen URLs,
   negative URLs, `lang`, Canonicals, Alternates, Robots und Sitemap.
 - Interaktionstests prüfen Dialog-Escape, Fokus-Rückgabe, Scroll-Lock-Cleanup,
   Route-Reset und den semantischen Locale-Wechsel.
-- Accessibility-Tests prüfen die zehn Routen mit Axe sowie 320, 768 und 1024 px,
+- Accessibility-Tests prüfen die 13 Routen mit Axe sowie 320, 768 und 1024 px,
   200 % Textgröße, Reduced Motion und Forced Colors.
 
 ## Visuelle Baselines
 
-Die Suite enthält 40 Chromium-Baselines: zehn Routen, zwei Viewports und
+Die Suite enthält 52 Chromium-Baselines: 13 Routen, zwei Viewports und
 Light/Dark. Ein normaler Testlauf darf sie nicht verändern.
 
 ```bash

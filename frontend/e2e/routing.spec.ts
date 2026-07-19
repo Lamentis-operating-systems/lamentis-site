@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { localizedRoutes } from "./site-routes";
+import { globalRoutes, localizedRoutes } from "./site-routes";
 
 test("root negotiates German with a temporary redirect", async ({ request }) => {
   const response = await request.get("/", {
@@ -52,7 +52,23 @@ for (const route of localizedRoutes) {
   });
 }
 
-for (const path of ["/fr", "/nox"]) {
+for (const route of globalRoutes) {
+  test(`${route.path} keeps the global route and SEO contract`, async ({ page }) => {
+    const response = await page.goto(route.path);
+    expect(response?.status()).toBe(200);
+    await expect(page.locator("html")).toHaveAttribute("lang", route.locale);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://lamentis.de/add-site",
+    );
+    await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
+    await expect(page.locator('meta[property="og:locale:alternate"]')).toHaveCount(0);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    await expect(page.locator("main")).toBeEmpty();
+  });
+}
+
+for (const path of ["/fr", "/nox", "/noma"]) {
   test(`${path} returns a noindex 404`, async ({ page }) => {
     const response = await page.goto(path);
     expect(response?.status()).toBe(404);
@@ -62,8 +78,14 @@ for (const path of ["/fr", "/nox"]) {
 
 for (const invalidRoute of [
   { path: "/en/unknown", locale: "en", title: "Page not found" },
+  { path: "/en/nox", locale: "en", title: "Page not found" },
+  { path: "/en/noma", locale: "en", title: "Page not found" },
+  { path: "/en/add-site", locale: "en", title: "Page not found" },
   { path: "/en/about/unknown", locale: "en", title: "Page not found" },
   { path: "/de/unknown", locale: "de", title: "Seite nicht gefunden" },
+  { path: "/de/nox", locale: "de", title: "Seite nicht gefunden" },
+  { path: "/de/noma", locale: "de", title: "Seite nicht gefunden" },
+  { path: "/de/add-site", locale: "de", title: "Seite nicht gefunden" },
 ] as const) {
   test(`${invalidRoute.path} uses the localized noindex 404`, async ({ page }) => {
     const response = await page.goto(invalidRoute.path);
@@ -84,6 +106,10 @@ test("sitemap contains only the two home pages", async ({ request }) => {
   expect(sitemap).not.toContain("/noma");
   expect(sitemap).not.toContain("/legal-notice");
   expect(sitemap).not.toContain("/about/");
+  expect(sitemap).not.toContain("/today");
+  expect(sitemap).not.toContain("/trending");
+  expect(sitemap).not.toContain("/search");
+  expect(sitemap).not.toContain("/add-site");
   expect(sitemap).toContain('hreflang="en" href="https://lamentis.de/en"');
   expect(sitemap).toContain('hreflang="de" href="https://lamentis.de/de"');
   expect(sitemap).not.toMatch(/hreflang="(?:en|de|x-default)" href="\//);

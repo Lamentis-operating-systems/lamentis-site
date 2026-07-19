@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { iconsForRoute } from "./assets";
+import { defaultSiteIcons, iconsForRoute } from "./assets";
 import { getRouteCopy } from "./content";
 import {
   externalLinks,
@@ -10,8 +10,9 @@ import {
   siteRoutes,
   siteUrl,
   supportedLocales,
+  type GlobalRouteId,
   type Locale,
-  type SiteRouteId,
+  type LocalizedRouteId,
 } from "./routes";
 
 const localeMetadata: Record<Locale, { openGraphLocale: string }> = {
@@ -26,14 +27,28 @@ const defaultSocialImages = [{
   alt: siteName,
 }];
 
-export function metadataForRoute(locale: Locale, routeId: SiteRouteId): Metadata {
+export const siteMetadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: { default: siteName, template: `%s | ${siteName}` },
+  applicationName: siteName,
+  description: "Lamentis is a platform for discovering and sharing sites.",
+  icons: defaultSiteIcons,
+};
+
+function createRouteMetadata(
+  locale: Locale,
+  routeId: LocalizedRouteId | GlobalRouteId,
+  canonical: string,
+  languages?: Record<string, string>,
+): Metadata {
   const copy = getRouteCopy(locale, routeId);
   const route = siteRoutes[routeId];
-  const canonical = routePath(locale, routeId);
-  const alternateLocales = supportedLocales
-    .filter((candidate) => candidate !== locale)
-    .map((candidate) => localeMetadata[candidate].openGraphLocale);
-  const images = route.kind === "placeholder" ? undefined : defaultSocialImages;
+  const alternateLocales = route.scope === "localized"
+    ? supportedLocales
+        .filter((candidate) => candidate !== locale)
+        .map((candidate) => localeMetadata[candidate].openGraphLocale)
+    : undefined;
+  const images = route.kind === "home" ? defaultSocialImages : undefined;
 
   return {
     title: copy.title,
@@ -41,7 +56,7 @@ export function metadataForRoute(locale: Locale, routeId: SiteRouteId): Metadata
     icons: iconsForRoute(routeId),
     alternates: {
       canonical,
-      languages: routeAlternates(routeId),
+      languages,
     },
     openGraph: {
       title: copy.title,
@@ -64,6 +79,24 @@ export function metadataForRoute(locale: Locale, routeId: SiteRouteId): Metadata
       follow: true,
     },
   };
+}
+
+export function metadataForRoute(locale: Locale, routeId: LocalizedRouteId): Metadata {
+  return createRouteMetadata(
+    locale,
+    routeId,
+    routePath(locale, routeId),
+    routeAlternates(routeId),
+  );
+}
+
+export function metadataForGlobalRoute(routeId: GlobalRouteId): Metadata {
+  const route = siteRoutes[routeId];
+  return createRouteMetadata(
+    route.documentLocale,
+    routeId,
+    routeUrl(routeId),
+  );
 }
 
 export function organizationJsonLd(locale: Locale) {

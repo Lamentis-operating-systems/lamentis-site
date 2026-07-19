@@ -5,13 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import type { NavigationContent } from "@/domain/site/content";
-import { routePath, type Locale } from "@/domain/site/routes";
-import { GitHubIcon } from "./github-icon";
 import { MenuIcon } from "./menu-icon";
+import { PlusIcon } from "./plus-icon";
 import styles from "./site-navigation.module.css";
 
 type SiteNavigationProps = {
-  locale: Locale;
   content: NavigationContent;
 };
 
@@ -19,7 +17,7 @@ type NavigationMenuProps = SiteNavigationProps & {
   pathname: string;
 };
 
-function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
+function NavigationMenu({ content, pathname }: NavigationMenuProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -35,8 +33,6 @@ function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
     };
   }, [mobileMenuOpen]);
 
-  const activeItem = content.items.find((item) => item.href === pathname);
-
   function closeMobileMenu() {
     setMobileMenuOpen(false);
   }
@@ -49,7 +45,7 @@ function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
     <nav className={styles.navigation} aria-label={content.ariaLabel}>
       <div className={`siteContainer ${styles.inner}`}>
         <Link
-          href={routePath(locale, "home")}
+          href={content.homeHref}
           className={styles.brand}
           aria-label={content.homeLabel}
         >
@@ -77,25 +73,22 @@ function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
           ))}
         </div>
 
-        {activeItem ? (
-          <a
-            className={styles.githubLink}
-            href={activeItem.repositoryUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={content.githubLabel}
-          >
-            <GitHubIcon size="medium" />
-            <span>GitHub</span>
-          </a>
-        ) : null}
+        <Link
+          className={styles.addSiteLink}
+          href={content.addSiteAction.href}
+          aria-label={content.addSiteAction.label}
+          aria-current={pathname === content.addSiteAction.href ? "page" : undefined}
+        >
+          <PlusIcon />
+          <span>{content.addSiteAction.label}</span>
+        </Link>
 
         <button
           type="button"
           className={styles.menuButton}
           aria-label={mobileMenuOpen ? content.closeMenuLabel : content.openMenuLabel}
           aria-expanded={mobileMenuOpen}
-          aria-controls="mobile-product-navigation"
+          aria-controls="mobile-primary-navigation"
           onClick={() => setMobileMenuOpen((open) => !open)}
         >
           <MenuIcon open={mobileMenuOpen} />
@@ -103,7 +96,7 @@ function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
 
         <dialog
           ref={dialogRef}
-          id="mobile-product-navigation"
+          id="mobile-primary-navigation"
           className={styles.mobileDialog}
           aria-label={content.ariaLabel}
           onCancel={(event) => {
@@ -136,6 +129,15 @@ function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
                 {item.label}
               </Link>
             ))}
+            <Link
+              href={content.addSiteAction.href}
+              className={`${styles.mobileLink} ${styles.mobileAddSiteLink}`}
+              aria-current={pathname === content.addSiteAction.href ? "page" : undefined}
+              onClick={closeMobileMenu}
+            >
+              <PlusIcon />
+              <span>{content.addSiteAction.label}</span>
+            </Link>
           </div>
         </dialog>
       </div>
@@ -143,7 +145,7 @@ function NavigationMenu({ locale, content, pathname }: NavigationMenuProps) {
   );
 }
 
-export function SiteNavigation({ locale, content }: SiteNavigationProps) {
+export function SiteNavigation({ content }: SiteNavigationProps) {
   const pathname = usePathname();
-  return <NavigationMenu key={pathname} locale={locale} content={content} pathname={pathname} />;
+  return <NavigationMenu key={pathname} content={content} pathname={pathname} />;
 }

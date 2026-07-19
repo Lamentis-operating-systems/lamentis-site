@@ -1,11 +1,9 @@
 # Lokale Webfonts
 
-Diese drei WOFF2-Dateien enthalten ausschließlich die von der Website
-benötigten Latin-Subsets:
+Die WOFF2-Datei enthält ausschließlich das von der Website benötigte
+Latin-Subset:
 
 - Inter als variable normale Schrift
-- Cousine in Latin 700 für NOX
-- Noto Serif in Latin 900 für Noma
 
-Sie werden mit `next/font/local` eingebunden. Dadurch lädt der Build keine
-weiteren Sprach-Subsets und bleibt unter dem dokumentierten Fontbudget.
+Sie wird mit `next/font/local` eingebunden. Dadurch lädt der Build keine
+weiteren Sprach-Subsets.

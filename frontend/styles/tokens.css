@@ -3,9 +3,6 @@
 
   --font-interface: var(--font-inter), -apple-system, "BlinkMacSystemFont",
     "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif;
-  --font-product-mono: var(--font-cousine), "SFMono-Regular", "Consolas",
-    "Liberation Mono", monospace;
-  --font-product-serif: var(--font-noto-serif), "Georgia", "Times New Roman", serif;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -15,16 +12,12 @@
   --text-label: 0.875rem;
   --text-body: 1rem;
   --text-lead: 1.25rem;
-  --text-display-home: clamp(1.5rem, 4vw, 3rem);
+  --text-heading-section: 1.5rem;
   --text-display-page: clamp(2rem, 6vw, 4.5rem);
-  --text-display-product: clamp(3.875rem, 12vw, 9.5rem);
-  --text-product-lead: clamp(1.125rem, 2.2vw, 1.625rem);
   --text-navigation-mobile: clamp(2.125rem, 10vw, 3.625rem);
   --line-compact: 1.2;
   --line-body: 1.5;
   --line-display: 1;
-  --line-product-title: 0.9;
-  --line-product-lead: 1.28;
   --line-navigation-mobile: 1.02;
 
   --space-0: 0;
@@ -56,15 +49,16 @@
 
   --layout-wide: 90rem;
   --layout-reading: 42.5rem;
+  --layout-form-wide: 48rem;
   --layout-gutter: clamp(1rem, 5vw, 4rem);
   --layout-page-min-height: clamp(18rem, 40vh, 42rem);
-  --layout-product-min-height: clamp(34rem, 58vh, 62rem);
   --layout-viewport-height: 100dvh;
   --layout-dialog-content-height: calc(100dvh - var(--header-height));
   --header-height: 4.5rem;
   --control-height: 2.75rem;
+  --control-height-large: 3.25rem;
   --brand-mark-size: 1.75rem;
-  --home-mark-size: 8rem;
+  --icon-size-control: var(--space-5);
 
   --responsive-navigation-gap: clamp(var(--space-4), 3vw, var(--space-8));
   --responsive-navigation-mobile-gap: min(var(--space-3), 1vw);
@@ -80,24 +74,26 @@
 
   --color-background: rgb(254 254 254);
   --color-surface: rgb(247 247 247);
+  --color-field-background: rgb(247 247 247);
+  --color-field-placeholder: rgb(102 102 102);
   --color-popover: rgb(254 254 254);
   --color-text: rgb(0 0 0);
   --color-text-secondary: rgb(51 51 51);
   --color-text-muted: rgb(102 102 102);
   --color-border: rgb(0 0 0 / 12%);
-  --color-focus: rgb(106 80 255);
+  --color-focus: var(--color-text);
   --color-inverse-background: rgb(0 0 0);
   --color-inverse-text: rgb(255 255 255);
   --color-shadow: rgb(0 0 0 / 24%);
   --logo-filter: invert(1);
 
-  --gradient-product-nox: linear-gradient(
+  --gradient-platform-sunset: linear-gradient(
     to bottom right,
     rgb(249 115 22) 0%,
     rgb(217 70 239) 52%,
     rgb(124 58 237) 100%
   );
-  --gradient-product-noma: linear-gradient(
+  --gradient-platform-aurora: linear-gradient(
     to bottom right,
     rgb(20 184 166) 0%,
     rgb(14 165 233) 46%,
@@ -110,12 +106,13 @@
     color-scheme: dark;
     --color-background: rgb(0 0 0);
     --color-surface: rgb(14 14 14);
+    --color-field-background: rgb(33 33 33);
+    --color-field-placeholder: rgb(175 175 175);
     --color-popover: rgb(14 14 14);
     --color-text: rgb(255 255 255);
     --color-text-secondary: rgb(255 255 255 / 80%);
     --color-text-muted: rgb(255 255 255 / 60%);
     --color-border: rgb(255 255 255 / 14%);
-    --color-focus: rgb(172 100 245);
     --color-inverse-background: rgb(255 255 255);
     --color-inverse-text: rgb(0 0 0);
     --color-shadow: rgb(0 0 0 / 54%);

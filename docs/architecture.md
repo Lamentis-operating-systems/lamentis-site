@@ -14,7 +14,7 @@ URL + Routenkatalog + lokalisierte Inhalte
 ```
 
 `frontend/domain/site/routes.ts` ist die einzige Quelle für öffentliche
-Segmente, Seitentypen, Produktzuordnung und Indexierbarkeit. Inhalte liegen in
+Segmente, Routenscope, Navigation und Indexierbarkeit. Inhalte liegen in
 `frontend/domain/site/content.ts` als benannte englische und deutsche
 Dictionaries. SEO-Projektionen entstehen in `frontend/domain/site/seo.ts` aus
 dem Routenkatalog und den Inhalten.
@@ -25,14 +25,18 @@ dem Routenkatalog und den Inhalten.
 | --- | --- | --- |
 | `/` | 307 nach `/en` oder `/de` | keine Seite |
 | `/en`, `/de` | statische Homepage | indexiert |
-| `/{locale}/nox`, `/{locale}/noma` | statische Produktseite | `noindex` |
+| `/{locale}/today` | statische leere Plattformseite | `noindex` |
+| `/{locale}/trending` | statische leere Plattformseite | `noindex` |
+| `/{locale}/search` | statische Search-Fläche ohne aktive Suche | `noindex` |
+| `/add-site` | statische globale leere Plattformseite | `noindex` |
 | `/{locale}/legal-notice` | statischer Platzhalter | `noindex` |
 | `/{locale}/about/elias-papavlassopoulos` | statischer Platzhalter | `noindex` |
 | unbekannte Locale oder Route | 404 | `noindex` |
 
 Nur `frontend/proxy.ts` verhandelt die Sprache und ausschließlich für `/`.
-Alle lokalisierten Seiten validieren `Locale`; dynamische Produktparameter sind
-auf NOX und Noma begrenzt. Unpräfixierte Unterseiten werden nicht umgeleitet.
+Alle lokalisierten Seiten validieren `Locale`. Die globale Route `/add-site`
+besitzt bewusst keinen Locale-Prefix, keine lokalisierten Aliase und keine
+hreflang-Alternativen. Alle anderen unpräfixierten Unterseiten bleiben 404.
 
 Die öffentlichen Helfer `routePath`, `matchRoute`, `switchLocalePath`,
 `routeAlternates` und `metadataForRoute` verhindern freie Pfad- und
@@ -48,6 +52,12 @@ kleine Client-Inseln:
 - Locale und aktive Route werden immer aus der URL abgeleitet.
 - Navigation und Footer erhalten getrennte Projektionen aus demselben
   Routenkatalog.
+- Die primäre Navigation projiziert `Today`, `Trending`, `Search` und `Home`;
+  die globale Add-site-Aktion wird aus derselben Authority abgeleitet.
+- Die Search-Fläche ist eine Server Component. Überschrift, Label und
+  Placeholder stammen aus dem Locale-Dictionary. Das unkontrollierte Suchfeld
+  besitzt weder Client-State noch Form-Action; die Routendefinition wählt es
+  über den semantischen Seitentyp `search` aus.
 - Interne Links verwenden `next/link`; externe Links bleiben explizit typisiert.
 
 Neue Shared Components sind nur sinnvoll, wenn mindestens zwei Verbraucher

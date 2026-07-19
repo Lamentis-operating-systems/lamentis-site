@@ -1,12 +1,10 @@
 import {
   externalLinks,
-  productOrder,
-  products,
+  primaryNavigationRouteIds,
   routePath,
   type ExternalLink,
   type InternalLink,
   type Locale,
-  type ProductId,
   type SiteRouteId,
 } from "./routes";
 
@@ -15,23 +13,23 @@ export type RouteCopy = {
   description: string;
 };
 
-type ProductCopy = RouteCopy & {
-  displayTitle: string;
-  navigationLabel: string;
-  tagline: string;
-};
+type PlatformRouteId = Extract<SiteRouteId, "today" | "trending" | "search" | "addSite">;
+type PlaceholderRouteId = Extract<SiteRouteId, "legalNotice" | "about">;
+type PrimaryNavigationRouteId = (typeof primaryNavigationRouteIds)[number];
 
 type LocalizedSiteContent = {
-  home: RouteCopy & { statusLabel: string };
-  products: Record<ProductId, ProductCopy>;
-  placeholders: Record<Extract<SiteRouteId, "legalNotice" | "about">, RouteCopy>;
+  home: RouteCopy;
+  platformPages: Record<PlatformRouteId, RouteCopy>;
+  search: SearchContent;
+  placeholders: Record<PlaceholderRouteId, RouteCopy>;
   placeholderStatus: string;
   navigation: {
     ariaLabel: string;
     homeLabel: string;
     openMenuLabel: string;
     closeMenuLabel: string;
-    githubLabel: string;
+    labels: Record<PrimaryNavigationRouteId, string>;
+    addSiteLabel: string;
   };
   footer: {
     platformTitle: string;
@@ -51,31 +49,40 @@ type LocalizedSiteContent = {
   };
 };
 
+export type SearchContent = {
+  heading: string;
+  label: string;
+  placeholder: string;
+};
+
 export const contentByLocale = {
   en: {
     home: {
-      title: "Projects by Elias Papavlassopoulos",
-      description:
-        "Lamentis landing page: plan, coordinate, and host private and public events with your social circle.",
-      statusLabel: "Coming soon",
+      title: "Home",
+      description: "Lamentis home.",
     },
-    products: {
-      noma: {
-        title: "Noma",
-        displayTitle: "Noma Tasks",
-        navigationLabel: "Noma Tasks",
-        description: "Noma project page on Lamentis.",
-        tagline:
-          "An iOS task manager built around a calm daily flow: capture today's todos, organize them into projects, complete what matters, and let unfinished tasks roll into tomorrow automatically.",
+    platformPages: {
+      today: {
+        title: "Today",
+        description: "Today's sites on Lamentis.",
       },
-      nox: {
-        title: "Nox",
-        displayTitle: "NOX",
-        navigationLabel: "Nox - Social Events",
-        description: "Nox project page on Lamentis.",
-        tagline:
-          "A mobile platform for nightclubs to host events, sell tickets, and understand their audiences, paired with a social experience that helps guests connect with their circle before, during, and after the night.",
+      trending: {
+        title: "Trending",
+        description: "Trending sites on Lamentis.",
       },
+      search: {
+        title: "Search",
+        description: "Search Lamentis.",
+      },
+      addSite: {
+        title: "Add site",
+        description: "Add a site to Lamentis.",
+      },
+    },
+    search: {
+      heading: "Search sites",
+      label: "Search",
+      placeholder: "Search",
     },
     placeholders: {
       legalNotice: {
@@ -89,11 +96,17 @@ export const contentByLocale = {
     },
     placeholderStatus: "In preparation",
     navigation: {
-      ariaLabel: "Product navigation",
+      ariaLabel: "Primary navigation",
       homeLabel: "Lamentis home",
-      openMenuLabel: "Open product navigation",
-      closeMenuLabel: "Close product navigation",
-      githubLabel: "Open product repository on GitHub",
+      openMenuLabel: "Open primary navigation",
+      closeMenuLabel: "Close primary navigation",
+      labels: {
+        today: "Today",
+        trending: "Trending",
+        search: "Search",
+        home: "Home",
+      },
+      addSiteLabel: "Add site",
     },
     footer: {
       platformTitle: "Platform",
@@ -114,28 +127,31 @@ export const contentByLocale = {
   },
   de: {
     home: {
-      title: "Projekte von Elias Papavlassopoulos",
-      description:
-        "Lamentis-Startseite: Plane, koordiniere und organisiere private und öffentliche Events.",
-      statusLabel: "Demnächst",
+      title: "Home",
+      description: "Lamentis-Startseite.",
     },
-    products: {
-      noma: {
-        title: "Noma",
-        displayTitle: "Noma Tasks",
-        navigationLabel: "Noma Tasks",
-        description: "Noma-Projektseite auf Lamentis.",
-        tagline:
-          "Ein iOS-Task-Manager für einen klaren Tagesablauf: heutige Todos erfassen, in Projekte sortieren, Wichtiges abschließen und unerledigte Aufgaben automatisch in den nächsten Tag übernehmen.",
+    platformPages: {
+      today: {
+        title: "Today",
+        description: "Heutige Websites auf Lamentis.",
       },
-      nox: {
-        title: "Nox",
-        displayTitle: "NOX",
-        navigationLabel: "Nox - Social Events",
-        description: "Nox-Projektseite auf Lamentis.",
-        tagline:
-          "Eine mobile Plattform, mit der Nightclubs Events veranstalten, Tickets verkaufen und ihre Zielgruppen besser verstehen, kombiniert mit einem sozialen Erlebnis, das Gäste vor, während und nach der Nacht mit ihrem Freundeskreis verbindet.",
+      trending: {
+        title: "Trending",
+        description: "Aktuell beliebte Websites auf Lamentis.",
       },
+      search: {
+        title: "Search",
+        description: "Lamentis durchsuchen.",
+      },
+      addSite: {
+        title: "Add site",
+        description: "Eine Website zu Lamentis hinzufügen.",
+      },
+    },
+    search: {
+      heading: "Websites durchsuchen",
+      label: "Suche",
+      placeholder: "Suchen",
     },
     placeholders: {
       legalNotice: {
@@ -149,11 +165,17 @@ export const contentByLocale = {
     },
     placeholderStatus: "In Vorbereitung",
     navigation: {
-      ariaLabel: "Produktnavigation",
+      ariaLabel: "Hauptnavigation",
       homeLabel: "Lamentis-Startseite",
-      openMenuLabel: "Produktnavigation öffnen",
-      closeMenuLabel: "Produktnavigation schließen",
-      githubLabel: "Produkt-Repository auf GitHub öffnen",
+      openMenuLabel: "Hauptnavigation öffnen",
+      closeMenuLabel: "Hauptnavigation schließen",
+      labels: {
+        today: "Today",
+        trending: "Trending",
+        search: "Search",
+        home: "Home",
+      },
+      addSiteLabel: "Add site",
     },
     footer: {
       platformTitle: "Plattform",
@@ -175,19 +197,18 @@ export const contentByLocale = {
 } as const satisfies Record<Locale, LocalizedSiteContent>;
 
 type NavigationItem = InternalLink & {
-  productId: ProductId;
   label: string;
   href: string;
-  repositoryUrl: string;
 };
 
 export type NavigationContent = {
   ariaLabel: string;
   homeLabel: string;
+  homeHref: string;
   openMenuLabel: string;
   closeMenuLabel: string;
-  githubLabel: string;
   items: NavigationItem[];
+  addSiteAction: NavigationItem;
 };
 
 export type FooterLink = (
@@ -195,7 +216,7 @@ export type FooterLink = (
   | ExternalLink
 ) & {
   label: string;
-  icon?: "github";
+  icon?: "github" | "profile";
 };
 
 export type FooterSection = {
@@ -215,35 +236,57 @@ export type FooterContent = {
 export function getRouteCopy(locale: Locale, routeId: SiteRouteId): RouteCopy {
   const content = contentByLocale[locale];
 
-  if (routeId === "home") return content.home;
-  if (routeId === "noma" || routeId === "nox") return content.products[routeId];
-  return content.placeholders[routeId];
+  switch (routeId) {
+    case "home":
+      return content.home;
+    case "today":
+    case "trending":
+    case "search":
+    case "addSite":
+      return content.platformPages[routeId];
+    case "legalNotice":
+    case "about":
+      return content.placeholders[routeId];
+  }
 }
 
 export function getNavigationContent(locale: Locale): NavigationContent {
   const content = contentByLocale[locale];
   return {
-    ...content.navigation,
-    items: productOrder.map((productId) => ({
+    ariaLabel: content.navigation.ariaLabel,
+    homeLabel: content.navigation.homeLabel,
+    homeHref: routePath(locale, "home"),
+    openMenuLabel: content.navigation.openMenuLabel,
+    closeMenuLabel: content.navigation.closeMenuLabel,
+    items: primaryNavigationRouteIds.map((routeId) => ({
       kind: "internal",
-      id: `navigation-${productId}`,
-      routeId: products[productId].routeId,
-      productId,
-      label: content.products[productId].navigationLabel,
-      href: routePath(locale, products[productId].routeId),
-      repositoryUrl: products[productId].repositoryUrl,
+      id: `navigation-${routeId}`,
+      routeId,
+      label: content.navigation.labels[routeId],
+      href: routePath(locale, routeId),
     })),
+    addSiteAction: {
+      kind: "internal",
+      id: "navigation-add-site",
+      routeId: "addSite",
+      label: content.navigation.addSiteLabel,
+      href: routePath("addSite"),
+    },
   };
+}
+
+export function getSearchContent(locale: Locale): SearchContent {
+  return contentByLocale[locale].search;
 }
 
 export function getFooterContent(locale: Locale): FooterContent {
   const content = contentByLocale[locale];
-  const platformLinks: FooterLink[] = productOrder.map((productId) => ({
+  const platformLinks: FooterLink[] = primaryNavigationRouteIds.map((routeId) => ({
     kind: "internal",
-    id: `footer-${productId}`,
-    routeId: products[productId].routeId,
-    href: routePath(locale, products[productId].routeId),
-    label: content.products[productId].navigationLabel,
+    id: `footer-${routeId}`,
+    routeId,
+    href: routePath(locale, routeId),
+    label: content.navigation.labels[routeId],
   }));
 
   return {
@@ -270,6 +313,7 @@ export function getFooterContent(locale: Locale): FooterContent {
             routeId: "about",
             href: routePath(locale, "about"),
             label: content.footer.aboutLabel,
+            icon: "profile",
           },
           {
             kind: "external",

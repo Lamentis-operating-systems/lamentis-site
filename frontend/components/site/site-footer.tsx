@@ -3,18 +3,28 @@ import type { FooterContent, FooterLink, FooterSection } from "@/domain/site/con
 import type { Locale } from "@/domain/site/routes";
 import { GitHubIcon } from "./github-icon";
 import { LocaleSwitcher } from "./locale-switcher";
+import { ProfileIcon } from "./profile-icon";
 import styles from "./site-footer.module.css";
 
 type SiteFooterProps = {
   locale: Locale;
   content: FooterContent;
+  showLocaleSwitcher?: boolean;
 };
 
 function FooterLinkView({ link }: { link: FooterLink }) {
+  const icon = link.icon === "profile"
+    ? <ProfileIcon />
+    : link.icon === "github"
+      ? <GitHubIcon size="small" />
+      : null;
+
   const label = (
     <span className={styles.linkContent}>
-      {link.icon === "github" ? <GitHubIcon size="small" /> : null}
-      <span>{link.label}</span>
+      {icon ? (
+        <span className={styles.linkIcon} aria-hidden="true">{icon}</span>
+      ) : null}
+      <span className={styles.linkLabel}>{link.label}</span>
     </span>
   );
 
@@ -47,7 +57,11 @@ function FooterSectionView({ section }: { section: FooterSection }) {
   );
 }
 
-export function SiteFooter({ locale, content }: SiteFooterProps) {
+export function SiteFooter({
+  locale,
+  content,
+  showLocaleSwitcher = true,
+}: SiteFooterProps) {
   return (
     <footer className={styles.footer}>
       <div className={`siteContainer ${styles.grid}`}>
@@ -61,11 +75,13 @@ export function SiteFooter({ locale, content }: SiteFooterProps) {
           <span>{content.copyright}</span>{" "}
           <span>{content.productionCredit}</span>
         </p>
-        <LocaleSwitcher
-          locale={locale}
-          label={content.languageLabel}
-          options={content.languageOptions}
-        />
+        {showLocaleSwitcher ? (
+          <LocaleSwitcher
+            locale={locale}
+            label={content.languageLabel}
+            options={content.languageOptions}
+          />
+        ) : null}
       </div>
     </footer>
   );

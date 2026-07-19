@@ -2,8 +2,8 @@
 
 ## Grundsätze
 
-Die Website behält ihre Schwarz-Weiß-Identität und die beiden
-Produktgradienten. Alle Styles bestehen aus zwei globalen Dateien und
+Die Website behält ihre Schwarz-Weiß-Identität und zwei globale
+Plattformgradienten. Alle Styles bestehen aus zwei globalen Dateien und
 co-located CSS Modules:
 
 - `frontend/styles/tokens.css` definiert den Vertrag.
@@ -21,8 +21,33 @@ der Systemeinstellung.
 - Motion: 120 und 180 ms
 - Ebenen: Header, Popover und Dialog
 - Breakpoints: `40rem` und `64rem`
-- Farben: ausschließlich semantische Rollen plus NOX- und Noma-Gradient
-- Typografie: semantische Rollen für Interface-, Mono- und Serif-Text
+- Farben: ausschließlich semantische Rollen plus Plattformgradienten
+- Typografie: semantische Interface-Rollen
+- Formflächen: eine kanonische Feldfarbe, eine große Kontrollhöhe und eine
+  gemeinsame maximale Formbreite
+
+Die beiden global verfügbaren Akzentverläufe heißen
+`--gradient-platform-sunset` und `--gradient-platform-aurora`. Sie sind keine
+seitengebundenen Styles und können künftig von mehreren Plattformflächen
+verwendet werden.
+
+Die Navigation verwendet das bestehende Lamentis-Markenzeichen mit einem
+themeabhängigen Kontrastfilter. Der About-Link verwendet das kanonische runde
+Elias-Porträt; beide Bilder sind dekorativ und ergänzen ihre sichtbaren
+Linktexte, statt eigene zugängliche Namen zu duplizieren.
+
+Icon-Links verwenden einen gemeinsamen, tokenisierten Icon-Slot. Die
+Textachse wird dadurch von der intrinsischen Geometrie einzelner SVGs oder
+Bilder entkoppelt; unterschiedliche Icons dürfen Linktexte niemals versetzen.
+
+Breite Formflächen verwenden `--layout-form-wide`,
+`--control-height-large`, `--color-field-background` und
+`--color-field-placeholder`. Damit bleiben Suchfeld und künftige Formflächen
+responsive und themefähig, ohne komponentenlokale Geometrie- oder Farbwerte.
+Die Search-Fläche bleibt in Ruhe und Fokus randlos; der native Textcursor zeigt
+den Eingabefokus, ohne einen zusätzlichen Active-Rahmen einzuführen.
+Lokalisierte Überschriften dürfen den Seitencontainer auch bei 200 Prozent
+Textgröße nicht verbreitern und brechen deshalb innerhalb ihrer Komponente um.
 
 Stylelint verlangt Tokens für Farben, Schrift, Abstände, Radien, Schatten,
 Ebenen und Motion. Erlaubte Literale bleiben auf Nullwerte, 1-px-Haarlinien,
@@ -40,6 +65,5 @@ SVG-Geometrie und die dokumentierten Media Queries begrenzt.
 
 ## Schriftdateien
 
-Inter wird nur für die benötigten Interface-Schnitte geladen. Cousine Latin 700
-ist NOX vorbehalten, Noto Serif Latin 900 Noma. Der erzeugte Fontbestand soll
-insgesamt unter 250 KB bleiben und wird nach Produktions-Builds kontrolliert.
+Inter wird als lokaler variabler Latin-Schnitt geladen. Weitere Produktfonts
+oder externe Font-Requests existieren nicht.

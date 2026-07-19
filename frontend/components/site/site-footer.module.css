@@ -51,12 +51,25 @@
   gap: var(--space-3);
 }
 
-.linkContent > span {
-  overflow-wrap: anywhere;
+.linkIcon {
+  display: inline-flex;
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+  flex: 0 0 var(--icon-size-control);
+  align-items: center;
+  justify-content: center;
 }
 
-.linkContent svg {
-  flex: 0 0 auto;
+.linkIcon svg,
+.linkIcon img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.linkLabel {
+  min-width: var(--space-0);
+  overflow-wrap: anywhere;
 }
 
 .bottom {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { localizedRoutes } from "./site-routes";
+import { publicRoutes } from "./site-routes";
 
 const viewports = [
   { id: "mobile", width: 390, height: 844 },
@@ -8,7 +8,7 @@ const viewports = [
 
 const colorSchemes = ["light", "dark"] as const;
 
-for (const route of localizedRoutes) {
+for (const route of publicRoutes) {
   for (const viewport of viewports) {
     for (const colorScheme of colorSchemes) {
       test(`${route.id} ${viewport.id} ${colorScheme}`, async ({ page }) => {

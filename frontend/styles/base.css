@@ -33,6 +33,13 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
 a:focus-visible,
 button:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);

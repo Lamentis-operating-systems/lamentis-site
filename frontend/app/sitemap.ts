@@ -2,15 +2,18 @@ import type { MetadataRoute } from "next";
 import {
   indexableRouteIds,
   routeAlternates,
-  routeUrl,
-  supportedLocales,
+  routeVariants,
 } from "@/domain/site/routes";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return indexableRouteIds.flatMap((routeId) =>
-    supportedLocales.map((locale) => ({
-      url: routeUrl(locale, routeId),
-      alternates: { languages: routeAlternates(routeId) },
-    })),
+    routeVariants(routeId).flatMap((variant) => (
+      variant.scope === "localized"
+        ? [{
+            url: variant.url,
+            alternates: { languages: routeAlternates(variant.routeId) },
+          }]
+        : []
+    )),
   );
 }

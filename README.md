@@ -1,8 +1,8 @@
 # Lamentis Site
 
-Die Website von Lamentis ist eine statisch gerenderte Next.js-App mit den
-Sprachen Englisch und Deutsch. Der Anwendungscode liegt im Verzeichnis
-`frontend`.
+Lamentis ist eine statisch gerenderte Next.js-Plattform mit lokalisierten
+englischen und deutschen Routen sowie einer kleinen globalen Aktionsfläche.
+Der Anwendungscode liegt im Verzeichnis `frontend`.
 
 ## Lokal entwickeln
 
