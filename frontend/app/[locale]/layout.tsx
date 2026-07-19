@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { SiteDocument } from "@/components/site/site-document";
+import { getSiteChromeModel } from "@/domain/site/content";
 import {
   isSupportedLocale,
   supportedLocales,
@@ -9,6 +10,7 @@ import "@/styles/tokens.css";
 import "@/styles/base.css";
 
 export const metadata = siteMetadata;
+export const dynamicParams = false;
 
 export function generateStaticParams() {
   return supportedLocales.map((locale) => ({ locale }));
@@ -26,5 +28,9 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!isSupportedLocale(locale)) notFound();
 
-  return <SiteDocument locale={locale}>{children}</SiteDocument>;
+  return (
+    <SiteDocument chrome={getSiteChromeModel(locale)} locale={locale}>
+      {children}
+    </SiteDocument>
+  );
 }

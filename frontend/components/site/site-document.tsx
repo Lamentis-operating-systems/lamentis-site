@@ -1,8 +1,8 @@
 import localFont from "next/font/local";
-import { getFooterContent, getNavigationContent } from "@/domain/site/content";
+import type { SiteChromeModel } from "@/domain/site/content";
 import type { Locale } from "@/domain/site/routes";
-import { SiteFooter } from "./site-footer";
-import { SiteNavigation } from "./site-navigation";
+import { SiteFooter } from "./footer/site-footer";
+import { SiteNavigation } from "./navigation/site-navigation";
 
 const inter = localFont({
   src: "../../fonts/inter-latin-variable.woff2",
@@ -14,24 +14,23 @@ const inter = localFont({
 
 type SiteDocumentProps = Readonly<{
   children: React.ReactNode;
+  chrome: SiteChromeModel;
   locale: Locale;
-  showLocaleSwitcher?: boolean;
 }>;
 
 export function SiteDocument({
   children,
+  chrome,
   locale,
-  showLocaleSwitcher = true,
 }: SiteDocumentProps) {
   return (
     <html lang={locale} className={inter.variable}>
       <body>
-        <SiteNavigation content={getNavigationContent(locale)} />
+        <SiteNavigation content={chrome.navigation} />
         {children}
         <SiteFooter
-          locale={locale}
-          content={getFooterContent(locale)}
-          showLocaleSwitcher={showLocaleSwitcher}
+          content={chrome.footer}
+          localeSwitcher={chrome.localeSwitcher}
         />
       </body>
     </html>

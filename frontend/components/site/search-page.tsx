@@ -1,3 +1,4 @@
+import layoutStyles from "./layout/site-layout.module.css";
 import { SearchIcon } from "./search-icon";
 import styles from "./search-page.module.css";
 
@@ -9,7 +10,7 @@ type SearchPageProps = {
 
 export function SearchPage({ heading, label, placeholder }: SearchPageProps) {
   return (
-    <main className={styles.page} aria-label={label}>
+    <main className={`${layoutStyles.main} ${styles.page}`} aria-label={label}>
       <div className={styles.content}>
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.search} role="search" aria-label={label}>

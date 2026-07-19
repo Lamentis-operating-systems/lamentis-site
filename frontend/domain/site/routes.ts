@@ -1,71 +1,210 @@
-export const supportedLocales = ["en", "de"] as const;
+import type { IconSetId, SocialImageId } from "./assets";
 
-export type Locale = (typeof supportedLocales)[number];
+export const localeCatalog = {
+  en: {
+    label: "English",
+    openGraphLocale: "en_US",
+  },
+  de: {
+    label: "Deutsch",
+    openGraphLocale: "de_DE",
+  },
+} as const;
+
+export type Locale = keyof typeof localeCatalog;
+
+export const supportedLocales = Object.freeze(
+  Object.keys(localeCatalog) as Locale[],
+);
 
 export const defaultLocale: Locale = "en";
 
-const localizedRouteIds = [
-  "home",
-  "today",
-  "trending",
-  "search",
-  "legalNotice",
-  "about",
-] as const;
+export const siteConfig = {
+  brandName: "Lamentis",
+  origin: "https://lamentis.de",
+  externalLinks: {
+    github: "https://github.com/Lamentis-O",
+  },
+} as const;
 
-export type LocalizedRouteId = (typeof localizedRouteIds)[number];
+export type FooterSectionId = "platform" | "legal" | "links";
+export type NavigationArea = "primary" | "action";
+type SiteStructuredDataType = "organization";
 
-const globalRouteIds = ["addSite"] as const;
+type NavigationPlacement = {
+  area: NavigationArea;
+  order: number;
+};
 
-export type GlobalRouteId = (typeof globalRouteIds)[number];
+type FooterPlacement = {
+  section: FooterSectionId;
+  order: number;
+  icon: "profile" | null;
+};
 
-export const siteRouteIds = [...localizedRouteIds, ...globalRouteIds] as const;
-
-export type SiteRouteId = (typeof siteRouteIds)[number];
-
-export const primaryNavigationRouteIds = [
-  "today",
-  "trending",
-  "search",
-  "home",
-] as const satisfies readonly LocalizedRouteId[];
-
-export const primarySectionRouteIds = [
-  "today",
-  "trending",
-  "search",
-] as const satisfies readonly LocalizedRouteId[];
-
-export type PrimarySectionRouteId = (typeof primarySectionRouteIds)[number];
-
-export type SiteIconSetId = "site" | "about";
+type SiteRouteSeoPolicy = {
+  index: boolean;
+  iconSet: IconSetId;
+  socialImage: SocialImageId | null;
+  structuredData: SiteStructuredDataType | null;
+};
 
 type RouteDefinitionBase = {
-  kind: "home" | "empty" | "search" | "placeholder";
-  indexable: boolean;
-  iconSet: SiteIconSetId;
+  placement: {
+    navigation: NavigationPlacement | null;
+    footer: FooterPlacement | null;
+  };
+  seo: SiteRouteSeoPolicy;
 };
 
 type LocalizedRouteDefinition = RouteDefinitionBase & {
   scope: "localized";
-  id: LocalizedRouteId;
   segments: Readonly<Record<Locale, readonly string[]>>;
 };
 
 type GlobalRouteDefinition = RouteDefinitionBase & {
   scope: "global";
-  id: GlobalRouteId;
   path: `/${string}`;
-  documentLocale: Locale;
-  indexable: false;
 };
 
-export type SiteRouteDefinition = LocalizedRouteDefinition | GlobalRouteDefinition;
+export type SiteRouteDefinition =
+  | LocalizedRouteDefinition
+  | GlobalRouteDefinition;
 
-export type InternalLink = {
+export const siteRoutes = {
+  home: {
+    scope: "localized",
+    segments: { en: [], de: [] },
+    placement: {
+      navigation: { area: "primary", order: 40 },
+      footer: { section: "platform", order: 40, icon: null },
+    },
+    seo: {
+      index: true,
+      iconSet: "site",
+      socialImage: "site",
+      structuredData: "organization",
+    },
+  },
+  today: {
+    scope: "localized",
+    segments: { en: ["today"], de: ["today"] },
+    placement: {
+      navigation: { area: "primary", order: 10 },
+      footer: { section: "platform", order: 10, icon: null },
+    },
+    seo: {
+      index: false,
+      iconSet: "site",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+  trending: {
+    scope: "localized",
+    segments: { en: ["trending"], de: ["trending"] },
+    placement: {
+      navigation: { area: "primary", order: 20 },
+      footer: { section: "platform", order: 20, icon: null },
+    },
+    seo: {
+      index: false,
+      iconSet: "site",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+  search: {
+    scope: "localized",
+    segments: { en: ["search"], de: ["search"] },
+    placement: {
+      navigation: { area: "primary", order: 30 },
+      footer: { section: "platform", order: 30, icon: null },
+    },
+    seo: {
+      index: false,
+      iconSet: "site",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+  addSite: {
+    scope: "global",
+    path: "/add-site",
+    placement: {
+      navigation: { area: "action", order: 10 },
+      footer: null,
+    },
+    seo: {
+      index: false,
+      iconSet: "site",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+  legalNotice: {
+    scope: "localized",
+    segments: { en: ["legal-notice"], de: ["legal-notice"] },
+    placement: {
+      navigation: null,
+      footer: { section: "legal", order: 10, icon: null },
+    },
+    seo: {
+      index: false,
+      iconSet: "site",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+  about: {
+    scope: "localized",
+    segments: {
+      en: ["about", "elias-papavlassopoulos"],
+      de: ["about", "elias-papavlassopoulos"],
+    },
+    placement: {
+      navigation: null,
+      footer: { section: "links", order: 10, icon: "profile" },
+    },
+    seo: {
+      index: false,
+      iconSet: "about",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+} as const satisfies Record<string, SiteRouteDefinition>;
+
+export type SiteRouteId = keyof typeof siteRoutes;
+
+type RouteIdForScope<Scope extends SiteRouteDefinition["scope"]> = {
+  [RouteId in SiteRouteId]: (typeof siteRoutes)[RouteId]["scope"] extends Scope
+    ? RouteId
+    : never;
+}[SiteRouteId];
+
+export type LocalizedRouteId = RouteIdForScope<"localized">;
+type GlobalRouteId = RouteIdForScope<"global">;
+
+type LocalizedRouteRef = {
+  scope: "localized";
+  routeId: LocalizedRouteId;
+  locale: Locale;
+};
+
+type GlobalRouteRef = {
+  scope: "global";
+  routeId: GlobalRouteId;
+};
+
+export type RouteRef = LocalizedRouteRef | GlobalRouteRef;
+
+export type InternalLink = (
+  | LocalizedRouteRef
+  | GlobalRouteRef
+) & {
   kind: "internal";
   id: string;
-  routeId: SiteRouteId;
 };
 
 export type ExternalLink = {
@@ -75,142 +214,116 @@ export type ExternalLink = {
   newWindow: true;
 };
 
-export const siteRoutes = {
-  home: {
-    scope: "localized",
-    id: "home",
-    kind: "home",
-    indexable: true,
-    iconSet: "site",
-    segments: { en: [], de: [] },
-  },
-  today: {
-    scope: "localized",
-    id: "today",
-    kind: "empty",
-    indexable: false,
-    iconSet: "site",
-    segments: { en: ["today"], de: ["today"] },
-  },
-  trending: {
-    scope: "localized",
-    id: "trending",
-    kind: "empty",
-    indexable: false,
-    iconSet: "site",
-    segments: { en: ["trending"], de: ["trending"] },
-  },
-  search: {
-    scope: "localized",
-    id: "search",
-    kind: "search",
-    indexable: false,
-    iconSet: "site",
-    segments: { en: ["search"], de: ["search"] },
-  },
-  addSite: {
-    scope: "global",
-    id: "addSite",
-    kind: "empty",
-    indexable: false,
-    iconSet: "site",
-    path: "/add-site",
-    documentLocale: defaultLocale,
-  },
-  legalNotice: {
-    scope: "localized",
-    id: "legalNotice",
-    kind: "placeholder",
-    indexable: false,
-    iconSet: "site",
-    segments: { en: ["legal-notice"], de: ["legal-notice"] },
-  },
-  about: {
-    scope: "localized",
-    id: "about",
-    kind: "placeholder",
-    indexable: false,
-    iconSet: "about",
-    segments: {
-      en: ["about", "elias-papavlassopoulos"],
-      de: ["about", "elias-papavlassopoulos"],
-    },
-  },
-} as const satisfies Record<SiteRouteId, SiteRouteDefinition>;
+export const siteRouteIds = Object.freeze(
+  Object.keys(siteRoutes) as SiteRouteId[],
+);
 
-export const externalLinks = {
-  github: "https://github.com/Lamentis-O",
-} as const;
+const localizedRouteIds = Object.freeze(
+  siteRouteIds.filter(
+    (routeId): routeId is LocalizedRouteId => siteRoutes[routeId].scope === "localized",
+  ),
+);
 
-export const siteName = "Lamentis";
-export const siteUrl = "https://lamentis.de";
+const globalRouteIds = Object.freeze(
+  siteRouteIds.filter(
+    (routeId): routeId is GlobalRouteId => siteRoutes[routeId].scope === "global",
+  ),
+);
 
-export function isSupportedLocale(value: string | null | undefined): value is Locale {
-  return Boolean(value && (supportedLocales as readonly string[]).includes(value));
+export function isSupportedLocale(
+  value: string | null | undefined,
+): value is Locale {
+  return typeof value === "string"
+    && Object.prototype.hasOwnProperty.call(localeCatalog, value);
 }
 
-export function isPrimarySectionRouteId(value: SiteRouteId): value is PrimarySectionRouteId {
-  return (primarySectionRouteIds as readonly SiteRouteId[]).includes(value);
+export function isLocalizedRouteId(
+  routeId: SiteRouteId,
+): routeId is LocalizedRouteId {
+  return siteRoutes[routeId].scope === "localized";
 }
 
-export function routePath(locale: Locale, routeId: LocalizedRouteId): string;
-export function routePath(routeId: GlobalRouteId): string;
-export function routePath(
-  localeOrRouteId: Locale | GlobalRouteId,
-  localizedRouteId?: LocalizedRouteId,
-): string {
-  if (localizedRouteId) {
-    const segments = siteRoutes[localizedRouteId].segments[localeOrRouteId as Locale];
-    return segments.length === 0
-      ? `/${localeOrRouteId}`
-      : `/${localeOrRouteId}/${segments.join("/")}`;
+function isGlobalRouteId(
+  routeId: SiteRouteId,
+): routeId is GlobalRouteId {
+  return siteRoutes[routeId].scope === "global";
+}
+
+export function navigationRouteIds(
+  area: NavigationArea,
+): readonly SiteRouteId[] {
+  return siteRouteIds
+    .filter((routeId) => siteRoutes[routeId].placement.navigation?.area === area)
+    .sort((left, right) => {
+      const leftOrder = siteRoutes[left].placement.navigation?.order ?? 0;
+      const rightOrder = siteRoutes[right].placement.navigation?.order ?? 0;
+      return leftOrder - rightOrder;
+    });
+}
+
+export function footerRouteIds(
+  section: FooterSectionId,
+): readonly SiteRouteId[] {
+  return siteRouteIds
+    .filter((routeId) => siteRoutes[routeId].placement.footer?.section === section)
+    .sort((left, right) => {
+      const leftOrder = siteRoutes[left].placement.footer?.order ?? 0;
+      const rightOrder = siteRoutes[right].placement.footer?.order ?? 0;
+      return leftOrder - rightOrder;
+    });
+}
+
+export const primaryNavigationRouteIds = Object.freeze(
+  navigationRouteIds("primary") as LocalizedRouteId[],
+);
+
+export const indexableRouteIds = Object.freeze(
+  siteRouteIds.filter((routeId) => siteRoutes[routeId].seo.index),
+);
+
+export function routePath(ref: RouteRef): string {
+  if (ref.scope === "global") {
+    return siteRoutes[ref.routeId].path;
   }
 
-  return siteRoutes[localeOrRouteId as GlobalRouteId].path;
+  const segments = siteRoutes[ref.routeId].segments[ref.locale];
+  return segments.length === 0
+    ? `/${ref.locale}`
+    : `/${ref.locale}/${segments.join("/")}`;
 }
 
-export function routeUrl(locale: Locale, routeId: LocalizedRouteId): string;
-export function routeUrl(routeId: GlobalRouteId): string;
-export function routeUrl(
-  localeOrRouteId: Locale | GlobalRouteId,
-  localizedRouteId?: LocalizedRouteId,
-): string {
-  const path = localizedRouteId
-    ? routePath(localeOrRouteId as Locale, localizedRouteId)
-    : routePath(localeOrRouteId as GlobalRouteId);
-  return new URL(path, siteUrl).toString();
+export function routeUrl(ref: RouteRef): string {
+  return new URL(routePath(ref), siteConfig.origin).toString();
 }
 
 export function routeAlternates(
   routeId: LocalizedRouteId,
 ): Record<Locale | "x-default", string> {
+  const localizedAlternates = Object.fromEntries(
+    supportedLocales.map((locale) => [
+      locale,
+      routeUrl({ scope: "localized", locale, routeId }),
+    ]),
+  ) as Record<Locale, string>;
+
   return {
-    en: routeUrl("en", routeId),
-    de: routeUrl("de", routeId),
-    "x-default": routeUrl(defaultLocale, routeId),
+    ...localizedAlternates,
+    "x-default": routeUrl({
+      scope: "localized",
+      locale: defaultLocale,
+      routeId,
+    }),
   };
 }
 
-export type MatchedSiteRoute =
-  | {
-      scope: "localized";
-      locale: Locale;
-      routeId: LocalizedRouteId;
-    }
-  | {
-      scope: "global";
-      locale: null;
-      routeId: GlobalRouteId;
-    };
-
-export function matchRoute(pathname: string): MatchedSiteRoute | null {
+export function matchRoute(pathname: string): RouteRef | null {
   const normalizedPath = pathname.split(/[?#]/, 1)[0] ?? "/";
   const globalRouteId = globalRouteIds.find(
     (routeId) => siteRoutes[routeId].path === normalizedPath,
   );
 
   if (globalRouteId) {
-    return { scope: "global", locale: null, routeId: globalRouteId };
+    return { scope: "global", routeId: globalRouteId };
   }
 
   const segments = normalizedPath.split("/").filter(Boolean);
@@ -223,7 +336,9 @@ export function matchRoute(pathname: string): MatchedSiteRoute | null {
   const routeId = localizedRouteIds.find((candidate) => {
     const candidateSegments = siteRoutes[candidate].segments[localeCandidate];
     return candidateSegments.length === routeSegments.length
-      && candidateSegments.every((segment, index) => segment === routeSegments[index]);
+      && candidateSegments.every(
+        (segment, index) => segment === routeSegments[index],
+      );
   });
 
   return routeId
@@ -231,50 +346,38 @@ export function matchRoute(pathname: string): MatchedSiteRoute | null {
     : null;
 }
 
-export function switchLocalePath(pathname: string, targetLocale: Locale): string {
+export function switchLocalePath(
+  pathname: string,
+  targetLocale: Locale,
+): string {
   const match = matchRoute(pathname);
-  if (match?.scope === "global") return routePath(match.routeId);
-  return routePath(targetLocale, match?.routeId ?? "home");
-}
 
-export type SiteRouteVariant =
-  | {
-      scope: "localized";
-      locale: Locale;
-      path: string;
-      routeId: LocalizedRouteId;
-      url: string;
-    }
-  | {
-      scope: "global";
-      locale: null;
-      path: string;
-      routeId: GlobalRouteId;
-      url: string;
-    };
-
-export function routeVariants(routeId: SiteRouteId): readonly SiteRouteVariant[] {
-  const route = siteRoutes[routeId];
-
-  if (route.scope === "global") {
-    return [{
-      scope: "global",
-      locale: null,
-      path: route.path,
-      routeId: route.id,
-      url: routeUrl(route.id),
-    }];
+  if (match?.scope === "global") {
+    return routePath(match);
   }
 
-  return supportedLocales.map((locale) => ({
-    scope: "localized" as const,
-    locale,
-    path: routePath(locale, route.id),
-    routeId: route.id,
-    url: routeUrl(locale, route.id),
-  }));
+  return routePath({
+    scope: "localized",
+    locale: targetLocale,
+    routeId: match?.routeId ?? "home",
+  });
 }
 
-export const indexableRouteIds: readonly SiteRouteId[] = siteRouteIds.filter(
-  (routeId) => siteRoutes[routeId].indexable,
-);
+export type SiteRouteVariant = RouteRef & {
+  path: string;
+  url: string;
+};
+
+export function routeVariants(
+  routeId: SiteRouteId,
+): readonly SiteRouteVariant[] {
+  if (isGlobalRouteId(routeId)) {
+    const ref: GlobalRouteRef = { scope: "global", routeId };
+    return [{ ...ref, path: routePath(ref), url: routeUrl(ref) }];
+  }
+
+  return supportedLocales.map((locale) => {
+    const ref: LocalizedRouteRef = { scope: "localized", locale, routeId };
+    return { ...ref, path: routePath(ref), url: routeUrl(ref) };
+  });
+}

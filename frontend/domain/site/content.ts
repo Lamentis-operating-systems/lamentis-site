@@ -1,10 +1,18 @@
 import {
-  externalLinks,
+  defaultLocale,
+  footerRouteIds,
+  isLocalizedRouteId,
+  localeCatalog,
+  navigationRouteIds,
   primaryNavigationRouteIds,
   routePath,
+  siteConfig,
+  siteRoutes,
   type ExternalLink,
+  type FooterSectionId,
   type InternalLink,
   type Locale,
+  type RouteRef,
   type SiteRouteId,
 } from "./routes";
 
@@ -13,30 +21,24 @@ export type RouteCopy = {
   description: string;
 };
 
-type PlatformRouteId = Extract<SiteRouteId, "today" | "trending" | "search" | "addSite">;
-type PlaceholderRouteId = Extract<SiteRouteId, "legalNotice" | "about">;
-type PrimaryNavigationRouteId = (typeof primaryNavigationRouteIds)[number];
+export type SearchContent = {
+  heading: string;
+  label: string;
+  placeholder: string;
+};
 
 type LocalizedSiteContent = {
-  home: RouteCopy;
-  platformPages: Record<PlatformRouteId, RouteCopy>;
+  routes: Record<SiteRouteId, RouteCopy>;
   search: SearchContent;
-  placeholders: Record<PlaceholderRouteId, RouteCopy>;
   placeholderStatus: string;
   navigation: {
     ariaLabel: string;
     homeLabel: string;
     openMenuLabel: string;
     closeMenuLabel: string;
-    labels: Record<PrimaryNavigationRouteId, string>;
-    addSiteLabel: string;
   };
   footer: {
-    platformTitle: string;
-    legalTitle: string;
-    linksTitle: string;
-    legalNoticeLabel: string;
-    aboutLabel: string;
+    sections: Record<FooterSectionId, { title: string }>;
     githubLabel: string;
     languageLabel: string;
     copyright: string;
@@ -49,19 +51,13 @@ type LocalizedSiteContent = {
   };
 };
 
-export type SearchContent = {
-  heading: string;
-  label: string;
-  placeholder: string;
-};
-
 export const contentByLocale = {
   en: {
-    home: {
-      title: "Home",
-      description: "Lamentis home.",
-    },
-    platformPages: {
+    routes: {
+      home: {
+        title: "Home",
+        description: "Lamentis home.",
+      },
       today: {
         title: "Today",
         description: "Today's sites on Lamentis.",
@@ -78,13 +74,6 @@ export const contentByLocale = {
         title: "Add site",
         description: "Add a site to Lamentis.",
       },
-    },
-    search: {
-      heading: "Search sites",
-      label: "Search",
-      placeholder: "Search",
-    },
-    placeholders: {
       legalNotice: {
         title: "Legal Notice",
         description: "The legal notice is in preparation.",
@@ -94,26 +83,24 @@ export const contentByLocale = {
         description: "This page is in preparation.",
       },
     },
+    search: {
+      heading: "Search sites",
+      label: "Search",
+      placeholder: "Search",
+    },
     placeholderStatus: "In preparation",
     navigation: {
       ariaLabel: "Primary navigation",
       homeLabel: "Lamentis home",
       openMenuLabel: "Open primary navigation",
       closeMenuLabel: "Close primary navigation",
-      labels: {
-        today: "Today",
-        trending: "Trending",
-        search: "Search",
-        home: "Home",
-      },
-      addSiteLabel: "Add site",
     },
     footer: {
-      platformTitle: "Platform",
-      legalTitle: "Legal",
-      linksTitle: "Links",
-      legalNoticeLabel: "Legal Notice",
-      aboutLabel: "About Me",
+      sections: {
+        platform: { title: "Platform" },
+        legal: { title: "Legal" },
+        links: { title: "Links" },
+      },
       githubLabel: "GitHub",
       languageLabel: "Language",
       copyright: "© 2026 Lamentis.",
@@ -126,11 +113,11 @@ export const contentByLocale = {
     },
   },
   de: {
-    home: {
-      title: "Home",
-      description: "Lamentis-Startseite.",
-    },
-    platformPages: {
+    routes: {
+      home: {
+        title: "Home",
+        description: "Lamentis-Startseite.",
+      },
       today: {
         title: "Today",
         description: "Heutige Websites auf Lamentis.",
@@ -147,13 +134,6 @@ export const contentByLocale = {
         title: "Add site",
         description: "Eine Website zu Lamentis hinzufügen.",
       },
-    },
-    search: {
-      heading: "Websites durchsuchen",
-      label: "Suche",
-      placeholder: "Suchen",
-    },
-    placeholders: {
       legalNotice: {
         title: "Impressum",
         description: "Das Impressum ist in Vorbereitung.",
@@ -163,26 +143,24 @@ export const contentByLocale = {
         description: "Diese Seite ist in Vorbereitung.",
       },
     },
+    search: {
+      heading: "Websites durchsuchen",
+      label: "Suche",
+      placeholder: "Suchen",
+    },
     placeholderStatus: "In Vorbereitung",
     navigation: {
       ariaLabel: "Hauptnavigation",
       homeLabel: "Lamentis-Startseite",
       openMenuLabel: "Hauptnavigation öffnen",
       closeMenuLabel: "Hauptnavigation schließen",
-      labels: {
-        today: "Today",
-        trending: "Trending",
-        search: "Search",
-        home: "Home",
-      },
-      addSiteLabel: "Add site",
     },
     footer: {
-      platformTitle: "Plattform",
-      legalTitle: "Rechtliches",
-      linksTitle: "Links",
-      legalNoticeLabel: "Impressum",
-      aboutLabel: "Über mich",
+      sections: {
+        platform: { title: "Plattform" },
+        legal: { title: "Rechtliches" },
+        links: { title: "Links" },
+      },
       githubLabel: "GitHub",
       languageLabel: "Sprache",
       copyright: "© 2026 Lamentis.",
@@ -220,57 +198,85 @@ export type FooterLink = (
 };
 
 export type FooterSection = {
-  id: "platform" | "legal" | "links";
+  id: FooterSectionId;
   title: string;
   links: FooterLink[];
 };
 
 export type FooterContent = {
   sections: FooterSection[];
-  languageLabel: string;
-  languageOptions: readonly { code: Locale; label: string }[];
   copyright: string;
   productionCredit: string;
 };
 
-export function getRouteCopy(locale: Locale, routeId: SiteRouteId): RouteCopy {
-  const content = contentByLocale[locale];
+export type LocaleSwitcherModel = {
+  label: string;
+  locale: Locale;
+  options: readonly { code: Locale; label: string }[];
+};
 
-  switch (routeId) {
-    case "home":
-      return content.home;
-    case "today":
-    case "trending":
-    case "search":
-    case "addSite":
-      return content.platformPages[routeId];
-    case "legalNotice":
-    case "about":
-      return content.placeholders[routeId];
-  }
+export type SiteChromeModel = {
+  navigation: NavigationContent;
+  footer: FooterContent;
+  localeSwitcher: LocaleSwitcherModel | null;
+};
+
+export function getRouteCopy(
+  locale: Locale,
+  routeId: SiteRouteId,
+): RouteCopy {
+  return contentByLocale[locale].routes[routeId];
+}
+
+function routeRefForLocale(
+  routeId: SiteRouteId,
+  locale: Locale,
+): RouteRef {
+  return isLocalizedRouteId(routeId)
+    ? { scope: "localized", locale, routeId }
+    : { scope: "global", routeId };
+}
+
+function createInternalLink(
+  locale: Locale,
+  routeId: SiteRouteId,
+  id: string,
+): InternalLink & { href: string } {
+  const ref = routeRefForLocale(routeId, locale);
+  return {
+    kind: "internal",
+    id,
+    ...ref,
+    href: routePath(ref),
+  };
 }
 
 export function getNavigationContent(locale: Locale): NavigationContent {
   const content = contentByLocale[locale];
+  const homeRef = {
+    scope: "localized",
+    locale,
+    routeId: "home",
+  } as const;
+  const actionRouteId = navigationRouteIds("action")[0];
+
+  if (!actionRouteId) {
+    throw new Error("The route catalog must define a navigation action.");
+  }
+
   return {
     ariaLabel: content.navigation.ariaLabel,
     homeLabel: content.navigation.homeLabel,
-    homeHref: routePath(locale, "home"),
+    homeHref: routePath(homeRef),
     openMenuLabel: content.navigation.openMenuLabel,
     closeMenuLabel: content.navigation.closeMenuLabel,
     items: primaryNavigationRouteIds.map((routeId) => ({
-      kind: "internal",
-      id: `navigation-${routeId}`,
-      routeId,
-      label: content.navigation.labels[routeId],
-      href: routePath(locale, routeId),
+      ...createInternalLink(locale, routeId, `navigation-${routeId}`),
+      label: getRouteCopy(locale, routeId).title,
     })),
     addSiteAction: {
-      kind: "internal",
-      id: "navigation-add-site",
-      routeId: "addSite",
-      label: content.navigation.addSiteLabel,
-      href: routePath("addSite"),
+      ...createInternalLink(locale, actionRouteId, "navigation-add-site"),
+      label: getRouteCopy(locale, actionRouteId).title,
     },
   };
 }
@@ -281,57 +287,70 @@ export function getSearchContent(locale: Locale): SearchContent {
 
 export function getFooterContent(locale: Locale): FooterContent {
   const content = contentByLocale[locale];
-  const platformLinks: FooterLink[] = primaryNavigationRouteIds.map((routeId) => ({
-    kind: "internal",
-    id: `footer-${routeId}`,
-    routeId,
-    href: routePath(locale, routeId),
-    label: content.navigation.labels[routeId],
-  }));
+  const internalSections = Object.entries(content.footer.sections).map(
+    ([sectionId, section]) => {
+      const id = sectionId as FooterSectionId;
+      const links = footerRouteIds(id).map((routeId): FooterLink => {
+        const icon = siteRoutes[routeId].placement.footer?.icon;
+        return {
+          ...createInternalLink(locale, routeId, `footer-${routeId}`),
+          label: getRouteCopy(locale, routeId).title,
+          ...(icon ? { icon } : {}),
+        };
+      });
+
+      return { id, title: section.title, links };
+    },
+  );
+  const linksSection = internalSections.find((section) => section.id === "links");
+
+  if (!linksSection) {
+    throw new Error("The localized content must define the footer links section.");
+  }
+
+  linksSection.links.push({
+    kind: "external",
+    id: "footer-github",
+    href: siteConfig.externalLinks.github,
+    newWindow: true,
+    label: content.footer.githubLabel,
+    icon: "github",
+  });
 
   return {
-    sections: [
-      { id: "platform", title: content.footer.platformTitle, links: platformLinks },
-      {
-        id: "legal",
-        title: content.footer.legalTitle,
-        links: [{
-          kind: "internal",
-          id: "footer-legal-notice",
-          routeId: "legalNotice",
-          href: routePath(locale, "legalNotice"),
-          label: content.footer.legalNoticeLabel,
-        }],
-      },
-      {
-        id: "links",
-        title: content.footer.linksTitle,
-        links: [
-          {
-            kind: "internal",
-            id: "footer-about",
-            routeId: "about",
-            href: routePath(locale, "about"),
-            label: content.footer.aboutLabel,
-            icon: "profile",
-          },
-          {
-            kind: "external",
-            id: "footer-github",
-            href: externalLinks.github,
-            newWindow: true,
-            label: content.footer.githubLabel,
-            icon: "github",
-          },
-        ],
-      },
-    ],
-    languageLabel: content.footer.languageLabel,
-    languageOptions: [
-      { code: "en", label: "English" },
-      { code: "de", label: "Deutsch" },
-    ],
+    sections: internalSections,
     copyright: content.footer.copyright,
     productionCredit: content.footer.productionCredit,
+  };
+}
+
+export function getLocaleSwitcherModel(locale: Locale): LocaleSwitcherModel {
+  return {
+    label: contentByLocale[locale].footer.languageLabel,
+    locale,
+    options: supportedLanguageOptions,
+  };
+}
+
+const supportedLanguageOptions = Object.freeze(
+  Object.entries(localeCatalog).map(([code, locale]) => ({
+    code: code as Locale,
+    label: locale.label,
+  })),
+);
+
+export function getSiteChromeModel(locale: Locale): SiteChromeModel {
+  return {
+    navigation: getNavigationContent(locale),
+    footer: getFooterContent(locale),
+    localeSwitcher: getLocaleSwitcherModel(locale),
+  };
+}
+
+export function getGlobalSiteChromeModel(): SiteChromeModel {
+  return {
+    navigation: getNavigationContent(defaultLocale),
+    footer: getFooterContent(defaultLocale),
+    localeSwitcher: null,
   };
 }

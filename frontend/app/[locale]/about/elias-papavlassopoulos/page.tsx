@@ -1,27 +1,23 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { PlaceholderPage } from "@/components/site/placeholder-page";
-import { contentByLocale } from "@/domain/site/content";
-import { isSupportedLocale } from "@/domain/site/routes";
-import { metadataForRoute } from "@/domain/site/seo";
+import { contentByLocale, getRouteCopy } from "@/domain/site/content";
+import {
+  metadataForLocalizedRoute,
+  resolvePageLocale,
+  type LocalizedPageProps,
+} from "../../_lib/locale-route";
 
-type AboutPageProps = {
-  params: Promise<{ locale: string }>;
-};
-
-export async function generateMetadata({
-  params,
-}: AboutPageProps): Promise<Metadata> {
-  const { locale } = await params;
-  if (!isSupportedLocale(locale)) notFound();
-  return metadataForRoute(locale, "about");
+export function generateMetadata({ params }: LocalizedPageProps) {
+  return metadataForLocalizedRoute(params, "about");
 }
 
 export default async function AboutPlaceholderPage({
   params,
-}: AboutPageProps) {
-  const { locale } = await params;
-  if (!isSupportedLocale(locale)) notFound();
-  const copy = contentByLocale[locale];
-  return <PlaceholderPage title={copy.placeholders.about.title} status={copy.placeholderStatus} />;
+}: LocalizedPageProps) {
+  const locale = await resolvePageLocale(params);
+  return (
+    <PlaceholderPage
+      status={contentByLocale[locale].placeholderStatus}
+      title={getRouteCopy(locale, "about").title}
+    />
+  );
 }

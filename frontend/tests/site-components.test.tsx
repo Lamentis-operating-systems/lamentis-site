@@ -1,14 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EmptyPage } from "@/components/site/empty-page";
-import { LocaleSwitcher } from "@/components/site/locale-switcher";
+import { LocaleSwitcher } from "@/components/site/footer/locale-switcher";
+import { SiteFooter } from "@/components/site/footer/site-footer";
+import { JsonLd } from "@/components/site/json-ld";
+import { SiteNavigation } from "@/components/site/navigation/site-navigation";
 import { SearchPage } from "@/components/site/search-page";
-import { SiteFooter } from "@/components/site/site-footer";
-import { SiteNavigation } from "@/components/site/site-navigation";
 import {
   getFooterContent,
+  getLocaleSwitcherModel,
   getNavigationContent,
 } from "@/domain/site/content";
+import { assetPath } from "@/domain/site/assets";
 
 const navigationState = vi.hoisted(() => ({ pathname: "/en" }));
 
@@ -21,6 +24,17 @@ describe("empty pages", () => {
     render(<EmptyPage label="Today" />);
     const main = screen.getByRole("main", { name: "Today" });
     expect(main).toBeEmptyDOMElement();
+  });
+});
+
+describe("structured data", () => {
+  it("escapes markup delimiters before embedding JSON-LD", () => {
+    const { container } = render(
+      <JsonLd data={{ name: "</script><script>alert(1)</script>" }} />,
+    );
+    const script = container.querySelector('script[type="application/ld+json"]');
+    expect(script?.innerHTML).toContain("\\u003c/script>");
+    expect(script?.innerHTML).not.toContain("<script>");
   });
 });
 
@@ -65,10 +79,15 @@ describe("site navigation", () => {
     expect(addSite).toHaveAttribute("href", "/add-site");
     expect(addSite).not.toHaveAttribute("aria-current");
     expect(addSite.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /GitHub/i })).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Lamentis home" }).querySelector('img[alt=""]'),
-    ).toHaveAttribute("src", expect.stringContaining("app-logo-20260424.png"));
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining(encodeURIComponent(assetPath("brandMark"))),
+    );
+    for (const todayLink of screen.getAllByRole("link", { name: "Today" })) {
+      expect(todayLink).toHaveAttribute("aria-current", "page");
+    }
   });
 
   it("opens an accessible mobile dialog with the same links", async () => {
@@ -80,6 +99,7 @@ describe("site navigation", () => {
     await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "true"));
 
     const dialog = screen.getByRole("dialog", { name: "Primary navigation" });
+    expect(trigger.getAttribute("aria-controls")).toBe(dialog.id);
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveTextContent("Today");
     expect(dialog).toHaveTextContent("Trending");
@@ -101,7 +121,12 @@ describe("site navigation", () => {
 describe("site footer", () => {
   it("renders the platform routes and keeps the safe external GitHub link", () => {
     navigationState.pathname = "/en";
-    render(<SiteFooter locale="en" content={getFooterContent("en")} />);
+    render(
+      <SiteFooter
+        content={getFooterContent("en")}
+        localeSwitcher={getLocaleSwitcherModel("en")}
+      />,
+    );
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(3);
     expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("href", "/en/today");
     expect(screen.getByRole("link", { name: "Legal Notice" })).toHaveAttribute(
@@ -112,9 +137,13 @@ describe("site footer", () => {
       screen.getByRole("link", { name: "About Me" }).querySelector('img[alt=""]'),
     ).toHaveAttribute(
       "src",
-      expect.stringContaining("about-favicon-elias-20260523-32.png"),
+      expect.stringContaining(encodeURIComponent(assetPath("profilePortrait"))),
     );
     expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "rel",
+      "noopener noreferrer",
+    );
   });
 });
 
@@ -122,16 +151,14 @@ describe("locale switcher", () => {
   it("preserves a localized semantic route and closes on Escape with focus return", async () => {
     navigationState.pathname = "/en/trending";
     render(
-      <LocaleSwitcher
-        locale="en"
-        label="Language"
-        options={getFooterContent("en").languageOptions}
-      />,
+      <LocaleSwitcher {...getLocaleSwitcherModel("en")} />,
     );
 
     const trigger = screen.getByRole("button", { name: "Language" });
     fireEvent.click(trigger);
-    expect(screen.getByRole("link", { name: "Deutsch" })).toHaveAttribute(
+    const germanLink = screen.getByRole("link", { name: "Deutsch" });
+    expect(trigger.getAttribute("aria-controls")).toBe(germanLink.closest("ul")?.id);
+    expect(germanLink).toHaveAttribute(
       "href",
       "/de/trending",
     );

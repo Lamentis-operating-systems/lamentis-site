@@ -26,6 +26,17 @@ der Systemeinstellung.
 - Formflächen: eine kanonische Feldfarbe, eine große Kontrollhöhe und eine
   gemeinsame maximale Formbreite
 
+Responsive Werte wechseln ausschließlich an den beiden Breakpoints:
+
+| Rolle | Desktop | bis `64rem` | bis `40rem` |
+| --- | ---: | ---: | ---: |
+| Seitengutter | 64 px | 32 px | 16 px |
+| Navigationsabstand | 32 px | 20 px | 8 px |
+| Footer-Spaltenabstand | 80 px | 48 px | 32 px |
+| Footer-Blockpadding | 96 px | 80 px | 64 px |
+| Dialog-Blockpadding | 96 px | 64 px | 48 px |
+| Displaytypografie | 72 px | 48 px | 32 px |
+
 Die beiden global verfügbaren Akzentverläufe heißen
 `--gradient-platform-sunset` und `--gradient-platform-aurora`. Sie sind keine
 seitengebundenen Styles und können künftig von mehreren Plattformflächen
@@ -45,11 +56,15 @@ Breite Formflächen verwenden `--layout-form-wide`,
 `--color-field-placeholder`. Damit bleiben Suchfeld und künftige Formflächen
 responsive und themefähig, ohne komponentenlokale Geometrie- oder Farbwerte.
 Die Search-Fläche bleibt in Ruhe und Fokus randlos; der native Textcursor zeigt
-den Eingabefokus, ohne einen zusätzlichen Active-Rahmen einzuführen.
+den Eingabefokus, ohne einen zusätzlichen Active-Rahmen einzuführen. Fokus
+wechselt stattdessen Fläche, Icon und Placeholder auf den kanonischen
+Sekundärkontrast. Nur im Forced-Colors-Modus ergänzt das System einen
+2-px-Outline.
 Lokalisierte Überschriften dürfen den Seitencontainer auch bei 200 Prozent
 Textgröße nicht verbreitern und brechen deshalb innerhalb ihrer Komponente um.
 
-Stylelint verlangt Tokens für Farben, Schrift, Abstände, Radien, Schatten,
+Stylelint verlangt Tokens für Farben, Schrift, Abstände, logische
+Eigenschaften, Insets, Dimensionen, Radien, Schatten, Background Images,
 Ebenen und Motion. Erlaubte Literale bleiben auf Nullwerte, 1-px-Haarlinien,
 SVG-Geometrie und die dokumentierten Media Queries begrenzt.
 

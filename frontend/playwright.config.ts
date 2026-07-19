@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 const isCi = Boolean(process.env.CI);
-const useProductionServer = isCi || process.env.PLAYWRIGHT_PRODUCTION === "1";
+const useDevServer = process.env.PLAYWRIGHT_DEV_SERVER === "1";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,15 +16,15 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3000",
     browserName: "chromium",
     locale: "en-US",
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: useProductionServer
-      ? "npm run start -- --hostname 127.0.0.1"
-      : "npm run dev -- --hostname 127.0.0.1",
+    command: useDevServer
+      ? "npm run dev -- --hostname 127.0.0.1"
+      : "npm run start -- --hostname 127.0.0.1",
     url: "http://127.0.0.1:3000/en",
-    reuseExistingServer: !useProductionServer,
+    reuseExistingServer: useDevServer && !isCi,
     timeout: 120_000,
   },
 });

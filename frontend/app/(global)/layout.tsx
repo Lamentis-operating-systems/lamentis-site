@@ -1,4 +1,5 @@
 import { SiteDocument } from "@/components/site/site-document";
+import { getGlobalSiteChromeModel } from "@/domain/site/content";
 import { defaultLocale } from "@/domain/site/routes";
 import { siteMetadata } from "@/domain/site/seo";
 import "@/styles/tokens.css";
@@ -12,7 +13,10 @@ type GlobalLayoutProps = Readonly<{
 
 export default function GlobalLayout({ children }: GlobalLayoutProps) {
   return (
-    <SiteDocument locale={defaultLocale} showLocaleSwitcher={false}>
+    <SiteDocument
+      chrome={getGlobalSiteChromeModel()}
+      locale={defaultLocale}
+    >
       {children}
     </SiteDocument>
   );

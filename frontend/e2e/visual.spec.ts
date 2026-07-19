@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { publicRoutes } from "./site-routes";
+import { expect, test, type Page } from "@playwright/test";
+import { routePath } from "../domain/site/routes";
 
 const viewports = [
   { id: "mobile", width: 390, height: 844 },
@@ -8,21 +8,64 @@ const viewports = [
 
 const colorSchemes = ["light", "dark"] as const;
 
-for (const route of publicRoutes) {
+const visualArchetypes = [
+  {
+    id: "home-en",
+    path: routePath({ scope: "localized", locale: "en", routeId: "home" }),
+    status: 200,
+  },
+  {
+    id: "search-de",
+    path: routePath({ scope: "localized", locale: "de", routeId: "search" }),
+    status: 200,
+  },
+  {
+    id: "legal-en",
+    path: routePath({ scope: "localized", locale: "en", routeId: "legalNotice" }),
+    status: 200,
+  },
+  { id: "not-found-de", path: "/de/unknown", status: 404 },
+] as const;
+
+const documentNotFoundMessage =
+  "Failed to load resource: the server responded with a status of 404 (Not Found)";
+
+function collectPageErrors(page: Page, expectedStatus: number): string[] {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    const isExpectedDocumentNotFound =
+      expectedStatus === 404 && message.text() === documentNotFoundMessage;
+    if (message.type() === "error" && !isExpectedDocumentNotFound) {
+      errors.push(message.text());
+    }
+  });
+  page.on("response", (response) => {
+    const isExpectedDocumentNotFound =
+      expectedStatus === 404 && response.request().resourceType() === "document";
+    if (response.status() >= 400 && !isExpectedDocumentNotFound) {
+      errors.push(`${response.status()} ${response.url()}`);
+    }
+  });
+  return errors;
+}
+
+async function settlePage(page: Page): Promise<void> {
+  await page.evaluate(() => document.fonts.ready);
+}
+
+for (const route of visualArchetypes) {
   for (const viewport of viewports) {
     for (const colorScheme of colorSchemes) {
       test(`${route.id} ${viewport.id} ${colorScheme}`, async ({ page }) => {
-        const consoleErrors: string[] = [];
-        page.on("console", (message) => {
-          if (message.type() === "error") consoleErrors.push(message.text());
-        });
-
+        const pageErrors = collectPageErrors(page, route.status);
         await page.setViewportSize(viewport);
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+
         const response = await page.goto(route.path, { waitUntil: "networkidle" });
-        expect(response?.status()).toBe(200);
-        await page.evaluate(() => document.fonts.ready);
-        expect(consoleErrors).toEqual([]);
+        expect(response?.status()).toBe(route.status);
+        await settlePage(page);
+
+        expect(pageErrors).toEqual([]);
         await expect(page).toHaveScreenshot(
           `${route.id}-${viewport.id}-${colorScheme}.png`,
           { fullPage: true, animations: "disabled", caret: "hide" },
@@ -30,4 +73,40 @@ for (const route of publicRoutes) {
       });
     }
   }
+}
+
+for (const colorScheme of colorSchemes) {
+  test(`mobile navigation open ${colorScheme}`, async ({ page }) => {
+    const pageErrors = collectPageErrors(page, 200);
+    await page.setViewportSize(viewports[0]);
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await page.goto(routePath({ scope: "localized", locale: "en", routeId: "home" }));
+    await page.getByRole("button", { name: "Open primary navigation" }).click();
+    await expect(page.getByRole("dialog", { name: "Primary navigation" })).toBeVisible();
+    await settlePage(page);
+
+    expect(pageErrors).toEqual([]);
+    await expect(page).toHaveScreenshot(`navigation-open-mobile-${colorScheme}.png`, {
+      fullPage: true,
+      animations: "disabled",
+      caret: "hide",
+    });
+  });
+
+  test(`locale menu open ${colorScheme}`, async ({ page }) => {
+    const pageErrors = collectPageErrors(page, 200);
+    await page.setViewportSize(viewports[0]);
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await page.goto(routePath({ scope: "localized", locale: "en", routeId: "home" }));
+    await page.getByRole("button", { name: "Language" }).click();
+    await expect(page.getByRole("link", { name: "Deutsch" })).toBeVisible();
+    await settlePage(page);
+
+    expect(pageErrors).toEqual([]);
+    await expect(page).toHaveScreenshot(`locale-menu-open-mobile-${colorScheme}.png`, {
+      fullPage: true,
+      animations: "disabled",
+      caret: "hide",
+    });
+  });
 }

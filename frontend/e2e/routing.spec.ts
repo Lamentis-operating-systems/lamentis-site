@@ -1,5 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { globalRoutes, localizedRoutes } from "./site-routes";
+import { assetManifest, assetPath } from "../domain/site/assets";
+import {
+  defaultLocale,
+  indexableRouteIds,
+  localeCatalog,
+  routeAlternates,
+  routePath,
+  routeVariants,
+  siteRouteIds,
+  siteRoutes,
+} from "../domain/site/routes";
+import { publicRouteVariants } from "./route-projections";
 
 test("root negotiates German with a temporary redirect", async ({ request }) => {
   const response = await request.get("/", {
@@ -30,45 +41,46 @@ for (const acceptLanguage of ["*", "!!!"]) {
   });
 }
 
-for (const route of localizedRoutes) {
+for (const route of publicRouteVariants) {
   test(`${route.path} keeps the route and SEO contract`, async ({ page }) => {
     const response = await page.goto(route.path);
     expect(response?.status()).toBe(200);
-    await expect(page.locator("html")).toHaveAttribute("lang", route.locale);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
-      "href",
-      new RegExp(`${route.path.replaceAll("/", "\\/")}$`),
-    );
-    await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="alternate"][hreflang="de"]')).toHaveCount(1);
-    await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveCount(1);
 
-    const robots = page.locator('meta[name="robots"]');
-    if (route.indexable) {
-      await expect(robots).toHaveAttribute("content", /index/);
+    const documentLocale = route.scope === "localized" ? route.locale : defaultLocale;
+    await expect(page.locator("html")).toHaveAttribute("lang", documentLocale);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", route.url);
+
+    if (route.scope === "localized") {
+      const alternates = routeAlternates(route.routeId);
+      for (const [locale, href] of Object.entries(alternates)) {
+        await expect(
+          page.locator(`link[rel="alternate"][hreflang="${locale}"]`),
+        ).toHaveAttribute("href", href);
+      }
+      const alternateLocales = Object.values(localeCatalog)
+        .filter((definition) => definition.openGraphLocale !== localeCatalog[route.locale].openGraphLocale)
+        .map((definition) => definition.openGraphLocale);
+      for (const openGraphLocale of alternateLocales) {
+        await expect(
+          page.locator(`meta[property="og:locale:alternate"][content="${openGraphLocale}"]`),
+        ).toHaveCount(1);
+      }
     } else {
-      await expect(robots).toHaveAttribute("content", /noindex/);
+      await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
+      await expect(page.locator('meta[property="og:locale:alternate"]')).toHaveCount(0);
+    }
+
+    const robotsContent = await page.locator('meta[name="robots"]').getAttribute("content");
+    if (siteRoutes[route.routeId].seo.index) {
+      expect(robotsContent).toContain("index");
+      expect(robotsContent).not.toContain("noindex");
+    } else {
+      expect(robotsContent).toContain("noindex");
     }
   });
 }
 
-for (const route of globalRoutes) {
-  test(`${route.path} keeps the global route and SEO contract`, async ({ page }) => {
-    const response = await page.goto(route.path);
-    expect(response?.status()).toBe(200);
-    await expect(page.locator("html")).toHaveAttribute("lang", route.locale);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
-      "href",
-      "https://lamentis.de/add-site",
-    );
-    await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
-    await expect(page.locator('meta[property="og:locale:alternate"]')).toHaveCount(0);
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
-    await expect(page.locator("main")).toBeEmpty();
-  });
-}
-
-for (const path of ["/fr", "/nox", "/noma"]) {
+for (const path of ["/fr", "/missing", "/unknown-route"]) {
   test(`${path} returns a noindex 404`, async ({ page }) => {
     const response = await page.goto(path);
     expect(response?.status()).toBe(404);
@@ -78,13 +90,9 @@ for (const path of ["/fr", "/nox", "/noma"]) {
 
 for (const invalidRoute of [
   { path: "/en/unknown", locale: "en", title: "Page not found" },
-  { path: "/en/nox", locale: "en", title: "Page not found" },
-  { path: "/en/noma", locale: "en", title: "Page not found" },
   { path: "/en/add-site", locale: "en", title: "Page not found" },
   { path: "/en/about/unknown", locale: "en", title: "Page not found" },
   { path: "/de/unknown", locale: "de", title: "Seite nicht gefunden" },
-  { path: "/de/nox", locale: "de", title: "Seite nicht gefunden" },
-  { path: "/de/noma", locale: "de", title: "Seite nicht gefunden" },
   { path: "/de/add-site", locale: "de", title: "Seite nicht gefunden" },
 ] as const) {
   test(`${invalidRoute.path} uses the localized noindex 404`, async ({ page }) => {
@@ -96,67 +104,59 @@ for (const invalidRoute of [
   });
 }
 
-test("sitemap contains only the two home pages", async ({ request }) => {
+test("sitemap contains exactly the indexable localized route variants", async ({ request }) => {
   const response = await request.get("/sitemap.xml");
   expect(response.status()).toBe(200);
   const sitemap = await response.text();
-  expect(sitemap).toContain("https://lamentis.de/en");
-  expect(sitemap).toContain("https://lamentis.de/de");
-  expect(sitemap).not.toContain("/nox");
-  expect(sitemap).not.toContain("/noma");
-  expect(sitemap).not.toContain("/legal-notice");
-  expect(sitemap).not.toContain("/about/");
-  expect(sitemap).not.toContain("/today");
-  expect(sitemap).not.toContain("/trending");
-  expect(sitemap).not.toContain("/search");
-  expect(sitemap).not.toContain("/add-site");
-  expect(sitemap).toContain('hreflang="en" href="https://lamentis.de/en"');
-  expect(sitemap).toContain('hreflang="de" href="https://lamentis.de/de"');
+  const indexableVariants = indexableRouteIds.flatMap((routeId) => routeVariants(routeId));
+  const nonIndexableVariants = siteRouteIds
+    .filter((routeId) => !indexableRouteIds.includes(routeId))
+    .flatMap((routeId) => routeVariants(routeId));
+
+  for (const route of indexableVariants) {
+    expect(sitemap).toContain(`<loc>${route.url}</loc>`);
+  }
+  for (const route of nonIndexableVariants) {
+    expect(sitemap).not.toContain(`<loc>${route.url}</loc>`);
+  }
+  expect(sitemap.match(/<url>/g)).toHaveLength(indexableVariants.length);
   expect(sitemap).not.toMatch(/hreflang="(?:en|de|x-default)" href="\//);
 });
 
 test("the shared favicon switches contrast with the system theme", async ({ page, request }) => {
-  await page.goto("/en");
-  await expect(
-    page.locator(
-      'link[rel="icon"][href="/assets/images/favicon-32-20260424.png?v=20260719"]' +
-      '[media="(prefers-color-scheme: light)"]',
-    ),
-  ).toHaveCount(1);
-  await expect(
-    page.locator(
-      'link[rel="icon"][href="/assets/images/app-logo-20260424.png?v=20260719"]' +
-      '[media="(prefers-color-scheme: dark)"]',
-    ),
-  ).toHaveCount(1);
+  await page.goto(routePath({ scope: "localized", locale: "en", routeId: "home" }));
+  for (const icon of assetManifest.iconSets.site.icon) {
+    const mediaSelector = icon.media ? `[media="${icon.media}"]` : "";
+    await expect(
+      page.locator(`link[rel="icon"][href="${assetPath(icon.assetId)}"]${mediaSelector}`),
+    ).toHaveCount(1);
+  }
   await expect(page.locator('link[rel="shortcut icon"]')).toHaveCount(0);
 
-  const response = await request.get("/assets/images/app-logo-20260424.png?v=20260719");
+  const response = await request.get(assetPath("brandMark"));
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain("image/png");
 });
 
 test("the Elias about route emits its portrait icon set", async ({ page, request }) => {
-  await page.goto("/en/about/elias-papavlassopoulos");
+  await page.goto(
+    routePath({ scope: "localized", locale: "en", routeId: "about" }),
+  );
+  for (const icon of assetManifest.iconSets.about.icon) {
+    await expect(
+      page.locator(`link[rel="icon"][href="${assetPath(icon.assetId)}"]`),
+    ).toHaveCount(1);
+  }
   await expect(
-    page.locator(
-      'link[rel="icon"]' +
-      '[href="/assets/images/about-favicon-elias-20260523-32.png?v=20260719"]',
-    ),
-  ).toHaveCount(1);
-  await expect(
-    page.locator('link[rel="icon"][href*="/assets/images/favicon-32-20260424.png"]'),
+    page.locator(`link[rel="icon"][href="${assetPath("siteFavicon32")}"]`),
   ).toHaveCount(0);
   await expect(
     page.locator(
-      'link[rel="apple-touch-icon"]' +
-      '[href="/assets/images/about-apple-touch-elias-20260523.png?v=20260719"]',
+      `link[rel="apple-touch-icon"][href="${assetPath(assetManifest.iconSets.about.apple.assetId)}"]`,
     ),
   ).toHaveCount(1);
 
-  const response = await request.get(
-    "/assets/images/about-favicon-elias-20260523-32.png?v=20260719",
-  );
+  const response = await request.get(assetPath("profilePortrait"));
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain("image/png");
 });

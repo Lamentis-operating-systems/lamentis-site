@@ -1,8 +1,5 @@
 .page {
   display: grid;
-  min-height: var(--layout-page-min-height);
-  min-width: var(--space-0);
-  flex: 1 0 auto;
   place-items: center;
   padding: var(--space-16) var(--layout-gutter);
 }
@@ -10,13 +7,13 @@
 .content {
   display: grid;
   width: 100%;
-  min-width: var(--space-0);
+  min-width: 0;
   justify-items: center;
   gap: var(--space-8);
 }
 
 .heading {
-  margin: var(--space-0);
+  margin: 0;
   font-size: var(--text-heading-section);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-compact);
@@ -34,6 +31,14 @@
   border-radius: var(--radius-full);
   background: var(--color-field-background);
   color: var(--color-text-muted);
+  transition-property: background-color, color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.search:focus-within {
+  background: var(--color-field-focus-background);
+  color: var(--color-field-focus-foreground);
 }
 
 .search svg {
@@ -44,9 +49,9 @@
 
 .input {
   width: 100%;
-  min-width: var(--space-0);
-  border: var(--space-0);
-  padding: var(--space-0);
+  min-width: 0;
+  border: 0;
+  padding: 0;
   outline: none;
   background: transparent;
   color: var(--color-text);
@@ -58,4 +63,18 @@
 .input::placeholder {
   color: var(--color-field-placeholder);
   opacity: 1;
+  transition-property: color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.search:focus-within .input::placeholder {
+  color: var(--color-field-focus-foreground);
+}
+
+@media (forced-colors: active) {
+  .search:focus-within {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: var(--focus-ring-offset);
+  }
 }

@@ -8,11 +8,11 @@ body {
   display: flex;
   min-height: var(--layout-viewport-height);
   flex-direction: column;
-  margin: var(--space-0);
+  margin: 0;
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-interface);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-regular);
   font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -43,12 +43,7 @@ select {
 a:focus-visible,
 button:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
-  outline-offset: var(--space-1);
-}
-
-.siteContainer {
-  width: min(calc(100% - (2 * var(--layout-gutter))), var(--layout-wide));
-  margin-inline: auto;
+  outline-offset: var(--focus-ring-offset);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -6,7 +6,8 @@ Der Anwendungscode liegt im Verzeichnis `frontend`.
 
 ## Lokal entwickeln
 
-Voraussetzung ist Node.js 24.
+Voraussetzung sind Node.js 24 und npm 11.6.4. Beide Versionen sind im
+Repository und in CI festgelegt.
 
 ```bash
 cd frontend

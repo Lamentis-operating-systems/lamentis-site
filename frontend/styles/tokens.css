@@ -13,14 +13,13 @@
   --text-body: 1rem;
   --text-lead: 1.25rem;
   --text-heading-section: 1.5rem;
-  --text-display-page: clamp(2rem, 6vw, 4.5rem);
-  --text-navigation-mobile: clamp(2.125rem, 10vw, 3.625rem);
+  --text-display-page: 4.5rem;
+  --text-navigation-mobile: 3.625rem;
   --line-compact: 1.2;
   --line-body: 1.5;
   --line-display: 1;
   --line-navigation-mobile: 1.02;
 
-  --space-0: 0;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -50,8 +49,7 @@
   --layout-wide: 90rem;
   --layout-reading: 42.5rem;
   --layout-form-wide: 48rem;
-  --layout-gutter: clamp(1rem, 5vw, 4rem);
-  --layout-page-min-height: clamp(18rem, 40vh, 42rem);
+  --layout-gutter: var(--space-16);
   --layout-viewport-height: 100dvh;
   --layout-dialog-content-height: calc(100dvh - var(--header-height));
   --header-height: 4.5rem;
@@ -60,14 +58,15 @@
   --brand-mark-size: 1.75rem;
   --icon-size-control: var(--space-5);
 
-  --responsive-navigation-gap: clamp(var(--space-4), 3vw, var(--space-8));
-  --responsive-navigation-mobile-gap: min(var(--space-3), 1vw);
-  --responsive-dialog-padding: clamp(var(--space-12), 10vh, var(--space-24));
-  --responsive-footer-padding: clamp(var(--space-16), 7vw, var(--space-24));
-  --responsive-footer-gap: clamp(var(--space-8), 6vw, var(--space-20));
-  --responsive-footer-bottom-gap: clamp(var(--space-16), 8vw, var(--space-24));
+  --responsive-navigation-gap: var(--space-8);
+  --responsive-navigation-mobile-gap: var(--space-2);
+  --responsive-dialog-padding: var(--space-24);
+  --responsive-footer-padding: var(--space-24);
+  --responsive-footer-gap: var(--space-20);
+  --responsive-footer-bottom-gap: var(--space-24);
 
   --focus-ring-width: 2px;
+  --focus-ring-offset: var(--space-1);
   --effect-hover-brightness: brightness(0.92);
   --transform-hover-lift: translateY(-1px);
   --transform-chevron-open: rotate(180deg);
@@ -75,7 +74,9 @@
   --color-background: rgb(254 254 254);
   --color-surface: rgb(247 247 247);
   --color-field-background: rgb(247 247 247);
+  --color-field-focus-background: rgb(238 238 238);
   --color-field-placeholder: rgb(102 102 102);
+  --color-field-focus-foreground: rgb(51 51 51);
   --color-popover: rgb(254 254 254);
   --color-text: rgb(0 0 0);
   --color-text-secondary: rgb(51 51 51);
@@ -107,7 +108,9 @@
     --color-background: rgb(0 0 0);
     --color-surface: rgb(14 14 14);
     --color-field-background: rgb(33 33 33);
+    --color-field-focus-background: rgb(46 46 46);
     --color-field-placeholder: rgb(175 175 175);
+    --color-field-focus-foreground: rgb(255 255 255 / 80%);
     --color-popover: rgb(14 14 14);
     --color-text: rgb(255 255 255);
     --color-text-secondary: rgb(255 255 255 / 80%);
@@ -117,5 +120,31 @@
     --color-inverse-text: rgb(0 0 0);
     --color-shadow: rgb(0 0 0 / 54%);
     --logo-filter: none;
+  }
+}
+
+@media (width <= 64rem) {
+  :root {
+    --text-display-page: 3rem;
+    --text-navigation-mobile: 3rem;
+    --layout-gutter: var(--space-8);
+    --responsive-navigation-gap: var(--space-5);
+    --responsive-dialog-padding: var(--space-16);
+    --responsive-footer-padding: var(--space-20);
+    --responsive-footer-gap: var(--space-12);
+    --responsive-footer-bottom-gap: var(--space-20);
+  }
+}
+
+@media (width <= 40rem) {
+  :root {
+    --text-display-page: 2rem;
+    --text-navigation-mobile: 2rem;
+    --layout-gutter: var(--space-4);
+    --responsive-navigation-gap: var(--space-2);
+    --responsive-dialog-padding: var(--space-12);
+    --responsive-footer-padding: var(--space-16);
+    --responsive-footer-gap: var(--space-8);
+    --responsive-footer-bottom-gap: var(--space-16);
   }
 }
