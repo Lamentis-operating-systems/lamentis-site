@@ -66,34 +66,11 @@
   color: var(--color-text);
 }
 
-.addSiteLink {
-  display: inline-flex;
-  min-height: var(--control-height);
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+.navigationAction {
   justify-self: end;
-  padding-inline: var(--space-4);
-  border-radius: var(--radius-full);
-  background: var(--color-inverse-background);
-  color: var(--color-inverse-text);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-compact);
-  text-decoration: none;
-  white-space: nowrap;
-  transition-property: filter, transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
 }
 
-.addSiteLink:hover {
-  filter: var(--effect-hover-brightness);
-  transform: var(--transform-hover-lift);
-}
-
-.addSiteLink svg,
-.mobileAddSiteLink svg {
+.mobileAction svg {
   display: block;
   width: var(--icon-size-control);
   height: var(--icon-size-control);
@@ -111,6 +88,9 @@
   background: transparent;
   color: var(--color-text);
   cursor: pointer;
+  transition-property: background-color, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
 }
 
 .menuButton svg,
@@ -154,6 +134,12 @@
   display: inline-flex;
 }
 
+.menuButton:hover,
+.dialogCloseButton:hover {
+  background: var(--color-field-focus-background);
+  transform: var(--transform-button-hover);
+}
+
 .mobileDialogContent {
   display: flex;
   height: var(--layout-dialog-content-height);
@@ -185,10 +171,19 @@
   transform: translateX(var(--space-1));
 }
 
-.mobileAddSiteLink {
+.mobileAction {
   width: fit-content;
   margin-top: auto;
   gap: var(--space-3);
+}
+
+.mobileDownloadAction {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: start;
 }
 
 @media (width <= 64rem) {
@@ -215,14 +210,14 @@
     gap: var(--responsive-navigation-mobile-gap);
   }
 
-  .addSiteLink {
+  .navigationAction {
     min-width: var(--control-height);
     flex: 0 1 auto;
     padding-inline: var(--space-3);
     overflow: hidden;
   }
 
-  .addSiteLink span {
+  .navigationAction span {
     min-width: 0;
     overflow: hidden;
   }

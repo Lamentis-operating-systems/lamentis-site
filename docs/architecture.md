@@ -32,16 +32,20 @@ SEO-Projektionen entstehen ausschließlich aus diesen Katalogen.
 | `/{locale}/today` | statische leere Plattformseite | `noindex` |
 | `/{locale}/trending` | statische leere Plattformseite | `noindex` |
 | `/{locale}/search` | statische Search-Fläche ohne aktive Suche | `noindex` |
-| `/add-site` | statische globale leere Plattformseite | `noindex` |
+| `/add-site` | globale leere Plattformseite mit ausgehandelter Inhaltssprache | `noindex` |
 | `/{locale}/legal-notice` | statischer Platzhalter | `noindex` |
 | `/{locale}/about/elias-papavlassopoulos` | statischer Platzhalter | `noindex` |
 | unbekannte Locale oder Route | 404 | `noindex` |
 
-Nur `frontend/proxy.ts` verhandelt die Sprache und ausschließlich für `/`.
+Den Locale-Prefix für `/` verhandelt ausschließlich `frontend/proxy.ts`.
 Alle lokalisierten Seiten validieren `Locale`. Die globale Route `/add-site`
 besitzt bewusst keinen Locale-Prefix, keine lokalisierten Aliase und keine
 hreflang-Alternativen. Der Wechsel zwischen dem globalen und dem lokalisierten
 Root-Layout verursacht deshalb bewusst einen vollständigen Browser-Reload.
+Beim Wechsel speichert die Add-site-Aktion die validierte Quell-Locale in einem
+First-Party-Präferenz-Cookie. Die globale Server-Route verwendet diesen Wert und
+fällt bei einem Direkteinstieg auf `Accept-Language` zurück. URL-Identität und
+Canonical bleiben dabei unverändert global.
 Alle anderen unpräfixierten Unterseiten bleiben 404.
 
 Explizite App-Router-Dateien bleiben die Authority für die konkrete
@@ -59,13 +63,15 @@ kleine Client-Inseln:
 
 - Die Navigation besitzt ausschließlich lokalen Zustand für den mobilen Dialog.
 - Der Locale-Umschalter besitzt ausschließlich lokalen Zustand für sein Menü.
-- Locale und aktive Route werden immer aus der URL abgeleitet.
+- Auf lokalisierten Routen werden Locale und aktive Route aus der URL
+  abgeleitet. Die globale Route besitzt keine URL-Locale und verwendet nur für
+  ihre Inhaltssprache die validierte Präferenz mit `Accept-Language`-Fallback.
 - Navigation und Footer erhalten getrennte Projektionen im gemeinsamen
   `SiteChromeModel` aus demselben Routenkatalog. Der Locale-Switcher ist darin
   entweder vollständig modelliert oder `null`; ein paralleles Boolean-Flag
   existiert nicht.
-- Die primäre Navigation projiziert `Today`, `Trending`, `Search` und `Home`;
-  die globale Add-site-Aktion wird aus derselben Authority abgeleitet.
+- Die primäre Navigation und die globale Add-site-Aktion werden mit ihren
+  lokalisierten Titeln aus derselben Authority abgeleitet.
 - Die Search-Fläche ist eine Server Component. Überschrift, Label und
   Placeholder stammen aus dem Locale-Dictionary. Das unkontrollierte Suchfeld
   besitzt weder Client-State noch Form-Action; ausschließlich die explizite

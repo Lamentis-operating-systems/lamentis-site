@@ -15,6 +15,7 @@ import {
   type RouteRef,
   type SiteRouteId,
 } from "./routes";
+import type { ApiResponseFieldType } from "./api-response-schema";
 
 export type RouteCopy = {
   title: string;
@@ -27,15 +28,51 @@ export type SearchContent = {
   placeholder: string;
 };
 
+export type ResponseSchemaEditorContent = {
+  addPropertyLabel: string;
+  arrayItemTypeLabel: string;
+  duplicatePropertyError: string;
+  identifierHint: string;
+  optionalLabel: string;
+  propertiesLabel: string;
+  propertyNameLabel: string;
+  propertyNamePlaceholder: string;
+  propertyTypeLabel: string;
+  removePropertyLabel: string;
+  responseTypeLabel: string;
+  responseTypePlaceholder: string;
+  saveLabel: string;
+  typeOptions: Record<ApiResponseFieldType, string>;
+};
+
+export type ApiCreatorStudioContent = SearchContent & {
+  actionLabel: string;
+  closeEditRouteOverlayLabel: string;
+  closeResponseOverlayLabel: string;
+  copyRouteLabel: string;
+  deleteRouteLabel: string;
+  editRouteLabel: string;
+  editRouteTitle: string;
+  methodSelectorLabel: string;
+  responseEditor: ResponseSchemaEditorContent;
+  responseOverlayTitle: string;
+  routeActionsLabel: string;
+  routeListLabel: string;
+  saveRouteLabel: string;
+};
+
 type LocalizedSiteContent = {
+  siteDescription: string;
   routes: Record<SiteRouteId, RouteCopy>;
   search: SearchContent;
+  apiCreatorStudio: ApiCreatorStudioContent;
   placeholderStatus: string;
   navigation: {
     ariaLabel: string;
+    closeMenuLabel: string;
+    downloadApiContractsLabel: string;
     homeLabel: string;
     openMenuLabel: string;
-    closeMenuLabel: string;
   };
   footer: {
     sections: Record<FooterSectionId, { title: string }>;
@@ -53,22 +90,27 @@ type LocalizedSiteContent = {
 
 export const contentByLocale = {
   en: {
+    siteDescription: "Lamentis is a platform for discovering and sharing sites.",
     routes: {
       home: {
         title: "Home",
-        description: "Lamentis home.",
+        description: "Lamentis is a platform for discovering and sharing sites.",
       },
       today: {
         title: "Today",
-        description: "Today's sites on Lamentis.",
+        description: "Discover today's sites on Lamentis.",
       },
       trending: {
         title: "Trending",
-        description: "Trending sites on Lamentis.",
+        description: "Discover trending sites on Lamentis.",
       },
       search: {
         title: "Search",
-        description: "Search Lamentis.",
+        description: "Search for sites on Lamentis.",
+      },
+      apiCreatorStudio: {
+        title: "API Creator Studio",
+        description: "Create and manage APIs in the Lamentis API Creator Studio.",
       },
       addSite: {
         title: "Add site",
@@ -76,24 +118,66 @@ export const contentByLocale = {
       },
       legalNotice: {
         title: "Legal Notice",
-        description: "The legal notice is in preparation.",
+        description: "The legal notice is being prepared.",
       },
       about: {
         title: "About Me",
-        description: "This page is in preparation.",
+        description: "This page is being prepared.",
       },
     },
     search: {
       heading: "Search sites",
-      label: "Search",
+      label: "Search sites",
       placeholder: "Search",
+    },
+    apiCreatorStudio: {
+      actionLabel: "Add API route",
+      closeEditRouteOverlayLabel: "Close Edit this route",
+      closeResponseOverlayLabel: "Close Add response",
+      copyRouteLabel: "Copy",
+      deleteRouteLabel: "Delete",
+      editRouteLabel: "Edit",
+      editRouteTitle: "Edit this route",
+      heading: "Create API Contracts",
+      methodSelectorLabel: "HTTP method",
+      responseEditor: {
+        addPropertyLabel: "Add property",
+        arrayItemTypeLabel: "Array item type",
+        duplicatePropertyError: "Property names must be unique.",
+        identifierHint: "Use a valid TypeScript identifier.",
+        optionalLabel: "Optional",
+        propertiesLabel: "Response properties",
+        propertyNameLabel: "Property name",
+        propertyNamePlaceholder: "propertyName",
+        propertyTypeLabel: "Property type",
+        removePropertyLabel: "Remove property",
+        responseTypeLabel: "Response type",
+        responseTypePlaceholder: "UserResponse",
+        saveLabel: "Save",
+        typeOptions: {
+          string: "string",
+          number: "number",
+          boolean: "boolean",
+          object: "object",
+          array: "array",
+          null: "null",
+          unknown: "unknown",
+        },
+      },
+      responseOverlayTitle: "Add response",
+      routeActionsLabel: "Route actions",
+      routeListLabel: "API routes",
+      saveRouteLabel: "Save",
+      label: "API endpoint path",
+      placeholder: "type path here...",
     },
     placeholderStatus: "In preparation",
     navigation: {
       ariaLabel: "Primary navigation",
+      closeMenuLabel: "Close primary navigation",
+      downloadApiContractsLabel: "Download",
       homeLabel: "Lamentis home",
       openMenuLabel: "Open primary navigation",
-      closeMenuLabel: "Close primary navigation",
     },
     footer: {
       sections: {
@@ -104,7 +188,7 @@ export const contentByLocale = {
       githubLabel: "GitHub",
       languageLabel: "Language",
       copyright: "© 2026 Lamentis.",
-      productionCredit: "An Elias Papavlassopoulos production.",
+      productionCredit: "A production by Elias Papavlassopoulos.",
     },
     notFound: {
       title: "Page not found",
@@ -113,47 +197,94 @@ export const contentByLocale = {
     },
   },
   de: {
+    siteDescription: "Lamentis ist eine Plattform zum Entdecken und Teilen von Websites.",
     routes: {
       home: {
-        title: "Home",
-        description: "Lamentis-Startseite.",
+        title: "Startseite",
+        description: "Lamentis ist eine Plattform zum Entdecken und Teilen von Websites.",
       },
       today: {
-        title: "Today",
-        description: "Heutige Websites auf Lamentis.",
+        title: "Heute",
+        description: "Entdecke die heutigen Websites auf Lamentis.",
       },
       trending: {
-        title: "Trending",
-        description: "Aktuell beliebte Websites auf Lamentis.",
+        title: "Im Trend",
+        description: "Entdecke aktuell beliebte Websites auf Lamentis.",
       },
       search: {
-        title: "Search",
-        description: "Lamentis durchsuchen.",
+        title: "Suche",
+        description: "Websites auf Lamentis durchsuchen.",
+      },
+      apiCreatorStudio: {
+        title: "API Creator Studio",
+        description: "APIs im Lamentis API Creator Studio erstellen und verwalten.",
       },
       addSite: {
-        title: "Add site",
+        title: "Website hinzufügen",
         description: "Eine Website zu Lamentis hinzufügen.",
       },
       legalNotice: {
         title: "Impressum",
-        description: "Das Impressum ist in Vorbereitung.",
+        description: "Das Impressum wird vorbereitet.",
       },
       about: {
         title: "Über mich",
-        description: "Diese Seite ist in Vorbereitung.",
+        description: "Diese Seite wird vorbereitet.",
       },
     },
     search: {
       heading: "Websites durchsuchen",
-      label: "Suche",
+      label: "Websites durchsuchen",
       placeholder: "Suchen",
+    },
+    apiCreatorStudio: {
+      actionLabel: "API-Route hinzufügen",
+      closeEditRouteOverlayLabel: "Route bearbeiten schließen",
+      closeResponseOverlayLabel: "Antwort hinzufügen schließen",
+      copyRouteLabel: "Kopieren",
+      deleteRouteLabel: "Löschen",
+      editRouteLabel: "Bearbeiten",
+      editRouteTitle: "Diese Route bearbeiten",
+      heading: "API-Verträge erstellen",
+      methodSelectorLabel: "HTTP-Methode",
+      responseEditor: {
+        addPropertyLabel: "Eigenschaft hinzufügen",
+        arrayItemTypeLabel: "Array-Elementtyp",
+        duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
+        identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
+        optionalLabel: "Optionales Feld",
+        propertiesLabel: "Antwort-Eigenschaften",
+        propertyNameLabel: "Eigenschaftsname",
+        propertyNamePlaceholder: "eigenschaftName",
+        propertyTypeLabel: "Eigenschaftstyp",
+        removePropertyLabel: "Eigenschaft entfernen",
+        responseTypeLabel: "Antworttyp",
+        responseTypePlaceholder: "BenutzerAntwort",
+        saveLabel: "Speichern",
+        typeOptions: {
+          string: "string",
+          number: "number",
+          boolean: "boolean",
+          object: "object",
+          array: "array",
+          null: "null",
+          unknown: "unknown",
+        },
+      },
+      responseOverlayTitle: "Antwort hinzufügen",
+      routeActionsLabel: "Routenaktionen",
+      routeListLabel: "API-Routen",
+      saveRouteLabel: "Speichern",
+      label: "API-Endpunktpfad",
+      placeholder: "pfad hier eingeben...",
     },
     placeholderStatus: "In Vorbereitung",
     navigation: {
       ariaLabel: "Hauptnavigation",
+      closeMenuLabel: "Hauptnavigation schließen",
+      downloadApiContractsLabel: "Herunterladen",
       homeLabel: "Lamentis-Startseite",
       openMenuLabel: "Hauptnavigation öffnen",
-      closeMenuLabel: "Hauptnavigation schließen",
     },
     footer: {
       sections: {
@@ -164,7 +295,7 @@ export const contentByLocale = {
       githubLabel: "GitHub",
       languageLabel: "Sprache",
       copyright: "© 2026 Lamentis.",
-      productionCredit: "Eine Elias Papavlassopoulos Produktion.",
+      productionCredit: "Eine Produktion von Elias Papavlassopoulos.",
     },
     notFound: {
       title: "Seite nicht gefunden",
@@ -180,13 +311,15 @@ type NavigationItem = InternalLink & {
 };
 
 export type NavigationContent = {
-  ariaLabel: string;
-  homeLabel: string;
-  homeHref: string;
-  openMenuLabel: string;
-  closeMenuLabel: string;
-  items: NavigationItem[];
   addSiteAction: NavigationItem;
+  ariaLabel: string;
+  closeMenuLabel: string;
+  downloadApiContractsLabel: string;
+  homeHref: string;
+  homeLabel: string;
+  items: NavigationItem[];
+  locale: Locale;
+  openMenuLabel: string;
 };
 
 export type FooterLink = (
@@ -265,11 +398,14 @@ export function getNavigationContent(locale: Locale): NavigationContent {
   }
 
   return {
+    locale,
     ariaLabel: content.navigation.ariaLabel,
+    closeMenuLabel: content.navigation.closeMenuLabel,
+    downloadApiContractsLabel:
+      content.navigation.downloadApiContractsLabel,
     homeLabel: content.navigation.homeLabel,
     homeHref: routePath(homeRef),
     openMenuLabel: content.navigation.openMenuLabel,
-    closeMenuLabel: content.navigation.closeMenuLabel,
     items: primaryNavigationRouteIds.map((routeId) => ({
       ...createInternalLink(locale, routeId, `navigation-${routeId}`),
       label: getRouteCopy(locale, routeId).title,
@@ -283,6 +419,12 @@ export function getNavigationContent(locale: Locale): NavigationContent {
 
 export function getSearchContent(locale: Locale): SearchContent {
   return contentByLocale[locale].search;
+}
+
+export function getApiCreatorStudioContent(
+  locale: Locale,
+): ApiCreatorStudioContent {
+  return contentByLocale[locale].apiCreatorStudio;
 }
 
 export function getFooterContent(locale: Locale): FooterContent {
@@ -347,10 +489,12 @@ export function getSiteChromeModel(locale: Locale): SiteChromeModel {
   };
 }
 
-export function getGlobalSiteChromeModel(): SiteChromeModel {
+export function getGlobalSiteChromeModel(
+  locale: Locale = defaultLocale,
+): SiteChromeModel {
   return {
-    navigation: getNavigationContent(defaultLocale),
-    footer: getFooterContent(defaultLocale),
+    navigation: getNavigationContent(locale),
+    footer: getFooterContent(locale),
     localeSwitcher: null,
   };
 }

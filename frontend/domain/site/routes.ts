@@ -76,7 +76,7 @@ export const siteRoutes = {
     scope: "localized",
     segments: { en: [], de: [] },
     placement: {
-      navigation: { area: "primary", order: 40 },
+      navigation: { area: "primary", order: 10 },
       footer: { section: "platform", order: 40, icon: null },
     },
     seo: {
@@ -90,7 +90,7 @@ export const siteRoutes = {
     scope: "localized",
     segments: { en: ["today"], de: ["today"] },
     placement: {
-      navigation: { area: "primary", order: 10 },
+      navigation: null,
       footer: { section: "platform", order: 10, icon: null },
     },
     seo: {
@@ -104,7 +104,7 @@ export const siteRoutes = {
     scope: "localized",
     segments: { en: ["trending"], de: ["trending"] },
     placement: {
-      navigation: { area: "primary", order: 20 },
+      navigation: null,
       footer: { section: "platform", order: 20, icon: null },
     },
     seo: {
@@ -118,8 +118,25 @@ export const siteRoutes = {
     scope: "localized",
     segments: { en: ["search"], de: ["search"] },
     placement: {
-      navigation: { area: "primary", order: 30 },
+      navigation: null,
       footer: { section: "platform", order: 30, icon: null },
+    },
+    seo: {
+      index: false,
+      iconSet: "site",
+      socialImage: null,
+      structuredData: null,
+    },
+  },
+  apiCreatorStudio: {
+    scope: "localized",
+    segments: {
+      en: ["api-creator-studio"],
+      de: ["api-creator-studio"],
+    },
+    placement: {
+      navigation: { area: "primary", order: 20 },
+      footer: null,
     },
     seo: {
       index: false,

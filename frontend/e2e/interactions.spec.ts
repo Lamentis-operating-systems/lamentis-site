@@ -53,12 +53,27 @@ test("add-site action uses the exact global route", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
+test("add-site keeps the selected locale across its global route", async ({ page }) => {
+  await page.goto("/de");
+  const addSite = page.getByRole("link", { name: "Website hinzufügen" });
+  await expect(addSite).toHaveAttribute("href", "/add-site");
+  await addSite.click();
+
+  await expect(page).toHaveURL(/\/add-site$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "de");
+  await expect(
+    page.getByRole("navigation", { name: "Hauptnavigation" }),
+  ).toBeVisible();
+  await expect(page.getByRole("main", { name: "Website hinzufügen" })).toBeVisible();
+  await expect(page).toHaveTitle(/Website hinzufügen/);
+});
+
 test("search accepts text without submitting or changing the route", async ({ page }) => {
   await page.goto("/en/search");
   await expect(
     page.getByRole("heading", { name: "Search sites" }),
   ).toBeVisible();
-  const search = page.getByRole("searchbox", { name: "Search" });
+  const search = page.getByRole("searchbox", { name: "Search sites" });
   await search.fill("Lamentis");
   await search.press("Enter");
   await expect(page).toHaveURL(/\/en\/search$/);
@@ -83,8 +98,8 @@ test("search focus uses subtle contrast without adding an active border", async 
     await page.emulateMedia({ colorScheme: scheme.colorScheme });
     await page.goto("/en/search");
 
-    const search = page.getByRole("searchbox", { name: "Search" });
-    const searchRegion = page.getByRole("search", { name: "Search" });
+    const search = page.getByRole("searchbox", { name: "Search sites" });
+    const searchRegion = page.getByRole("search", { name: "Search sites" });
     await search.focus();
     await expect(searchRegion).toHaveCSS("background-color", scheme.background);
     await expect(searchRegion.locator("svg")).toHaveCSS("color", scheme.foreground);
@@ -101,8 +116,8 @@ test("search focus gains a system outline only in forced colors", async ({ page 
   await page.emulateMedia({ forcedColors: "active" });
   await page.goto("/en/search");
 
-  const search = page.getByRole("searchbox", { name: "Search" });
-  const searchRegion = page.getByRole("search", { name: "Search" });
+  const search = page.getByRole("searchbox", { name: "Search sites" });
+  const searchRegion = page.getByRole("search", { name: "Search sites" });
   await search.focus();
   await expect(searchRegion).toHaveCSS("outline-style", "solid");
   await expect(searchRegion).toHaveCSS("outline-width", "2px");

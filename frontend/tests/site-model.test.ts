@@ -11,6 +11,7 @@ import {
   getSearchContent,
   getSiteChromeModel,
 } from "@/domain/site/content";
+import { serializeLocalePreference } from "@/domain/site/locale-preference";
 import {
   footerRouteIds,
   indexableRouteIds,
@@ -32,12 +33,27 @@ import {
   type NavigationArea,
 } from "@/domain/site/routes";
 import {
+  metadataForNotFound,
   metadataForRoute,
+  siteMetadataForLocale,
   structuredDataForRoute,
 } from "@/domain/site/seo";
 
+function stringLeaves(
+  value: unknown,
+  prefix = "",
+): Record<string, string> {
+  if (typeof value === "string") return { [prefix]: value };
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, child]) =>
+      Object.entries(stringLeaves(child, prefix ? `${prefix}.${key}` : key))),
+  );
+}
+
 describe("public URL golden contract", () => {
-  it("freezes the thirteen public paths", () => {
+  it("freezes the fifteen public paths", () => {
     const publicPaths = siteRouteIds
       .flatMap((routeId) => routeVariants(routeId))
       .map((variant) => variant.path)
@@ -47,12 +63,14 @@ describe("public URL golden contract", () => {
       "/add-site",
       "/de",
       "/de/about/elias-papavlassopoulos",
+      "/de/api-creator-studio",
       "/de/legal-notice",
       "/de/search",
       "/de/today",
       "/de/trending",
       "/en",
       "/en/about/elias-papavlassopoulos",
+      "/en/api-creator-studio",
       "/en/legal-notice",
       "/en/search",
       "/en/today",
@@ -136,6 +154,30 @@ describe("site route authority", () => {
     }
   });
 
+  it("keeps only explicitly language-neutral copy identical", () => {
+    const english = stringLeaves(contentByLocale.en);
+    const german = stringLeaves(contentByLocale.de);
+
+    expect(Object.keys(german).sort()).toEqual(Object.keys(english).sort());
+    expect(
+      Object.keys(english)
+        .filter((path) => english[path] === german[path])
+        .sort(),
+    ).toEqual([
+      "apiCreatorStudio.responseEditor.typeOptions.array",
+      "apiCreatorStudio.responseEditor.typeOptions.boolean",
+      "apiCreatorStudio.responseEditor.typeOptions.null",
+      "apiCreatorStudio.responseEditor.typeOptions.number",
+      "apiCreatorStudio.responseEditor.typeOptions.object",
+      "apiCreatorStudio.responseEditor.typeOptions.string",
+      "apiCreatorStudio.responseEditor.typeOptions.unknown",
+      "footer.copyright",
+      "footer.githubLabel",
+      "footer.sections.links.title",
+      "routes.apiCreatorStudio.title",
+    ]);
+  });
+
   it("projects navigation, footer, and locale switching from shared authorities", () => {
     const navigation = getNavigationContent("en");
     const footer = getFooterContent("en");
@@ -153,6 +195,7 @@ describe("site route authority", () => {
       href: "/add-site",
       label: "Add site",
     });
+    expect(navigation.downloadApiContractsLabel).toBe("Download");
     for (const section of footer.sections) {
       const internalRouteIds = section.links.flatMap((link) => (
         link.kind === "internal" ? [link.routeId] : []
@@ -168,6 +211,12 @@ describe("site route authority", () => {
     expect(chrome.footer).toEqual(footer);
     expect(chrome.localeSwitcher).toEqual(getLocaleSwitcherModel("en"));
     expect(getGlobalSiteChromeModel().localeSwitcher).toBeNull();
+    expect(getGlobalSiteChromeModel("de").navigation).toMatchObject({
+      locale: "de",
+      ariaLabel: "Hauptnavigation",
+      addSiteAction: { label: "Website hinzufügen" },
+      downloadApiContractsLabel: "Herunterladen",
+    });
   });
 
   it("projects only matching internal references and safe external links", () => {
@@ -226,14 +275,20 @@ describe("site route authority", () => {
   it("keeps search copy localized without introducing route rendering types", () => {
     expect(getSearchContent("en")).toEqual({
       heading: "Search sites",
-      label: "Search",
+      label: "Search sites",
       placeholder: "Search",
     });
     expect(getSearchContent("de")).toEqual({
       heading: "Websites durchsuchen",
-      label: "Suche",
+      label: "Websites durchsuchen",
       placeholder: "Suchen",
     });
+  });
+
+  it("serializes the validated locale preference without route state", () => {
+    expect(serializeLocalePreference("de")).toBe(
+      "lamentis-locale=de; Path=/; Max-Age=31536000; SameSite=Lax",
+    );
   });
 });
 
@@ -267,6 +322,17 @@ describe("site SEO authority", () => {
     expect(globalMetadata.alternates?.canonical).toBe(routeUrl(globalRef));
     expect(globalMetadata.alternates?.languages).toBeUndefined();
     expect(globalMetadata.openGraph?.alternateLocale).toBeUndefined();
+    expect(metadataForRoute(globalRef, "de")).toMatchObject({
+      title: "Website hinzufügen",
+      description: "Eine Website zu Lamentis hinzufügen.",
+    });
+    expect(siteMetadataForLocale("de").description).toBe(
+      "Lamentis ist eine Plattform zum Entdecken und Teilen von Websites.",
+    );
+    expect(metadataForNotFound("de")).toMatchObject({
+      title: "Seite nicht gefunden",
+      description: "Die angeforderte Seite existiert nicht.",
+    });
   });
 
   it("selects route icons and social images from the asset manifest policy", () => {

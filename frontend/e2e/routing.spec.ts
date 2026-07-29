@@ -1,6 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { assetManifest, assetPath } from "../domain/site/assets";
 import {
+  contentByLocale,
+  getFooterContent,
+  getNavigationContent,
+  getRouteCopy,
+} from "../domain/site/content";
+import {
   defaultLocale,
   indexableRouteIds,
   localeCatalog,
@@ -9,6 +15,7 @@ import {
   routeVariants,
   siteRouteIds,
   siteRoutes,
+  supportedLocales,
 } from "../domain/site/routes";
 import { publicRouteVariants } from "./route-projections";
 
@@ -30,6 +37,18 @@ test("root falls back to English", async ({ request }) => {
   expect(response.headers().location).toMatch(/\/en$/);
 });
 
+test("a direct add-site request negotiates German content", async ({ request }) => {
+  const response = await request.get("/add-site", {
+    headers: { "accept-language": "de-DE,de;q=0.9" },
+  });
+
+  expect(response.status()).toBe(200);
+  const html = await response.text();
+  expect(html).toMatch(/<html lang="de"(?:\s|>)/);
+  expect(html).toContain("Website hinzufügen");
+  expect(html).toContain("Hauptnavigation");
+});
+
 for (const acceptLanguage of ["*", "!!!"]) {
   test(`root safely handles ${acceptLanguage}`, async ({ request }) => {
     const response = await request.get("/", {
@@ -41,13 +60,69 @@ for (const acceptLanguage of ["*", "!!!"]) {
   });
 }
 
+for (const locale of supportedLocales) {
+  test(`${locale} renders its complete localized chrome`, async ({ page }) => {
+    await page.goto(routePath({ scope: "localized", locale, routeId: "home" }));
+    const navigationCopy = getNavigationContent(locale);
+    const footerCopy = getFooterContent(locale);
+    const navigation = page.getByRole("navigation", {
+      name: navigationCopy.ariaLabel,
+    });
+    const footer = page.getByRole("contentinfo");
+
+    await expect(navigation).toBeVisible();
+    for (const item of navigationCopy.items) {
+      await expect(
+        navigation.getByRole("link", { name: item.label, exact: true }),
+      ).toHaveAttribute("href", item.href);
+    }
+    await expect(
+      navigation.getByRole("link", {
+        name: navigationCopy.addSiteAction.label,
+        exact: true,
+      }),
+    ).toHaveAttribute("href", navigationCopy.addSiteAction.href);
+
+    for (const section of footerCopy.sections) {
+      await expect(
+        footer.getByRole("heading", { name: section.title, exact: true }),
+      ).toBeVisible();
+      for (const link of section.links) {
+        await expect(
+          footer.getByRole("link", { name: link.label, exact: true }),
+        ).toHaveAttribute("href", link.href);
+      }
+    }
+    await expect(
+      footer.getByText(
+        `${footerCopy.copyright} ${footerCopy.productionCredit}`,
+        { exact: true },
+      ),
+    ).toBeVisible();
+  });
+}
+
 for (const route of publicRouteVariants) {
   test(`${route.path} keeps the route and SEO contract`, async ({ page }) => {
     const response = await page.goto(route.path);
     expect(response?.status()).toBe(200);
 
     const documentLocale = route.scope === "localized" ? route.locale : defaultLocale;
+    const copy = getRouteCopy(documentLocale, route.routeId);
     await expect(page.locator("html")).toHaveAttribute("lang", documentLocale);
+    await expect(page).toHaveTitle(new RegExp(copy.title));
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      "content",
+      copy.description,
+    );
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      copy.title,
+    );
+    await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
+      "content",
+      copy.title,
+    );
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", route.url);
 
     if (route.scope === "localized") {
@@ -89,17 +164,23 @@ for (const path of ["/fr", "/missing", "/unknown-route"]) {
 }
 
 for (const invalidRoute of [
-  { path: "/en/unknown", locale: "en", title: "Page not found" },
-  { path: "/en/add-site", locale: "en", title: "Page not found" },
-  { path: "/en/about/unknown", locale: "en", title: "Page not found" },
-  { path: "/de/unknown", locale: "de", title: "Seite nicht gefunden" },
-  { path: "/de/add-site", locale: "de", title: "Seite nicht gefunden" },
+  { path: "/en/unknown", locale: "en" },
+  { path: "/en/add-site", locale: "en" },
+  { path: "/en/about/unknown", locale: "en" },
+  { path: "/de/unknown", locale: "de" },
+  { path: "/de/add-site", locale: "de" },
 ] as const) {
   test(`${invalidRoute.path} uses the localized noindex 404`, async ({ page }) => {
+    const copy = contentByLocale[invalidRoute.locale].notFound;
     const response = await page.goto(invalidRoute.path);
     expect(response?.status()).toBe(404);
     await expect(page.locator("html")).toHaveAttribute("lang", invalidRoute.locale);
-    await expect(page.getByRole("heading", { name: invalidRoute.title })).toBeVisible();
+    await expect(page.getByRole("heading", { name: copy.title })).toBeVisible();
+    await expect(page).toHaveTitle(new RegExp(copy.title));
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      "content",
+      copy.description,
+    );
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   });
 }

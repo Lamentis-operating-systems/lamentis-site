@@ -3,6 +3,7 @@ import type { SiteChromeModel } from "@/domain/site/content";
 import type { Locale } from "@/domain/site/routes";
 import { SiteFooter } from "./footer/site-footer";
 import { SiteNavigation } from "./navigation/site-navigation";
+import { OverlayProvider } from "./overlay/overlay-provider";
 
 const inter = localFont({
   src: "../../fonts/inter-latin-variable.woff2",
@@ -26,12 +27,14 @@ export function SiteDocument({
   return (
     <html lang={locale} className={inter.variable}>
       <body>
-        <SiteNavigation content={chrome.navigation} />
-        {children}
-        <SiteFooter
-          content={chrome.footer}
-          localeSwitcher={chrome.localeSwitcher}
-        />
+        <OverlayProvider>
+          <SiteNavigation content={chrome.navigation} />
+          {children}
+          <SiteFooter
+            content={chrome.footer}
+            localeSwitcher={chrome.localeSwitcher}
+          />
+        </OverlayProvider>
       </body>
     </html>
   );

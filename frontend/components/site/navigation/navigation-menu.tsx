@@ -11,8 +11,11 @@ import {
 } from "react";
 import type { NavigationContent } from "@/domain/site/content";
 import { assetManifest } from "@/domain/site/assets";
+import { serializeLocalePreference } from "@/domain/site/locale-preference";
 import { siteConfig, type SiteRouteId } from "@/domain/site/routes";
 import layoutStyles from "../layout/site-layout.module.css";
+import primaryActionStyles from "../primary-action.module.css";
+import { ApiContractsDownloadButton } from "./api-contracts-download-button";
 import { MenuIcon } from "./menu-icon";
 import { PlusIcon } from "./plus-icon";
 import styles from "./site-navigation.module.css";
@@ -27,6 +30,7 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
   const dialogId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const brandMark = assetManifest.files.brandMark;
+  const showApiContractsDownload = activeRouteId === "apiCreatorStudio";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -42,6 +46,15 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
+  }
+
+  function rememberContentLocale() {
+    document.cookie = serializeLocalePreference(content.locale);
+  }
+
+  function handleMobileAddSiteNavigation() {
+    rememberContentLocale();
+    closeMobileMenu();
   }
 
   function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
@@ -80,15 +93,31 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
           ))}
         </div>
 
-        <Link
-          className={styles.addSiteLink}
-          href={content.addSiteAction.href}
-          aria-label={content.addSiteAction.label}
-          aria-current={activeRouteId === content.addSiteAction.routeId ? "page" : undefined}
-        >
-          <PlusIcon />
-          <span>{content.addSiteAction.label}</span>
-        </Link>
+        {showApiContractsDownload ? (
+          <ApiContractsDownloadButton
+            className={
+              `${styles.navigationAction} ${primaryActionStyles.action}`
+            }
+            label={content.downloadApiContractsLabel}
+          />
+        ) : (
+          <Link
+            className={
+              `${styles.navigationAction} ${primaryActionStyles.action}`
+            }
+            href={content.addSiteAction.href}
+            aria-label={content.addSiteAction.label}
+            aria-current={
+              activeRouteId === content.addSiteAction.routeId
+                ? "page"
+                : undefined
+            }
+            onClick={rememberContentLocale}
+          >
+            <PlusIcon />
+            <span>{content.addSiteAction.label}</span>
+          </Link>
+        )}
 
         <button
           type="button"
@@ -137,15 +166,31 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
                 {item.label}
               </Link>
             ))}
-            <Link
-              href={content.addSiteAction.href}
-              className={`${styles.mobileLink} ${styles.mobileAddSiteLink}`}
-              aria-current={activeRouteId === content.addSiteAction.routeId ? "page" : undefined}
-              onClick={closeMobileMenu}
-            >
-              <PlusIcon />
-              <span>{content.addSiteAction.label}</span>
-            </Link>
+            {showApiContractsDownload ? (
+              <ApiContractsDownloadButton
+                className={
+                  `${styles.mobileLink} ${styles.mobileAction} ${
+                    styles.mobileDownloadAction
+                  }`
+                }
+                label={content.downloadApiContractsLabel}
+                onDownload={closeMobileMenu}
+              />
+            ) : (
+              <Link
+                href={content.addSiteAction.href}
+                className={`${styles.mobileLink} ${styles.mobileAction}`}
+                aria-current={
+                  activeRouteId === content.addSiteAction.routeId
+                    ? "page"
+                    : undefined
+                }
+                onClick={handleMobileAddSiteNavigation}
+              >
+                <PlusIcon />
+                <span>{content.addSiteAction.label}</span>
+              </Link>
+            )}
           </div>
         </dialog>
       </div>

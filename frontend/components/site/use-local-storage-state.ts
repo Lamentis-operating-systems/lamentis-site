@@ -1,0 +1,116 @@
+"use client";
+
+import {
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import {
+  readLocalStorageItem,
+  writeLocalStorageItem,
+  type LocalStorageItem,
+} from "@/domain/site/local-storage";
+
+type LocalStorageStateStore<T> = {
+  getServerSnapshot: () => T;
+  getSnapshot: () => T;
+  setValue: Dispatch<SetStateAction<T>>;
+  subscribe: (listener: () => void) => () => void;
+};
+
+const localStorageStateStores = new WeakMap<
+  LocalStorageItem<never>,
+  LocalStorageStateStore<never>
+>();
+
+function createLocalStorageStateStore<T>(
+  item: LocalStorageItem<T>,
+): LocalStorageStateStore<T> {
+  const serverSnapshot = item.createDefault();
+  const listeners = new Set<() => void>();
+  let initialized = false;
+  let snapshot = serverSnapshot;
+
+  function emitChange() {
+    for (const listener of listeners) listener();
+  }
+
+  function getSnapshot() {
+    if (!initialized) {
+      snapshot = readLocalStorageItem(item).value;
+      initialized = true;
+    }
+    return snapshot;
+  }
+
+  function synchronizeFromStorage(event: StorageEvent) {
+    if (event.key !== null && event.key !== item.key) return;
+    snapshot = readLocalStorageItem(item).value;
+    initialized = true;
+    emitChange();
+  }
+
+  return {
+    getServerSnapshot: () => serverSnapshot,
+    getSnapshot,
+    setValue(nextValue) {
+      const resolvedValue = typeof nextValue === "function"
+        ? (nextValue as (currentValue: T) => T)(getSnapshot())
+        : nextValue;
+
+      if (!item.isValid(resolvedValue)) return;
+
+      snapshot = resolvedValue;
+      initialized = true;
+      writeLocalStorageItem(item, resolvedValue);
+      emitChange();
+    },
+    subscribe(listener) {
+      const firstSubscriber = listeners.size === 0;
+      listeners.add(listener);
+
+      if (firstSubscriber) {
+        snapshot = readLocalStorageItem(item).value;
+        initialized = true;
+        window.addEventListener("storage", synchronizeFromStorage);
+      }
+
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          window.removeEventListener("storage", synchronizeFromStorage);
+        }
+      };
+    },
+  };
+}
+
+function localStorageStateStore<T>(
+  item: LocalStorageItem<T>,
+): LocalStorageStateStore<T> {
+  const itemKey = item as LocalStorageItem<never>;
+  const existingStore = localStorageStateStores.get(itemKey);
+  if (existingStore) {
+    return existingStore as unknown as LocalStorageStateStore<T>;
+  }
+
+  const store = createLocalStorageStateStore(item);
+  localStorageStateStores.set(
+    itemKey,
+    store as unknown as LocalStorageStateStore<never>,
+  );
+  return store;
+}
+
+export function useLocalStorageState<T>(
+  item: LocalStorageItem<T>,
+): [T, Dispatch<SetStateAction<T>>] {
+  const store = localStorageStateStore(item);
+  const value = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getServerSnapshot,
+  );
+
+  return [value, store.setValue];
+}

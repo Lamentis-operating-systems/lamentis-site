@@ -5,11 +5,10 @@ import {
   isSupportedLocale,
   supportedLocales,
 } from "@/domain/site/routes";
-import { siteMetadata } from "@/domain/site/seo";
+import { siteMetadataForLocale } from "@/domain/site/seo";
 import "@/styles/tokens.css";
 import "@/styles/base.css";
 
-export const metadata = siteMetadata;
 export const dynamicParams = false;
 
 export function generateStaticParams() {
@@ -20,6 +19,13 @@ type LocaleLayoutProps = Readonly<{
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }>;
+
+export async function generateMetadata({ params }: LocaleLayoutProps) {
+  const { locale } = await params;
+  if (!isSupportedLocale(locale)) notFound();
+
+  return siteMetadataForLocale(locale);
+}
 
 export default async function LocaleLayout({
   children,

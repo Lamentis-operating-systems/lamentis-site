@@ -5,7 +5,7 @@ import {
   type IconSetId,
   type SocialImageId,
 } from "./assets";
-import { getRouteCopy } from "./content";
+import { contentByLocale, getRouteCopy } from "./content";
 import {
   defaultLocale,
   localeCatalog,
@@ -15,6 +15,7 @@ import {
   siteRoutes,
   supportedLocales,
   type RouteRef,
+  type Locale,
   type SiteRouteId,
 } from "./routes";
 
@@ -56,20 +57,27 @@ function iconsForRoute(routeId: SiteRouteId): Metadata["icons"] {
   return metadataIconsForSet(siteRoutes[routeId].seo.iconSet);
 }
 
-export const siteMetadata: Metadata = {
-  metadataBase: new URL(siteConfig.origin),
-  title: {
-    default: siteConfig.brandName,
-    template: `%s | ${siteConfig.brandName}`,
-  },
-  applicationName: siteConfig.brandName,
-  description: "Lamentis is a platform for discovering and sharing sites.",
-  icons: metadataIconsForSet("site"),
-};
+export function siteMetadataForLocale(locale: Locale): Metadata {
+  return {
+    metadataBase: new URL(siteConfig.origin),
+    title: {
+      default: siteConfig.brandName,
+      template: `%s | ${siteConfig.brandName}`,
+    },
+    applicationName: siteConfig.brandName,
+    description: contentByLocale[locale].siteDescription,
+    icons: metadataIconsForSet("site"),
+  };
+}
 
-export function metadataForRoute(ref: RouteRef): Metadata {
+export const siteMetadata: Metadata = siteMetadataForLocale(defaultLocale);
+
+export function metadataForRoute(
+  ref: RouteRef,
+  contentLocale: Locale = defaultLocale,
+): Metadata {
   const route = siteRoutes[ref.routeId];
-  const locale = ref.scope === "localized" ? ref.locale : defaultLocale;
+  const locale = ref.scope === "localized" ? ref.locale : contentLocale;
   const copy = getRouteCopy(locale, ref.routeId);
   const canonical = routeUrl(ref);
   const languages = ref.scope === "localized"
@@ -112,6 +120,15 @@ export function metadataForRoute(ref: RouteRef): Metadata {
       index: route.seo.index,
       follow: true,
     },
+  };
+}
+
+export function metadataForNotFound(locale: Locale): Metadata {
+  const copy = contentByLocale[locale].notFound;
+
+  return {
+    title: copy.title,
+    description: copy.description,
   };
 }
 

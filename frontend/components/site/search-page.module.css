@@ -21,6 +21,14 @@
   overflow-wrap: anywhere;
 }
 
+.formArea {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  justify-items: center;
+  gap: var(--space-8);
+}
+
 .search {
   display: flex;
   width: min(100%, var(--layout-form-wide));
@@ -39,6 +47,10 @@
 .search:focus-within {
   background: var(--color-field-focus-background);
   color: var(--color-field-focus-foreground);
+}
+
+.searchWithMethod {
+  padding-inline: var(--space-1);
 }
 
 .search svg {
@@ -70,6 +82,76 @@
 
 .search:focus-within .input::placeholder {
   color: var(--color-field-focus-foreground);
+}
+
+.routeTable {
+  display: grid;
+  width: min(100%, var(--layout-form-wide));
+  gap: var(--space-2);
+}
+
+.routeItem {
+  display: grid;
+  min-width: 0;
+  min-height: var(--control-height);
+  grid-template-columns:
+    var(--control-http-method-width)
+    minmax(0, 1fr)
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-1);
+  padding-block: var(--space-1);
+}
+
+.routeList {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.routePath {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--text-body);
+  line-height: var(--line-body);
+  overflow-wrap: anywhere;
+}
+
+.routePrefix {
+  flex: 0 0 auto;
+}
+
+.routeSegments {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.routeSeparator {
+  flex: 0 0 auto;
+}
+
+.routeParameter {
+  color: var(--color-text-muted);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (forced-colors: active) {

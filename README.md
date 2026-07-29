@@ -1,6 +1,6 @@
 # Lamentis Site
 
-Lamentis ist eine statisch gerenderte Next.js-Plattform mit lokalisierten
+Lamentis ist eine überwiegend statisch gerenderte Next.js-Plattform mit lokalisierten
 englischen und deutschen Routen sowie einer kleinen globalen Aktionsfläche.
 Der Anwendungscode liegt im Verzeichnis `frontend`.
 

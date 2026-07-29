@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { EmptyPage } from "@/components/site/empty-page";
 import { getRouteCopy } from "@/domain/site/content";
-import { defaultLocale } from "@/domain/site/routes";
 import { metadataForRoute } from "@/domain/site/seo";
+import { resolveGlobalContentLocale } from "../_lib/request-locale";
 
-export function generateMetadata(): Metadata {
-  return metadataForRoute({ scope: "global", routeId: "addSite" });
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await resolveGlobalContentLocale();
+  return metadataForRoute({ scope: "global", routeId: "addSite" }, locale);
 }
 
-export default function AddSitePage() {
-  return <EmptyPage label={getRouteCopy(defaultLocale, "addSite").title} />;
+export default async function AddSitePage() {
+  const locale = await resolveGlobalContentLocale();
+  return <EmptyPage label={getRouteCopy(locale, "addSite").title} />;
 }

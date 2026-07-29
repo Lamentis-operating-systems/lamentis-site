@@ -33,6 +33,13 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+button {
+  transform-origin: center;
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
 button,
 input,
 textarea,
@@ -44,6 +51,10 @@ a:focus-visible,
 button:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
+}
+
+button:hover:not(:disabled) {
+  transform: var(--transform-button-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {
