@@ -29,6 +29,15 @@ const validRoute: ApiRouteContract = {
 describe("API-route persistence schema", () => {
   it("accepts minimal valid routes and a valid response schema", () => {
     expect(isApiRouteContractList([validRoute])).toBe(true);
+    expect(isApiRouteContractList([{
+      ...validRoute,
+      response: {
+        fields: [
+          { name: "profile", optional: false, type: "object" },
+        ],
+        typeName: "LegacyResponse",
+      },
+    }])).toBe(true);
     expect(apiRoutesStorage.key).toBe("lamentis:api-creator-routes:v1");
   });
 

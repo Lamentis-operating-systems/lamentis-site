@@ -129,6 +129,16 @@ describe("API-contract agent skill", () => {
             {
               arrayItemType: "object",
               name: "items",
+              objectSchema: {
+                fields: [
+                  {
+                    name: "id",
+                    optional: false,
+                    type: "string",
+                  },
+                ],
+                typeName: "ArrayItem",
+              },
               optional: false,
               type: "array",
             },
@@ -147,11 +157,40 @@ describe("API-contract agent skill", () => {
       },
     ]);
 
-    expect(skill).toContain(
-      "items: ({ [key: string]: unknown })[];",
-    );
+    expect(skill).toContain("items: ArrayItem[];");
+    expect(skill).toContain("export interface ArrayItem {");
     expect(skill).toContain(
       "export type Record = { [key: string]: never };",
+    );
+    expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
+  });
+
+  it("preserves legacy opaque object contracts without inventing fields", () => {
+    const skill = generateApiContractsAgentSkill([
+      {
+        id: 0,
+        method: "GET",
+        path: "/legacy",
+        response: {
+          fields: [
+            { name: "profile", optional: false, type: "object" },
+            {
+              arrayItemType: "object",
+              name: "items",
+              optional: false,
+              type: "array",
+            },
+          ],
+          typeName: "LegacyResponse",
+        },
+      },
+    ]);
+
+    expect(skill).toContain(
+      "profile: { [key: string]: unknown };",
+    );
+    expect(skill).toContain(
+      "items: ({ [key: string]: unknown })[];",
     );
     expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
   });

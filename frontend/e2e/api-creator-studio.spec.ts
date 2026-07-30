@@ -58,7 +58,9 @@ test("adds and persists a route while restoring focus after Escape", {
     name: "Add a data structure to this route",
   });
   await expect(responseDialog).toBeVisible();
-  await expect(responseDialog).toBeFocused();
+  await expect(responseDialog.getByRole("textbox", {
+    name: "Response type",
+  })).toBeFocused();
   await expect(responseDialog.getByText(
     "Create a response type or use an existing one as an editable template.",
   )).toBeVisible();
@@ -141,37 +143,22 @@ test("adds and persists a route while restoring focus after Escape", {
   })).toContainText("string");
 
   const overlayRoute = responseDialog.getByRole("group", {
-    name: "Route: GET /orders/{orderid}",
+    name: "API endpoint path",
   });
   const overlayMethod = overlayRoute.getByRole("button", {
-    name: "HTTP method /orders/{orderid}",
+    name: "HTTP method",
   });
+  await expect(overlayRoute.getByRole("textbox", {
+    name: "API endpoint path",
+  })).toHaveValue("orders / {orderid}");
   await overlayMethod.click();
   await responseDialog.getByRole("list", {
-    name: "HTTP method /orders/{orderid}",
+    name: "HTTP method",
   }).getByRole("button", { name: "PATCH" }).click();
-  await expect(responseDialog.getByRole("group", {
-    name: "Route: PATCH /orders/{orderid}",
-  })).toBeVisible();
-
-  const overlayActions = responseDialog.getByRole("button", {
+  await expect(overlayMethod).toContainText("PATCH");
+  await expect(responseDialog.getByRole("button", {
     name: "Route actions /orders/{orderid}",
-  });
-  await overlayActions.click();
-  const overlayActionsMenu = responseDialog.getByRole("list", {
-    name: "Route actions /orders/{orderid}",
-  });
-  await expect(overlayActionsMenu.getByRole("button", {
-    name: "Edit /orders/{orderid}",
-  })).toBeVisible();
-  await expect(overlayActionsMenu.getByRole("button", {
-    name: "Copy /orders/{orderid}",
-  })).toBeVisible();
-  await expect(overlayActionsMenu.getByRole("button", {
-    name: "Delete /orders/{orderid}",
-  })).toBeVisible();
-  await overlayActions.click();
-  await expect(overlayActions).toHaveAttribute("aria-expanded", "false");
+  })).toHaveCount(0);
 
   await page.keyboard.press("Escape");
   await expect(responseDialog).not.toBeVisible();
@@ -365,6 +352,143 @@ test("prevents incompatible response-type reuse before persistence", async ({
       apiRoutesStorage.key,
     ),
   ).toEqual(["UserResponse", "AccountResponse"]);
+});
+
+test("requires a named object schema and can prefill an existing model", async ({
+  page,
+}) => {
+  await seedRoutes(page, [
+    {
+      id: 7,
+      method: "GET",
+      path: "/addresses/{id}",
+      response: {
+        fields: [
+          { name: "city", optional: false, type: "string" },
+        ],
+        typeName: "AddressResponse",
+      },
+    },
+  ]);
+  await page.goto(studioPath);
+
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  await routeInput.fill("users/{id}");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  const save = dialog.getByRole("button", { name: "Save" });
+  await dialog.getByRole("textbox", {
+    name: "Response type",
+  }).fill("UserResponse");
+  const addPropertyButton = dialog.getByRole("button", {
+    name: "Add property",
+  });
+  await expect(addPropertyButton).toHaveText("");
+  await expect(addPropertyButton.locator("svg")).toHaveCount(1);
+  await addPropertyButton.click();
+  await dialog.getByRole("textbox", {
+    name: "Property name",
+  }).fill("profile");
+  await dialog.getByRole("button", {
+    name: "Property type",
+  }).click();
+  await dialog.getByRole("list", {
+    name: "Property type",
+  }).getByRole("button", { name: "object" }).click();
+
+  const objectType = dialog.getByRole("textbox", {
+    name: "Object type",
+  });
+  const objectTemplate = dialog.getByRole("button", {
+    name: "Object type template",
+  });
+  const objectToggle = dialog.getByRole("button", {
+    name: "Object definition: profile",
+  });
+  const objectPanelId = await objectToggle.getAttribute("aria-controls");
+  const objectPanel = dialog.locator(`[id="${objectPanelId}"]`);
+  await expect(objectToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(objectType).toHaveAttribute(
+    "placeholder",
+    "Name the object type",
+  );
+  await expect(objectType).toBeFocused();
+  await expect(objectTemplate).toContainText("New");
+  await expect(save).toBeDisabled();
+
+  await objectTemplate.click();
+  await dialog.getByRole("list", {
+    name: "Object type template",
+  }).getByRole("button", { name: "AddressResponse" }).click();
+  await expect(objectType).toHaveValue("AddressResponse");
+  await expect(objectPanel.getByRole("textbox", {
+    name: "Property name",
+  })).toHaveValue("city");
+  await expect(save).toBeEnabled();
+
+  await objectPanel.getByRole("textbox", {
+    name: "Property name",
+  }).fill("displayName");
+  await expect(save).toBeDisabled();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "This response type already uses a different schema.",
+  );
+
+  await objectType.fill("Profile");
+  await expect(save).toBeEnabled();
+  await objectToggle.click();
+  await expect(objectToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(dialog.getByRole("textbox", {
+    name: "Response type",
+  })).toHaveValue("UserResponse");
+  await save.click();
+  await expect(dialog).not.toBeVisible();
+
+  await expect.poll(
+    () => page.evaluate(
+      (key) => {
+        const routes = JSON.parse(
+          window.localStorage.getItem(key) ?? "[]",
+        ) as ApiRouteContract[];
+        return routes.find(
+          (route) => route.path === "/users/{id}",
+        )?.response;
+      },
+      apiRoutesStorage.key,
+    ),
+  ).toEqual({
+    fields: [
+      {
+        name: "profile",
+        objectSchema: {
+          fields: [
+            {
+              name: "displayName",
+              optional: false,
+              type: "string",
+            },
+          ],
+          typeName: "Profile",
+        },
+        optional: false,
+        type: "object",
+      },
+    ],
+    typeName: "UserResponse",
+  });
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download" }).click();
+  const skill = await readDownload(await downloadPromise);
+  expect(skill).toContain("profile: Profile;");
+  expect(skill).toContain("export interface Profile {");
+  expect(skill).toContain("displayName: string;");
+  expect(skill).not.toContain("{ [key: string]: unknown }");
 });
 
 test("downloads the persisted contracts with the stable file contract", {

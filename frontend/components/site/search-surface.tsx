@@ -4,11 +4,12 @@ import layoutStyles from "./layout/site-layout.module.css";
 import styles from "./search-page.module.css";
 
 type SearchSurfaceProps = {
-  children: ReactNode;
+  children?: ReactNode;
   contentAfter?: ReactNode;
   heading: string;
   label: string;
   role: "group" | "search";
+  surface?: ReactNode;
   withMethod?: boolean;
 };
 
@@ -18,6 +19,7 @@ export function SearchSurface({
   heading,
   label,
   role,
+  surface,
   withMethod = false,
 }: SearchSurfaceProps) {
   return (
@@ -25,14 +27,20 @@ export function SearchSurface({
       <div className={styles.content}>
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.formArea}>
-          <InputSurface
-            className={styles.searchSurface}
-            role={role}
-            aria-label={label}
-            withLeadingControl={withMethod}
-          >
-            {children}
-          </InputSurface>
+          {surface ? (
+            <div className={styles.searchSurface}>
+              {surface}
+            </div>
+          ) : (
+            <InputSurface
+              className={styles.searchSurface}
+              role={role}
+              aria-label={label}
+              withLeadingControl={withMethod}
+            >
+              {children}
+            </InputSurface>
+          )}
           {contentAfter}
         </div>
       </div>

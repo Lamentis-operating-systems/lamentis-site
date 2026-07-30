@@ -12,6 +12,7 @@ import {
   apiResponseArrayItemTypes,
   apiResponseFieldTypes,
   areApiResponseSchemasEquivalent,
+  collectApiResponseSchemas,
   hasIncompatibleApiResponseSchema,
   isValidTypeScriptTypeName,
   isValidApiResponseSchema,
@@ -25,16 +26,15 @@ import type {
   HttpMethod,
 } from "@/domain/site/api-route";
 import type { ResponseSchemaEditorContent } from "@/domain/site/content";
-import {
-  ApiRouteRow,
-  type ApiRouteRowContent,
-} from "./api-route-row";
-import { CheckboxWithLabel } from "./form/checkbox-with-label";
+import { ApiRouteInputBar } from "./api-route-input-bar";
+import type { BracedPathValidationReason } from "./braced-path-input";
 import { TextInput } from "./form/text-input";
 import { IconButton } from "./icon-button";
 import { CloseIcon } from "./icons/close-icon";
+import { OptionalIcon } from "./icons/optional-icon";
 import { PlusIcon } from "./icons/plus-icon";
 import { SelectMenu, type SelectMenuOption } from "./select-menu";
+import { ToggleList, ToggleListItem } from "./toggle-list";
 import { VisuallyHidden } from "./visually-hidden";
 import styles from "./response-schema-editor.module.css";
 
@@ -43,54 +43,364 @@ type ResponseSchemaEditorProps = {
   disabledRouteMethods?: readonly HttpMethod[];
   existingResponseSchemas: readonly ApiResponseSchema[];
   formId: string;
-  onCopyRoute: () => void;
-  onDeleteRoute: () => void;
-  onEditRoute: () => void;
+  getRouteValidationReason: (
+    method: HttpMethod,
+    path: string,
+  ) => BracedPathValidationReason | null;
+  initialSchema?: ApiResponseSchema;
   onRouteMethodChange: (method: HttpMethod) => void;
-  onSave: (schema: ApiResponseSchema) => boolean;
+  onSave: (
+    schema: ApiResponseSchema,
+    route: Pick<ApiRouteContract, "method" | "path">,
+  ) => boolean;
   route: ApiRouteContract;
-  routeContent: ApiRouteRowContent;
+  routeInputContent: {
+    duplicatePathError: string;
+    invalidPathError: string;
+    label: string;
+    methodSelectorLabel: string;
+    pathPrefixHint: string;
+    placeholder: string;
+  };
 };
 
 type DraftField = {
   arrayItemType: ApiResponseArrayItemType;
   id: number;
   name: string;
+  objectSchema?: DraftObjectSchema;
   optional: boolean;
   type: ApiResponseFieldType;
 };
+
+type DraftObjectSchema = {
+  fields: DraftField[];
+  selectedTemplateTypeName: string;
+  typeName: string;
+};
+
+function countSchemaFields(
+  schemaFields: Readonly<ApiResponseSchema["fields"]>,
+): number {
+  return schemaFields.reduce((count, field) => (
+    count
+    + 1
+    + (
+      field.objectSchema
+        ? countSchemaFields(field.objectSchema.fields)
+        : 0
+    )
+  ), 0);
+}
+
+function createInitialDraftFields(
+  schemaFields: Readonly<ApiResponseSchema["fields"]>,
+) {
+  let nextId = 0;
+
+  function createFields(
+    currentFields: Readonly<ApiResponseSchema["fields"]>,
+  ): DraftField[] {
+    return currentFields.map((field) => {
+      const id = nextId;
+      nextId += 1;
+
+      return {
+        arrayItemType: field.type === "array"
+          ? (field.arrayItemType ?? "string")
+          : "string",
+        id,
+        name: field.name,
+        ...(field.objectSchema
+          ? {
+              objectSchema: {
+                fields: createFields(field.objectSchema.fields),
+                selectedTemplateTypeName: field.objectSchema.typeName,
+                typeName: field.objectSchema.typeName,
+              },
+            }
+          : {}),
+        optional: field.optional,
+        type: field.type,
+      };
+    });
+  }
+
+  return createFields(schemaFields);
+}
+
+function requiresObjectSchema(field: Pick<
+  DraftField,
+  "arrayItemType" | "type"
+>): boolean {
+  return (
+    field.type === "object"
+    || (
+      field.type === "array"
+      && field.arrayItemType === "object"
+    )
+  );
+}
+
+function draftSchemaToApiResponseSchema(
+  typeName: string,
+  fields: readonly DraftField[],
+  objectPath: readonly string[] = [],
+): ApiResponseSchema {
+  return {
+    fields: fields.map((field) => ({
+      ...(field.type === "array"
+        ? { arrayItemType: field.arrayItemType }
+        : {}),
+      name: field.name.trim(),
+      ...(requiresObjectSchema(field) && field.objectSchema
+        ? {
+            objectSchema: draftSchemaToApiResponseSchema(
+              field.objectSchema.selectedTemplateTypeName
+                || deriveObjectTypeName(
+                  typeName,
+                  [...objectPath, field.name.trim()],
+                ),
+              field.objectSchema.fields,
+              [...objectPath, field.name.trim()],
+            ),
+          }
+        : {}),
+      optional: field.optional,
+      type: field.type,
+    })),
+    typeName: typeName.trim(),
+  };
+}
+
+function deriveObjectTypeName(
+  responseTypeName: string,
+  objectPath: readonly string[],
+): string {
+  const responsePrefix = isValidTypeScriptTypeName(responseTypeName)
+    ? responseTypeName
+    : "Response";
+  const pathSuffix = objectPath
+    .flatMap((segment) => segment.split(/[^A-Za-z0-9]+/))
+    .filter(Boolean)
+    .map((segment) => (
+      `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`
+    ))
+    .join("");
+
+  return `${responsePrefix}${pathSuffix || "Object"}`;
+}
+
+function updateFieldsAtSchemaPath(
+  fields: readonly DraftField[],
+  schemaPath: readonly number[],
+  update: (fields: readonly DraftField[]) => DraftField[],
+): DraftField[] {
+  const [objectFieldId, ...nestedPath] = schemaPath;
+  if (objectFieldId === undefined) return update(fields);
+
+  return fields.map((field) => {
+    if (field.id !== objectFieldId || !field.objectSchema) return field;
+
+    return {
+      ...field,
+      objectSchema: {
+        ...field.objectSchema,
+        fields: updateFieldsAtSchemaPath(
+          field.objectSchema.fields,
+          nestedPath,
+          update,
+        ),
+      },
+    };
+  });
+}
+
+function flattenDraftFields(fields: readonly DraftField[]): DraftField[] {
+  return fields.flatMap((field) => [
+    field,
+    ...(field.objectSchema
+      ? flattenDraftFields(field.objectSchema.fields)
+      : []),
+  ]);
+}
+
+function duplicateDraftFieldIds(fields: readonly DraftField[]): Set<number> {
+  const duplicates = new Set<number>();
+
+  function collect(schemaFields: readonly DraftField[]) {
+    const fieldsByName = new Map<string, DraftField[]>();
+
+    for (const field of schemaFields) {
+      const name = field.name.trim();
+      if (name) {
+        const matches = fieldsByName.get(name) ?? [];
+        matches.push(field);
+        fieldsByName.set(name, matches);
+      }
+      if (field.objectSchema) collect(field.objectSchema.fields);
+    }
+
+    for (const matches of fieldsByName.values()) {
+      if (matches.length > 1) {
+        for (const field of matches) duplicates.add(field.id);
+      }
+    }
+  }
+
+  collect(fields);
+  return duplicates;
+}
+
+function hasDraftSchemaTypeNameConflict(
+  typeName: string,
+  fields: readonly DraftField[],
+  existingSchemas: readonly ApiResponseSchema[],
+): boolean {
+  const schema = draftSchemaToApiResponseSchema(typeName, fields);
+  return (
+    isValidApiResponseSchema(schema)
+    && existingSchemas.some((existingSchema) => (
+      existingSchema.typeName === schema.typeName
+      && !areApiResponseSchemasEquivalent(existingSchema, schema)
+    ))
+  );
+}
+
+function detachSelectedObjectTemplatesAtPath(
+  fields: DraftField[],
+  schemaPath: readonly number[],
+): { detachedFieldId: number | null; fields: DraftField[] } {
+  const [objectFieldId, ...nestedPath] = schemaPath;
+  if (objectFieldId === undefined) {
+    return { detachedFieldId: null, fields };
+  }
+
+  let detachedFieldId: number | null = null;
+  const nextFields = fields.map((field) => {
+    if (field.id !== objectFieldId || !field.objectSchema) return field;
+
+    const nestedResult = detachSelectedObjectTemplatesAtPath(
+      field.objectSchema.fields,
+      nestedPath,
+    );
+    const shouldDetach = (
+      field.objectSchema.selectedTemplateTypeName.length > 0
+    );
+    if (!shouldDetach && nestedResult.fields === field.objectSchema.fields) {
+      return field;
+    }
+    if (shouldDetach) detachedFieldId = field.id;
+    detachedFieldId ??= nestedResult.detachedFieldId;
+
+    return {
+      ...field,
+      objectSchema: {
+        ...field.objectSchema,
+        fields: nestedResult.fields,
+        ...(shouldDetach
+          ? { selectedTemplateTypeName: "", typeName: "" }
+          : {}),
+      },
+    };
+  });
+
+  return { detachedFieldId, fields: nextFields };
+}
+
+function clearConflictingObjectTypeNames(
+  fields: DraftField[],
+  existingSchemas: readonly ApiResponseSchema[],
+): { clearedFieldId: number | null; fields: DraftField[] } {
+  let clearedFieldId: number | null = null;
+  let changed = false;
+  const nextFields = fields.map((field) => {
+    if (!field.objectSchema) return field;
+
+    const nestedResult = clearConflictingObjectTypeNames(
+      field.objectSchema.fields,
+      existingSchemas,
+    );
+    const objectSchema = nestedResult.fields === field.objectSchema.fields
+      ? field.objectSchema
+      : {
+          ...field.objectSchema,
+          fields: nestedResult.fields,
+        };
+    const hasConflict = hasDraftSchemaTypeNameConflict(
+      objectSchema.typeName,
+      objectSchema.fields,
+      existingSchemas,
+    );
+    clearedFieldId ??= nestedResult.clearedFieldId;
+    if (hasConflict) clearedFieldId ??= field.id;
+    if (!hasConflict && objectSchema === field.objectSchema) return field;
+
+    changed = true;
+    return {
+      ...field,
+      objectSchema: hasConflict
+        ? {
+            ...objectSchema,
+            selectedTemplateTypeName: "",
+            typeName: "",
+          }
+        : objectSchema,
+    };
+  });
+
+  return {
+    clearedFieldId,
+    fields: changed ? nextFields : fields,
+  };
+}
 
 export function ResponseSchemaEditor({
   content,
   disabledRouteMethods = [],
   existingResponseSchemas,
   formId,
-  onCopyRoute,
-  onDeleteRoute,
-  onEditRoute,
+  getRouteValidationReason,
+  initialSchema,
   onRouteMethodChange,
   onSave,
   route,
-  routeContent,
+  routeInputContent,
 }: ResponseSchemaEditorProps) {
-  const [typeName, setTypeName] = useState("");
-  const [fields, setFields] = useState<DraftField[]>([]);
+  const nextFieldIdRef = useRef(
+    countSchemaFields(initialSchema?.fields ?? []),
+  );
+  const [typeName, setTypeName] = useState(
+    initialSchema?.typeName ?? "",
+  );
+  const [fields, setFields] = useState<DraftField[]>(() => (
+    createInitialDraftFields(initialSchema?.fields ?? [])
+  ));
   const [selectedTemplateTypeName, setSelectedTemplateTypeName] =
     useState("");
+  const [expandedObjectIds, setExpandedObjectIds] =
+    useState<Set<number>>(() => new Set());
   const [routeMethod, setRouteMethod] = useState(route.method);
+  const [routePath, setRoutePath] = useState(route.path);
   const [error, setError] = useState("");
-  const [saveRejectedForConflict, setSaveRejectedForConflict] =
-    useState(false);
   const responseTypeHeadingId = useId();
   const responseTypeDescriptionId = useId();
   const propertiesHeadingId = useId();
   const validationErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
-  const nextFieldIdRef = useRef(0);
+  const responseTypeInputRef = useRef<HTMLInputElement>(null);
+  const objectTypeInputRefs = useRef(
+    new Map<number, HTMLInputElement>(),
+  );
+  const pendingObjectFocusIdRef = useRef<number | null>(null);
+  const allExistingResponseSchemas = useMemo(
+    () => existingResponseSchemas.flatMap(collectApiResponseSchemas),
+    [existingResponseSchemas],
+  );
   const reusableResponseSchemas = useMemo(() => {
     const schemasByTypeName = new Map<string, ApiResponseSchema[]>();
 
-    for (const schema of existingResponseSchemas) {
+    for (const schema of allExistingResponseSchemas) {
       const schemas = schemasByTypeName.get(schema.typeName) ?? [];
       schemas.push(schema);
       schemasByTypeName.set(schema.typeName, schemas);
@@ -116,70 +426,73 @@ export function ResponseSchemaEditor({
             ? 1
             : 0
       ));
-  }, [existingResponseSchemas]);
+  }, [allExistingResponseSchemas]);
   const normalizedTypeName = typeName.trim();
-  const draftSchema = useMemo<ApiResponseSchema>(() => ({
-    fields: fields.map((field) => ({
-      ...(field.type === "array"
-        ? { arrayItemType: field.arrayItemType }
-        : {}),
-      name: field.name.trim(),
-      optional: field.optional,
-      type: field.type,
-    })),
-    typeName: normalizedTypeName,
-  }), [fields, normalizedTypeName]);
+  const draftSchema = useMemo<ApiResponseSchema>(
+    () => draftSchemaToApiResponseSchema(normalizedTypeName, fields),
+    [fields, normalizedTypeName],
+  );
+  const isDraftSchemaValid = isValidApiResponseSchema(draftSchema);
+  const allDraftFields = useMemo(
+    () => flattenDraftFields(fields),
+    [fields],
+  );
   const hasInvalidTypeName = (
     normalizedTypeName.length > 0
     && !isValidTypeScriptTypeName(normalizedTypeName)
   );
   const invalidPropertyNameIds = useMemo(() => new Set(
-    fields.flatMap((field) => {
+    allDraftFields.flatMap((field) => {
       const name = field.name.trim();
       return (
         name.length > 0
         && !typeScriptIdentifierPattern.test(name)
       ) ? [field.id] : [];
     }),
-  ), [fields]);
-  const duplicatePropertyNames = useMemo(() => {
-    const propertyNameCounts = new Map<string, number>();
-
-    for (const field of fields) {
-      const name = field.name.trim();
-      if (name) {
-        propertyNameCounts.set(
-          name,
-          (propertyNameCounts.get(name) ?? 0) + 1,
-        );
-      }
-    }
-
-    return new Set(
-      [...propertyNameCounts]
-        .filter(([, count]) => count > 1)
-        .map(([name]) => name),
-    );
-  }, [fields]);
+  ), [allDraftFields]);
+  const invalidObjectTypeFieldIds = useMemo(() => new Set(
+    allDraftFields.flatMap((field) => {
+      const objectTypeName = field.objectSchema?.typeName.trim() ?? "";
+      return (
+        requiresObjectSchema(field)
+        && objectTypeName.length > 0
+        && !isValidTypeScriptTypeName(objectTypeName)
+      ) ? [field.id] : [];
+    }),
+  ), [allDraftFields]);
+  const duplicatePropertyNameIds = useMemo(
+    () => duplicateDraftFieldIds(fields),
+    [fields],
+  );
   const hasResponseTypeConflict = (
-    saveRejectedForConflict
-    || (
-      isValidApiResponseSchema(draftSchema)
-      && hasIncompatibleApiResponseSchema(
-        existingResponseSchemas,
-        draftSchema,
-      )
+    isDraftSchemaValid
+    && hasIncompatibleApiResponseSchema(
+      existingResponseSchemas,
+      draftSchema,
     )
   );
-  const visibleValidationError = duplicatePropertyNames.size > 0
+  const visibleValidationError = duplicatePropertyNameIds.size > 0
     ? content.duplicatePropertyError
     : (
-        hasInvalidTypeName || invalidPropertyNameIds.size > 0
+        (
+          hasInvalidTypeName
+          || invalidPropertyNameIds.size > 0
+          || invalidObjectTypeFieldIds.size > 0
+        )
           ? content.identifierHint
-          : hasResponseTypeConflict
-            ? content.responseTypeConflictError
-            : error
-      );
+          : error
+  );
+
+  useLayoutEffect(() => {
+    const fieldId = pendingObjectFocusIdRef.current;
+    if (fieldId === null) return;
+
+    const objectTypeInput = objectTypeInputRefs.current.get(fieldId);
+    if (!objectTypeInput) return;
+
+    objectTypeInput.focus();
+    pendingObjectFocusIdRef.current = null;
+  }, [expandedObjectIds, fields]);
 
   useLayoutEffect(() => {
     const form = formRef.current;
@@ -192,43 +505,57 @@ export function ResponseSchemaEditor({
           ? content.identifierHint
           : hasResponseTypeConflict
             ? content.responseTypeConflictError
+            : !isDraftSchemaValid
+              ? content.incompleteSchemaError
             : "",
       );
     }
 
-    for (const field of fields) {
+    for (const field of allDraftFields) {
       const input = form.elements.namedItem(`property-${field.id}-name`);
       if (input instanceof HTMLInputElement) {
-        const normalizedPropertyName = field.name.trim();
         input.setCustomValidity(
-          duplicatePropertyNames.has(normalizedPropertyName)
+          duplicatePropertyNameIds.has(field.id)
             ? content.duplicatePropertyError
             : invalidPropertyNameIds.has(field.id)
               ? content.identifierHint
               : "",
         );
       }
+
+      const objectTypeInput = form.elements.namedItem(
+        `object-${field.id}-type`,
+      );
+      if (objectTypeInput instanceof HTMLInputElement) {
+        objectTypeInput.setCustomValidity(
+          invalidObjectTypeFieldIds.has(field.id)
+            ? content.identifierHint
+            : "",
+        );
+      }
     }
   }, [
+    allDraftFields,
     content.duplicatePropertyError,
     content.identifierHint,
+    content.incompleteSchemaError,
     content.responseTypeConflictError,
-    duplicatePropertyNames,
-    fields,
+    duplicatePropertyNameIds,
     hasInvalidTypeName,
     hasResponseTypeConflict,
+    isDraftSchemaValid,
+    invalidObjectTypeFieldIds,
     invalidPropertyNameIds,
   ]);
 
   function clearValidationError() {
     setError("");
-    setSaveRejectedForConflict(false);
   }
 
-  function prefillResponseType(schema?: ApiResponseSchema) {
-    setSelectedTemplateTypeName(schema?.typeName ?? "");
-    setTypeName(schema?.typeName ?? "");
-    setFields((schema?.fields ?? []).map((field) => {
+  function createDraftFields(
+    schemaFields: Readonly<ApiResponseSchema["fields"]>,
+  ): DraftField[] {
+    return schemaFields.map((field) => {
       const id = nextFieldIdRef.current;
       nextFieldIdRef.current += 1;
 
@@ -238,53 +565,162 @@ export function ResponseSchemaEditor({
           : "string",
         id,
         name: field.name,
+        ...(field.objectSchema
+          ? {
+              objectSchema: {
+                fields: createDraftFields(field.objectSchema.fields),
+                selectedTemplateTypeName: field.objectSchema.typeName,
+                typeName: field.objectSchema.typeName,
+              },
+            }
+          : {}),
         optional: field.optional,
         type: field.type,
       };
-    }));
+    });
+  }
+
+  function createDraftObjectSchema(
+    schema?: ApiResponseSchema,
+  ): DraftObjectSchema {
+    return {
+      fields: createDraftFields(schema?.fields ?? []),
+      selectedTemplateTypeName: schema?.typeName ?? "",
+      typeName: schema?.typeName ?? "",
+    };
+  }
+
+  function prefillResponseType(schema?: ApiResponseSchema) {
+    setExpandedObjectIds(new Set());
+    setSelectedTemplateTypeName(schema?.typeName ?? "");
+    setTypeName(schema?.typeName ?? "");
+    setFields(createDraftFields(schema?.fields ?? []));
     clearValidationError();
   }
 
-  function addProperty() {
+  function commitFields(
+    nextFields: DraftField[],
+    editedSchemaPath: readonly number[],
+  ) {
+    const detachedResult = detachSelectedObjectTemplatesAtPath(
+      nextFields,
+      editedSchemaPath,
+    );
+    const conflictResult = clearConflictingObjectTypeNames(
+      detachedResult.fields,
+      allExistingResponseSchemas,
+    );
+    const mustRenameResponseType = (
+      selectedTemplateTypeName.length > 0
+      || hasDraftSchemaTypeNameConflict(
+        typeName,
+        conflictResult.fields,
+        allExistingResponseSchemas,
+      )
+    );
+
+    setFields(conflictResult.fields);
+    setError("");
+    if (mustRenameResponseType) {
+      setSelectedTemplateTypeName("");
+      setTypeName("");
+      responseTypeInputRef.current?.focus();
+      return;
+    }
+
+    const objectFieldId = (
+      detachedResult.detachedFieldId
+      ?? conflictResult.clearedFieldId
+    );
+    if (objectFieldId !== null) {
+      pendingObjectFocusIdRef.current = objectFieldId;
+    }
+  }
+
+  function addProperty(schemaPath: readonly number[] = []) {
     const id = nextFieldIdRef.current;
     nextFieldIdRef.current += 1;
-    setFields((currentFields) => [
-      ...currentFields,
-      {
-        arrayItemType: "string",
-        id,
-        name: "",
-        optional: false,
-        type: "string",
-      },
-    ]);
-    clearValidationError();
+    commitFields(
+      updateFieldsAtSchemaPath(
+        fields,
+        schemaPath,
+        (schemaFields) => [
+          ...schemaFields,
+          {
+            arrayItemType: "string",
+            id,
+            name: "",
+            optional: false,
+            type: "string",
+          },
+        ],
+      ),
+      schemaPath,
+    );
   }
 
-  function updateProperty(id: number, patch: Partial<DraftField>) {
-    setFields((currentFields) => currentFields.map((field) => (
-      field.id === id ? { ...field, ...patch } : field
-    )));
-    clearValidationError();
+  function updateProperty(
+    schemaPath: readonly number[],
+    id: number,
+    patch: Partial<DraftField>,
+  ) {
+    commitFields(
+      updateFieldsAtSchemaPath(
+        fields,
+        schemaPath,
+        (schemaFields) => schemaFields.map((field) => (
+          field.id === id ? { ...field, ...patch } : field
+        )),
+      ),
+      schemaPath,
+    );
   }
 
-  function removeProperty(id: number) {
-    setFields((currentFields) => (
-      currentFields.filter((field) => field.id !== id)
-    ));
-    clearValidationError();
+  function updateObjectSchema(
+    schemaPath: readonly number[],
+    fieldId: number,
+    update: (schema: DraftObjectSchema) => DraftObjectSchema,
+  ) {
+    commitFields(
+      updateFieldsAtSchemaPath(
+        fields,
+        schemaPath,
+        (schemaFields) => schemaFields.map((field) => (
+          field.id === fieldId && field.objectSchema
+            ? { ...field, objectSchema: update(field.objectSchema) }
+            : field
+        )),
+      ),
+      schemaPath,
+    );
+  }
+
+  function removeProperty(
+    schemaPath: readonly number[],
+    id: number,
+  ) {
+    commitFields(
+      updateFieldsAtSchemaPath(
+        fields,
+        schemaPath,
+        (schemaFields) => (
+          schemaFields.filter((field) => field.id !== id)
+        ),
+      ),
+      schemaPath,
+    );
   }
 
   function submitResponse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (duplicatePropertyNames.size > 0) {
+    if (duplicatePropertyNameIds.size > 0) {
       setError(content.duplicatePropertyError);
       return;
     }
 
-    if (!isValidApiResponseSchema(draftSchema)) {
-      setError(content.identifierHint);
+    if (!isDraftSchemaValid) {
+      setError(content.incompleteSchemaError);
       return;
     }
 
@@ -293,137 +729,79 @@ export function ResponseSchemaEditor({
         existingResponseSchemas,
         draftSchema,
       )
-      || !onSave(draftSchema)
     ) {
-      setSaveRejectedForConflict(true);
+      setSelectedTemplateTypeName("");
+      setTypeName("");
+      setError("");
+      responseTypeInputRef.current?.focus();
+      return;
+    }
+
+    if (!onSave(draftSchema, {
+      method: routeMethod,
+      path: routePath,
+    })) {
+      setSelectedTemplateTypeName("");
+      setTypeName("");
+      setError("");
+      responseTypeInputRef.current?.focus();
     }
   }
 
-  return (
-    <form
-      ref={formRef}
-      id={formId}
-      className={styles.form}
-      onSubmit={submitResponse}
-    >
-      <ApiRouteRow
-        className={styles.overlayRouteRow}
-        content={routeContent}
-        disabledMethods={disabledRouteMethods}
-        onCopy={onCopyRoute}
-        onDelete={onDeleteRoute}
-        onEdit={onEditRoute}
-        onMethodChange={(nextMethod) => {
-          setRouteMethod(nextMethod);
-          onRouteMethodChange(nextMethod);
-        }}
-        route={{ ...route, method: routeMethod }}
-      />
+  function setObjectExpanded(
+    fieldId: number,
+    expanded: boolean,
+    focusObjectType = false,
+  ) {
+    if (expanded && focusObjectType) {
+      pendingObjectFocusIdRef.current = fieldId;
+    }
+    setExpandedObjectIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (expanded) {
+        nextIds.add(fieldId);
+      } else {
+        nextIds.delete(fieldId);
+      }
+      return nextIds;
+    });
+  }
 
-      <section
-        className={styles.section}
-        aria-labelledby={responseTypeHeadingId}
+  function renderPropertyFields(
+    schemaFields: readonly DraftField[],
+    schemaPath: readonly number[],
+  ) {
+    return (
+      <ToggleList
+        aria-label={content.propertiesLabel}
+        className={styles.propertyList}
       >
-        <div className={styles.sectionHeader}>
-          <h3 id={responseTypeHeadingId} className={styles.sectionTitle}>
-            {content.responseTypeLabel}
-          </h3>
-          <p
-            id={responseTypeDescriptionId}
-            className={styles.sectionDescription}
-          >
-            {content.responseTypeDescription}
-          </p>
-        </div>
-        <div
-          className={styles.responseTypeControls}
-          data-has-template={reusableResponseSchemas.length > 0}
-        >
-          <TextInput
-            tone="nested"
-            name="responseType"
-            autoComplete="off"
-            spellCheck={false}
-            required
-            pattern={typeScriptIdentifierPattern.source}
-            title={content.identifierHint}
-            placeholder={content.responseTypePlaceholder}
-            value={typeName}
-            aria-labelledby={responseTypeHeadingId}
-            aria-invalid={
-              hasInvalidTypeName || hasResponseTypeConflict ? true : undefined
-            }
-            aria-describedby={
-              hasInvalidTypeName || hasResponseTypeConflict
-                ? `${responseTypeDescriptionId} ${validationErrorId}`
-                : responseTypeDescriptionId
-            }
-            onChange={(event) => {
-              setTypeName(event.currentTarget.value);
-              clearValidationError();
-            }}
-          />
-          {reusableResponseSchemas.length > 0 ? (
-            <SelectMenu
-              height="large"
-              label={content.responseTypeTemplateLabel}
-              options={[
-                {
-                  id: "",
-                  kind: "action",
-                  label: content.newResponseTypeLabel,
-                  onSelect: () => prefillResponseType(),
-                },
-                ...reusableResponseSchemas.map((schema) => ({
-                  id: schema.typeName,
-                  kind: "action" as const,
-                  label: schema.typeName,
-                  onSelect: () => prefillResponseType(schema),
-                })),
-              ]}
-              rounded
-              selectedId={selectedTemplateTypeName}
-              width="field"
-            />
-          ) : null}
-        </div>
-      </section>
+        {schemaFields.map((field, index) => {
+          const nestedSchemaPath = [...schemaPath, field.id];
+          const objectSchemaRequired = requiresObjectSchema(field);
 
-      <section
-        className={styles.propertiesSection}
-        aria-labelledby={propertiesHeadingId}
-      >
-        <div className={styles.propertiesHeader}>
-          <div className={styles.sectionHeader}>
-            <h3 id={propertiesHeadingId} className={styles.sectionTitle}>
-              {content.propertiesLabel}
-            </h3>
-            <p className={styles.sectionDescription}>
-              {content.propertiesDescription}
-            </p>
-          </div>
-          <button
-            type="button"
-            className={styles.addProperty}
-            onClick={addProperty}
-          >
-            <PlusIcon />
-            <span>{content.addPropertyLabel}</span>
-          </button>
-        </div>
-
-        <ul className={styles.propertyList}>
-          {fields.map((field, index) => (
-            <li key={field.id}>
-              <fieldset className={styles.propertyCard}>
-                <VisuallyHidden as="legend">
-                  {content.propertiesLabel} {index + 1}
-                </VisuallyHidden>
-                <div
-                  className={styles.propertyGrid}
-                  data-is-array={field.type === "array"}
-                >
-                  <label
+          return (
+            <ToggleListItem
+              key={field.id}
+              className={styles.propertyCard}
+              expanded={expandedObjectIds.has(field.id)}
+              headerClassName={[
+                styles.propertyGrid,
+                field.type === "array" ? styles.propertyGridArray : "",
+              ].filter(Boolean).join(" ")}
+              onExpandedChange={(expanded) => {
+                setObjectExpanded(field.id, expanded, expanded);
+              }}
+              panelClassName={styles.objectDefinition}
+              toggleLabel={`${content.objectDefinitionLabel}: ${
+                field.name || content.propertyNamePlaceholder
+              }`}
+              summary={(
+                <>
+                  <VisuallyHidden>
+                    {content.propertiesLabel} {index + 1}
+                  </VisuallyHidden>
+                  <div
                     className={`${styles.fieldGroup} ${styles.propertyNameField}`}
                   >
                     <TextInput
@@ -435,7 +813,7 @@ export function ResponseSchemaEditor({
                       required
                       aria-invalid={
                         (
-                          duplicatePropertyNames.has(field.name.trim())
+                          duplicatePropertyNameIds.has(field.id)
                           || invalidPropertyNameIds.has(field.id)
                         )
                           ? true
@@ -443,7 +821,7 @@ export function ResponseSchemaEditor({
                       }
                       aria-describedby={
                         (
-                          duplicatePropertyNames.has(field.name.trim())
+                          duplicatePropertyNameIds.has(field.id)
                           || invalidPropertyNameIds.has(field.id)
                         )
                           ? validationErrorId
@@ -452,14 +830,29 @@ export function ResponseSchemaEditor({
                       pattern={typeScriptIdentifierPattern.source}
                       title={content.identifierHint}
                       placeholder={content.propertyNamePlaceholder}
+                      trailingControl={(
+                        <IconButton
+                          className={styles.optionalToggle}
+                          aria-label={content.optionalLabel}
+                          aria-pressed={field.optional}
+                          title={content.optionalLabel}
+                          onClick={() => {
+                            updateProperty(schemaPath, field.id, {
+                              optional: !field.optional,
+                            });
+                          }}
+                        >
+                          <OptionalIcon />
+                        </IconButton>
+                      )}
                       value={field.name}
                       onChange={(event) => {
-                        updateProperty(field.id, {
+                        updateProperty(schemaPath, field.id, {
                           name: event.currentTarget.value,
                         });
                       }}
                     />
-                  </label>
+                  </div>
 
                   <div
                     className={styles.typeExpression}
@@ -474,7 +867,35 @@ export function ResponseSchemaEditor({
                         kind: "action",
                         label: content.typeOptions[type],
                         onSelect: () => {
-                          updateProperty(field.id, { type });
+                          const arrayItemType = type === "array"
+                            ? (
+                                field.type === "array"
+                                  ? field.arrayItemType
+                                  : "string"
+                              )
+                            : field.arrayItemType;
+                          const needsObjectSchema = (
+                            type === "object"
+                            || (
+                              type === "array"
+                              && arrayItemType === "object"
+                            )
+                          );
+                          updateProperty(schemaPath, field.id, {
+                            arrayItemType,
+                            objectSchema: needsObjectSchema
+                              ? (
+                                  field.objectSchema
+                                  ?? createDraftObjectSchema()
+                                )
+                              : undefined,
+                            type,
+                          });
+                          if (needsObjectSchema) {
+                            setObjectExpanded(field.id, true, true);
+                          } else {
+                            setObjectExpanded(field.id, false);
+                          }
                         },
                       } satisfies SelectMenuOption))}
                       rounded
@@ -498,9 +919,20 @@ export function ResponseSchemaEditor({
                             kind: "action",
                             label: content.typeOptions[type],
                             onSelect: () => {
-                              updateProperty(field.id, {
+                              updateProperty(schemaPath, field.id, {
                                 arrayItemType: type,
+                                objectSchema: type === "object"
+                                  ? (
+                                      field.objectSchema
+                                      ?? createDraftObjectSchema()
+                                    )
+                                  : undefined,
                               });
+                              if (type === "object") {
+                                setObjectExpanded(field.id, true, true);
+                              } else {
+                                setObjectExpanded(field.id, false);
+                              }
                             },
                           } satisfies SelectMenuOption))}
                           rounded
@@ -511,31 +943,301 @@ export function ResponseSchemaEditor({
                     ) : null}
                   </div>
 
-                  <CheckboxWithLabel
-                    className={styles.checkboxField}
-                    label={content.optionalLabel}
-                    name={`property-${field.id}-optional`}
-                    checked={field.optional}
-                    onChange={(event) => {
-                      updateProperty(field.id, {
-                        optional: event.currentTarget.checked,
-                      });
-                    }}
-                  />
-
+                </>
+              )}
+              actions={(
                   <IconButton
                     type="button"
                     className={styles.removeProperty}
                     aria-label={`${content.removePropertyLabel} ${index + 1}`}
-                    onClick={() => removeProperty(field.id)}
+                    onClick={() => removeProperty(schemaPath, field.id)}
                   >
                     <CloseIcon />
                   </IconButton>
-                </div>
-              </fieldset>
-            </li>
-          ))}
-        </ul>
+              )}
+            >
+              {objectSchemaRequired && field.objectSchema ? (
+                <>
+                  <div className={styles.objectEditorHeader}>
+                    <div
+                      className={styles.objectTypeControls}
+                      data-has-template={
+                        reusableResponseSchemas.length > 0
+                          ? "true"
+                          : undefined
+                      }
+                    >
+                      <TextInput
+                        ref={(input) => {
+                          if (input) {
+                            objectTypeInputRefs.current.set(
+                              field.id,
+                              input,
+                            );
+                          } else {
+                            objectTypeInputRefs.current.delete(field.id);
+                          }
+                        }}
+                        tone="nested"
+                        name={`object-${field.id}-type`}
+                        aria-label={content.objectTypeLabel}
+                        autoComplete="off"
+                        spellCheck={false}
+                        required
+                        pattern={typeScriptIdentifierPattern.source}
+                        title={content.identifierHint}
+                        placeholder={content.objectTypePlaceholder}
+                        value={field.objectSchema.typeName}
+                        aria-invalid={
+                          invalidObjectTypeFieldIds.has(field.id)
+                            ? true
+                            : undefined
+                        }
+                        aria-describedby={
+                          invalidObjectTypeFieldIds.has(field.id)
+                            ? validationErrorId
+                            : undefined
+                        }
+                        onChange={(event) => {
+                          const nextTypeName =
+                            event.currentTarget.value;
+                          const hasConflict =
+                            hasDraftSchemaTypeNameConflict(
+                              nextTypeName,
+                              field.objectSchema?.fields ?? [],
+                              allExistingResponseSchemas,
+                            );
+                          updateObjectSchema(
+                            schemaPath,
+                            field.id,
+                            (schema) => ({
+                              ...schema,
+                              selectedTemplateTypeName: hasConflict
+                                ? ""
+                                : (
+                                    nextTypeName
+                                    === schema.selectedTemplateTypeName
+                                      ? schema.selectedTemplateTypeName
+                                      : ""
+                                  ),
+                              typeName: hasConflict ? "" : nextTypeName,
+                            }),
+                          );
+                        }}
+                      />
+                      {reusableResponseSchemas.length > 0 ? (
+                        <SelectMenu
+                          height="large"
+                          label={content.objectTypeTemplateLabel}
+                          menuPlacement="top"
+                          options={[
+                            {
+                              id: "",
+                              kind: "action",
+                              label: content.newResponseTypeLabel,
+                              onSelect: () => {
+                                updateProperty(
+                                  schemaPath,
+                                  field.id,
+                                  {
+                                    objectSchema:
+                                      createDraftObjectSchema(),
+                                  },
+                                );
+                              },
+                            },
+                            ...reusableResponseSchemas.map((schema) => ({
+                              id: schema.typeName,
+                              kind: "action" as const,
+                              label: schema.typeName,
+                              onSelect: () => {
+                                updateProperty(
+                                  schemaPath,
+                                  field.id,
+                                  {
+                                    objectSchema:
+                                      createDraftObjectSchema(schema),
+                                  },
+                                );
+                              },
+                            })),
+                          ]}
+                          rounded
+                          selectedId={
+                            field.objectSchema.selectedTemplateTypeName
+                          }
+                          width="field"
+                        />
+                      ) : null}
+                    </div>
+                    <IconButton
+                      type="button"
+                      className={styles.addProperty}
+                      aria-label={content.addPropertyLabel}
+                      onClick={() => addProperty(nestedSchemaPath)}
+                    >
+                      <PlusIcon />
+                    </IconButton>
+                  </div>
+                  <div className={styles.objectProperties}>
+                    {renderPropertyFields(
+                      field.objectSchema.fields,
+                      nestedSchemaPath,
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </ToggleListItem>
+          );
+        })}
+      </ToggleList>
+    );
+  }
+
+  return (
+    <form
+      ref={formRef}
+      id={formId}
+      className={styles.form}
+      onSubmit={submitResponse}
+    >
+      <ApiRouteInputBar
+        className={styles.overlayRouteInput}
+        disabledMethods={disabledRouteMethods}
+        getValidationReason={getRouteValidationReason}
+        initialPath={route.path}
+        label={routeInputContent.label}
+        layout="split"
+        method={routeMethod}
+        methodSelectorLabel={routeInputContent.methodSelectorLabel}
+        onMethodChange={(nextMethod) => {
+          setRouteMethod(nextMethod);
+          onRouteMethodChange(nextMethod);
+        }}
+        onPathChange={setRoutePath}
+        placeholder={routeInputContent.placeholder}
+        preferredInitialFocus="response"
+        prefixHint={routeInputContent.pathPrefixHint}
+        required
+        tone="nested"
+        validationMessages={{
+          duplicate: routeInputContent.duplicatePathError,
+          syntax: routeInputContent.invalidPathError,
+        }}
+      />
+
+      <section
+            className={styles.section}
+            aria-labelledby={responseTypeHeadingId}
+          >
+            <div className={styles.sectionHeader}>
+              <h3
+                id={responseTypeHeadingId}
+                className={styles.sectionTitle}
+              >
+                {content.responseTypeLabel}
+              </h3>
+              <p
+                id={responseTypeDescriptionId}
+                className={styles.sectionDescription}
+              >
+                {content.responseTypeDescription}
+              </p>
+            </div>
+            <div
+              className={styles.responseTypeControls}
+              data-has-template={reusableResponseSchemas.length > 0}
+            >
+              <TextInput
+                ref={responseTypeInputRef}
+                data-overlay-initial-focus="true"
+                tone="nested"
+                name="responseType"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                pattern={typeScriptIdentifierPattern.source}
+                title={content.identifierHint}
+                placeholder={content.responseTypePlaceholder}
+                value={typeName}
+                aria-labelledby={responseTypeHeadingId}
+                aria-invalid={
+                  hasInvalidTypeName || hasResponseTypeConflict
+                    ? true
+                    : undefined
+                }
+                aria-describedby={
+                  hasInvalidTypeName || hasResponseTypeConflict
+                    ? `${responseTypeDescriptionId} ${validationErrorId}`
+                    : responseTypeDescriptionId
+                }
+                onChange={(event) => {
+                  const nextTypeName = event.currentTarget.value;
+                  const hasConflict = hasDraftSchemaTypeNameConflict(
+                    nextTypeName,
+                    fields,
+                    allExistingResponseSchemas,
+                  );
+                  setTypeName(hasConflict ? "" : nextTypeName);
+                  if (nextTypeName !== selectedTemplateTypeName) {
+                    setSelectedTemplateTypeName("");
+                  }
+                  clearValidationError();
+                }}
+              />
+              {reusableResponseSchemas.length > 0 ? (
+                <SelectMenu
+                  height="large"
+                  label={content.responseTypeTemplateLabel}
+                  options={[
+                    {
+                      id: "",
+                      kind: "action",
+                      label: content.newResponseTypeLabel,
+                      onSelect: () => prefillResponseType(),
+                    },
+                    ...reusableResponseSchemas.map((schema) => ({
+                      id: schema.typeName,
+                      kind: "action" as const,
+                      label: schema.typeName,
+                      onSelect: () => prefillResponseType(schema),
+                    })),
+                  ]}
+                  rounded
+                  selectedId={selectedTemplateTypeName}
+                  width="field"
+                />
+              ) : null}
+            </div>
+          </section>
+
+          <section
+            className={styles.propertiesSection}
+            aria-labelledby={propertiesHeadingId}
+          >
+            <div className={styles.propertiesHeader}>
+              <div className={styles.sectionHeader}>
+                <h3
+                  id={propertiesHeadingId}
+                  className={styles.sectionTitle}
+                >
+                  {content.propertiesLabel}
+                </h3>
+                <p className={styles.sectionDescription}>
+                  {content.propertiesDescription}
+                </p>
+              </div>
+              <IconButton
+                type="button"
+                className={styles.addProperty}
+                aria-label={content.addPropertyLabel}
+                onClick={() => addProperty()}
+              >
+                <PlusIcon />
+              </IconButton>
+            </div>
+
+            {renderPropertyFields(fields, [])}
       </section>
 
       {visibleValidationError ? (

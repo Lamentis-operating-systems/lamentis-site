@@ -56,6 +56,7 @@ export function SelectMenu({
 }: SelectMenuProps) {
   const menuId = useId();
   const menuRef = useRef<HTMLUListElement>(null);
+  const postSelectionFocusRef = useRef<HTMLElement | null>(null);
   const [usesDialogLayer, setUsesDialogLayer] = useState(false);
   const selectedOption = options.find((option) => option.id === selectedId);
   const {
@@ -117,9 +118,24 @@ export function SelectMenu({
     };
   }, [isPresent, triggerRef, usesDialogLayer]);
 
+  useLayoutEffect(() => {
+    const focusTarget = postSelectionFocusRef.current;
+    if (phase !== "closed" || !focusTarget) return;
+
+    postSelectionFocusRef.current = null;
+    if (focusTarget.isConnected) focusTarget.focus();
+  }, [phase]);
+
   function selectAction(option: SelectMenuActionOption) {
+    const focusedElement = document.activeElement;
     option.onSelect();
-    closePopover(true);
+    const nextFocusedElement = document.activeElement;
+    const shouldRestoreTrigger = nextFocusedElement === focusedElement;
+    postSelectionFocusRef.current = (
+      !shouldRestoreTrigger
+      && nextFocusedElement instanceof HTMLElement
+    ) ? nextFocusedElement : null;
+    closePopover(shouldRestoreTrigger);
   }
 
   function completeAnimatedClose(event: AnimationEvent<HTMLUListElement>) {

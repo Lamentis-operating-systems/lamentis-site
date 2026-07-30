@@ -718,24 +718,47 @@ describe("search page", () => {
     expect(responsePanel?.style.getPropertyValue("--overlay-height")).toBe(
       "var(--overlay-size-large)",
     );
-    expect(responseDialog).toHaveFocus();
+    await waitFor(() => {
+      expect(within(responseDialog).getByRole("textbox", {
+        name: "Response type",
+      })).toHaveFocus();
+    });
     expect(responseDialog.querySelector("header")).toHaveTextContent(
       "Add a data structure to this route",
     );
     const routeContext = within(responseDialog).getByRole("group", {
-      name: "Route: POST /users/{uuid}/posts",
+      name: "API endpoint path",
     });
     const routeMethod = within(routeContext).getByRole("button", {
-      name: "HTTP method /users/{uuid}/posts",
+      name: "HTTP method",
     });
+    const overlayPathInput = within(routeContext).getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    const overlayResponseTypeInput = within(responseDialog).getByRole("textbox", {
+      name: "Response type",
+    });
+    expect(routeContext.children).toHaveLength(2);
+    expect(routeMethod.parentElement).toHaveAttribute(
+      "data-height",
+      "large",
+    );
+    expect(routeMethod.parentElement).toHaveAttribute(
+      "data-rounded",
+      "true",
+    );
+    expect(routeContext.lastElementChild?.className).toBe(
+      overlayResponseTypeInput.parentElement?.className,
+    );
     expect(routeMethod).toHaveTextContent("POST");
-    expect(within(routeContext).getByRole("button", {
+    expect(overlayPathInput).toHaveValue("users / {uuid} / posts");
+    expect(within(routeContext).queryByRole("button", {
       name: "Route actions /users/{uuid}/posts",
-    })).toBeInTheDocument();
+    })).not.toBeInTheDocument();
     fireEvent.click(routeMethod);
     fireEvent.click(
       within(within(responseDialog).getByRole("list", {
-        name: "HTTP method /users/{uuid}/posts",
+        name: "HTTP method",
       })).getByRole("button", { name: "PATCH" }),
     );
     expect(routeMethod).toHaveTextContent("PATCH");
@@ -776,7 +799,12 @@ describe("search page", () => {
     );
     await waitFor(() => expect(saveResponse).toBeEnabled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+    const addPropertyButton = screen.getByRole("button", {
+      name: "Add property",
+    });
+    expect(addPropertyButton).toHaveTextContent("");
+    expect(addPropertyButton.querySelector("svg")).toBeInTheDocument();
+    fireEvent.click(addPropertyButton);
     await waitFor(() => expect(saveResponse).toBeDisabled());
 
     fireEvent.change(
@@ -836,7 +864,7 @@ describe("search page", () => {
     fireEvent.click(arrayItemType);
     fireEvent.click(
       within(screen.getByRole("list", { name: "Array item type" }))
-        .getByRole("button", { name: "object" }),
+        .getByRole("button", { name: "number" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Add property" }));
     const propertyNameInputs = screen.getAllByRole("textbox", {
@@ -847,14 +875,17 @@ describe("search page", () => {
     });
     expect(
       responseDialog.querySelectorAll('[data-is-array="true"]'),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       within(responseDialog).queryByText("Array item type"),
     ).not.toBeInTheDocument();
     expect(within(responseDialog).getAllByText("of")).toHaveLength(1);
-    fireEvent.click(
-      screen.getAllByRole("checkbox", { name: "Optional" })[0],
-    );
+    const optionalToggle = screen.getAllByRole("button", {
+      name: "Optional",
+    })[0];
+    expect(optionalToggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(optionalToggle);
+    expect(optionalToggle).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(
       screen.getByRole("textbox", { name: "Response type" }),
       { key: "Enter" },
@@ -985,7 +1016,39 @@ describe("search page", () => {
     const saveRoute = within(editDialog).getByRole("button", { name: "Save" });
     expect(saveRoute.firstElementChild?.querySelector("svg")).not.toBeNull();
     expect(saveRoute.lastElementChild).toHaveTextContent("Save");
-    expect(editDialog.querySelector("section > div")).toBeEmptyDOMElement();
+    expect(within(editDialog).getByText(
+      "Update this response type or use an existing one as an editable template.",
+    )).toBeInTheDocument();
+    expect(within(editDialog).getByText(
+      "Update the fields returned in this response.",
+    )).toBeInTheDocument();
+    expect(within(editDialog).getByRole("button", {
+      name: "HTTP method",
+    })).toHaveTextContent("PATCH");
+    expect(within(editDialog).getByRole("textbox", {
+      name: "API endpoint path",
+    })).toHaveValue("users / {uuid} / posts");
+    expect(within(editDialog).getByRole("textbox", {
+      name: "Response type",
+    })).toHaveValue("UserResponse");
+    await waitFor(() => {
+      expect(within(editDialog).getByRole("textbox", {
+        name: "Response type",
+      })).toHaveFocus();
+    });
+    expect(within(editDialog).getAllByRole("textbox", {
+      name: "Property name",
+    })).toHaveLength(2);
+    expect(within(editDialog).getAllByRole("textbox", {
+      name: "Property name",
+    })[0]).toHaveValue("items");
+    expect(within(editDialog).getAllByRole("button", {
+      name: "Property type",
+    })[0]).toHaveTextContent("array");
+    expect(within(editDialog).getByRole("button", {
+      name: "Array item type",
+    })).toHaveTextContent("number");
+    await waitFor(() => expect(saveRoute).toBeEnabled());
     fireEvent.click(saveRoute);
     expect(editDialog).toHaveAttribute("data-state", "closing");
     await waitFor(() => {
@@ -1114,9 +1177,7 @@ describe("search page", () => {
           content={apiCreatorStudioProps.responseEditor}
           existingResponseSchemas={existingResponseSchemas}
           formId="response-prefill-form"
-          onCopyRoute={vi.fn()}
-          onDeleteRoute={vi.fn()}
-          onEditRoute={vi.fn()}
+          getRouteValidationReason={() => null}
           onRouteMethodChange={vi.fn()}
           onSave={onSave}
           route={{
@@ -1124,15 +1185,13 @@ describe("search page", () => {
             method: "GET",
             path: "/accounts",
           }}
-          routeContent={{
-            copyLabel: apiCreatorStudioProps.copyRouteLabel,
-            deleteLabel: apiCreatorStudioProps.deleteRouteLabel,
-            editLabel: apiCreatorStudioProps.editRouteLabel,
+          routeInputContent={{
+            duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+            invalidPathError: apiCreatorStudioProps.invalidPathError,
+            label: apiCreatorStudioProps.label,
             methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
-            responseTypeLabel:
-              apiCreatorStudioProps.responseEditor.responseTypeLabel,
-            routeActionsLabel: apiCreatorStudioProps.routeActionsLabel,
-            routeLabel: apiCreatorStudioProps.responseEditor.routeLabel,
+            pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+            placeholder: apiCreatorStudioProps.placeholder,
           }}
         />
         <button type="submit" form="response-prefill-form">
@@ -1187,6 +1246,9 @@ describe("search page", () => {
         },
       ],
       typeName: "UserResponse",
+    }, {
+      method: "GET",
+      path: "/accounts",
     });
 
     const propertyType = screen.getByRole("button", {
@@ -1199,9 +1261,12 @@ describe("search page", () => {
     );
     await waitFor(() => {
       expect(form).toBeInvalid();
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "This response type already uses a different schema.",
+      expect(responseType).toHaveValue("");
+      expect(responseType).toHaveFocus();
+      expect(responseTypeTemplate).toHaveTextContent(
+        "New",
       );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
     fireEvent.change(responseType, {
@@ -1219,7 +1284,108 @@ describe("search page", () => {
         { name: "id", optional: false, type: "number" },
       ],
       typeName: "AccountResponse",
+    }, {
+      method: "GET",
+      path: "/accounts",
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+    const propertyNames = screen.getAllByRole("textbox", {
+      name: "Property name",
+    });
+    fireEvent.change(propertyNames[1]!, {
+      target: { value: "profile" },
+    });
+    const propertyTypes = screen.getAllByRole("button", {
+      name: "Property type",
+    });
+    fireEvent.click(propertyTypes[1]!);
+    fireEvent.click(
+      within(screen.getByRole("list", { name: "Property type" }))
+        .getByRole("button", { name: "object" }),
+    );
+
+    const objectType = screen.getByRole("textbox", {
+      name: "Object type",
+    });
+    const objectTypeTemplate = screen.getByRole("button", {
+      name: "Object type template",
+    });
+    const objectToggle = screen.getByRole("button", {
+      name: "Object definition: profile",
+    });
+    expect(objectToggle).toHaveAttribute("aria-expanded", "true");
+    expect(objectType).toHaveAttribute(
+      "placeholder",
+      "Name the object type",
+    );
+    expect(objectType).toHaveFocus();
+    await waitFor(() => expect(form).toBeInvalid());
+    fireEvent.click(objectTypeTemplate);
+    fireEvent.click(
+      within(screen.getByRole("list", { name: "Object type template" }))
+        .getByRole("button", { name: "UserResponse" }),
+    );
+
+    await waitFor(() => {
+      expect(objectType).toHaveValue("UserResponse");
+      expect(form).toBeValid();
+    });
+    fireEvent.submit(form);
+    expect(onSave).toHaveBeenLastCalledWith({
+      fields: [
+        { name: "id", optional: false, type: "number" },
+        {
+          name: "profile",
+          objectSchema: {
+            fields: [
+              { name: "id", optional: false, type: "string" },
+            ],
+            typeName: "UserResponse",
+          },
+          optional: false,
+          type: "object",
+        },
+      ],
+      typeName: "AccountResponse",
+    }, {
+      method: "GET",
+      path: "/accounts",
+    });
+
+    const objectPanel = document.getElementById(
+      objectToggle.getAttribute("aria-controls") ?? "",
+    );
+    expect(objectPanel).not.toBeNull();
+    const nestedPropertyName = within(objectPanel!).getByRole("textbox", {
+      name: "Property name",
+    });
+    fireEvent.change(nestedPropertyName, {
+      target: { value: "displayName" },
+    });
+    await waitFor(() => {
+      expect(form).toBeInvalid();
+      expect(objectType).toHaveValue("");
+      expect(objectType).toHaveFocus();
+      expect(objectTypeTemplate).toHaveTextContent(
+        "New",
+      );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(objectType, {
+      target: { value: "AccountProfile" },
+    });
+    await waitFor(() => expect(form).toBeValid());
+
+    fireEvent.click(objectToggle);
+    expect(objectToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("textbox", {
+      name: "Response type",
+    })).toHaveValue("AccountResponse");
+    fireEvent.click(objectToggle);
+    expect(objectToggle).toHaveAttribute("aria-expanded", "true");
+    expect(objectType).toBeVisible();
   });
 
   it("rechecks response-schema compatibility against concurrent storage changes", async () => {
@@ -1267,9 +1433,13 @@ describe("search page", () => {
     await waitFor(() => {
       expect(dialog).toBeInTheDocument();
       expect(save).toBeDisabled();
-      expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "This response type already uses a different schema.",
-      );
+      expect(within(dialog).getByRole("textbox", {
+        name: "Response type",
+      })).toHaveValue("");
+      expect(within(dialog).getByRole("textbox", {
+        name: "Response type",
+      })).toHaveFocus();
+      expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
       const routes = JSON.parse(
         window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
       ) as Array<{ path: string; response?: unknown }>;

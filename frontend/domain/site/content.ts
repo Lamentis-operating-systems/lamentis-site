@@ -34,7 +34,12 @@ export type ResponseSchemaEditorContent = {
   arrayItemTypeLabel: string;
   duplicatePropertyError: string;
   identifierHint: string;
+  incompleteSchemaError: string;
   newResponseTypeLabel: string;
+  objectDefinitionLabel: string;
+  objectTypeLabel: string;
+  objectTypePlaceholder: string;
+  objectTypeTemplateLabel: string;
   optionalLabel: string;
   propertiesDescription: string;
   propertiesLabel: string;
@@ -60,6 +65,8 @@ export type ApiCreatorStudioContent = SearchContent & {
   copyRouteLabel: string;
   deleteRouteLabel: string;
   duplicatePathError: string;
+  editPropertiesDescription: string;
+  editResponseTypeDescription: string;
   editRouteLabel: string;
   editRouteTitle: string;
   invalidPathError: string;
@@ -69,7 +76,6 @@ export type ApiCreatorStudioContent = SearchContent & {
   responseOverlayTitle: string;
   routeActionsLabel: string;
   routeListLabel: string;
-  saveRouteLabel: string;
   storageErrorLabel: string;
 };
 
@@ -151,6 +157,10 @@ export const contentByLocale = {
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
       duplicatePathError: "This HTTP method and path already exist.",
+      editPropertiesDescription:
+        "Update the fields returned in this response.",
+      editResponseTypeDescription:
+        "Update this response type or use an existing one as an editable template.",
       editRouteLabel: "Edit",
       editRouteTitle: "Edit this route",
       heading: "Create API Contracts",
@@ -164,7 +174,13 @@ export const contentByLocale = {
         arrayItemTypeLabel: "Array item type",
         duplicatePropertyError: "Property names must be unique.",
         identifierHint: "Use a valid TypeScript identifier.",
+        incompleteSchemaError:
+          "Complete every object type and property before saving.",
         newResponseTypeLabel: "New",
+        objectDefinitionLabel: "Object definition",
+        objectTypeLabel: "Object type",
+        objectTypePlaceholder: "Name the object type",
+        objectTypeTemplateLabel: "Object type template",
         optionalLabel: "Optional",
         propertiesDescription:
           "Define the fields returned in this response.",
@@ -195,7 +211,6 @@ export const contentByLocale = {
       responseOverlayTitle: "Add a data structure to this route",
       routeActionsLabel: "Route actions",
       routeListLabel: "API routes",
-      saveRouteLabel: "Save",
       storageErrorLabel:
         "Routes are available in this tab but could not be read from or saved to local storage. Download them before reloading.",
       label: "API endpoint path",
@@ -278,6 +293,10 @@ export const contentByLocale = {
       deleteRouteLabel: "Löschen",
       duplicatePathError:
         "Diese HTTP-Methode und dieser Pfad sind bereits vorhanden.",
+      editPropertiesDescription:
+        "Bearbeite die Felder, die in dieser Antwort zurückgegeben werden.",
+      editResponseTypeDescription:
+        "Bearbeite diesen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
       editRouteLabel: "Bearbeiten",
       editRouteTitle: "Diese Route bearbeiten",
       heading: "API-Verträge erstellen",
@@ -292,7 +311,13 @@ export const contentByLocale = {
         arrayItemTypeLabel: "Array-Elementtyp",
         duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
         identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
+        incompleteSchemaError:
+          "Vervollständige jeden Objekttyp und jede Eigenschaft vor dem Speichern.",
         newResponseTypeLabel: "Neu",
+        objectDefinitionLabel: "Objektdefinition",
+        objectTypeLabel: "Objekttyp",
+        objectTypePlaceholder: "Benenne den Objekttyp",
+        objectTypeTemplateLabel: "Objekttyp-Vorlage",
         optionalLabel: "Optionales Feld",
         propertiesDescription:
           "Definiere die Felder, die in dieser Antwort zurückgegeben werden.",
@@ -324,7 +349,6 @@ export const contentByLocale = {
         "Datenstruktur zu dieser Route hinzufügen",
       routeActionsLabel: "Routenaktionen",
       routeListLabel: "API-Routen",
-      saveRouteLabel: "Speichern",
       storageErrorLabel:
         "Die Routen sind in diesem Tab verfügbar, konnten aber nicht aus dem lokalen Speicher gelesen oder dort gespeichert werden. Lade sie vor dem Neuladen herunter.",
       label: "API-Endpunktpfad",

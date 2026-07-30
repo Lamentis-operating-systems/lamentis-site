@@ -21,9 +21,10 @@ export type ApiResponseFieldType = (typeof apiResponseFieldTypes)[number];
 export type ApiResponseArrayItemType =
   (typeof apiResponseArrayItemTypes)[number];
 
-type ApiResponseField = {
+export type ApiResponseField = {
   arrayItemType?: ApiResponseArrayItemType;
   name: string;
+  objectSchema?: ApiResponseSchema;
   optional: boolean;
   type: ApiResponseFieldType;
 };
@@ -117,6 +118,9 @@ export function canonicalizeApiResponseSchema(
           ? { arrayItemType: field.arrayItemType }
           : {}),
         name: field.name,
+        ...(field.objectSchema
+          ? { objectSchema: canonicalizeApiResponseSchema(field.objectSchema) }
+          : {}),
         optional: field.optional,
         type: field.type,
       })),
@@ -141,10 +145,47 @@ export function hasIncompatibleApiResponseSchema(
   schemas: readonly ApiResponseSchema[],
   candidate: ApiResponseSchema,
 ): boolean {
-  return schemas.some((schema) => (
-    schema.typeName === candidate.typeName
-    && !areApiResponseSchemasEquivalent(schema, candidate)
-  ));
+  const existingSchemas = schemas.flatMap(collectApiResponseSchemas);
+  const candidateSchemas = collectApiResponseSchemas(candidate);
+  const candidateSchemasByTypeName =
+    new Map<string, ApiResponseSchema[]>();
+
+  for (const schema of candidateSchemas) {
+    const variants = candidateSchemasByTypeName.get(schema.typeName) ?? [];
+    variants.push(schema);
+    candidateSchemasByTypeName.set(schema.typeName, variants);
+  }
+
+  return [...candidateSchemasByTypeName.entries()].some((
+    [typeName, variants],
+  ) => {
+    const source = variants[0];
+    return Boolean(
+      source
+      && (
+        variants.some((variant) => (
+          !areApiResponseSchemasEquivalent(source, variant)
+        ))
+        || existingSchemas.some((schema) => (
+          schema.typeName === typeName
+          && !areApiResponseSchemasEquivalent(source, schema)
+        ))
+      )
+    );
+  });
+}
+
+export function collectApiResponseSchemas(
+  schema: ApiResponseSchema,
+): ApiResponseSchema[] {
+  return [
+    schema,
+    ...schema.fields.flatMap((field) => (
+      field.objectSchema
+        ? collectApiResponseSchemas(field.objectSchema)
+        : []
+    )),
+  ];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -172,22 +213,54 @@ function isApiResponseArrayItemType(
 export function isValidApiResponseSchema(
   schema: unknown,
 ): schema is ApiResponseSchema {
+  if (!isValidApiResponseSchemaValue(schema, new Set(), false)) return false;
+
+  const schemas = collectApiResponseSchemas(schema);
+  return !hasIncompatibleApiResponseSchema([], schemas[0]!);
+}
+
+export function isValidPersistedApiResponseSchema(
+  schema: unknown,
+): schema is ApiResponseSchema {
+  if (!isValidApiResponseSchemaValue(schema, new Set(), true)) return false;
+
+  const schemas = collectApiResponseSchemas(schema);
+  return !hasIncompatibleApiResponseSchema([], schemas[0]!);
+}
+
+function isValidApiResponseSchemaValue(
+  schema: unknown,
+  ancestors: Set<unknown>,
+  allowLegacyOpaqueObject: boolean,
+): schema is ApiResponseSchema {
   if (
     !isRecord(schema)
     || typeof schema.typeName !== "string"
     || !Array.isArray(schema.fields)
+    || ancestors.has(schema)
   ) {
     return false;
   }
 
   if (!isValidTypeScriptTypeName(schema.typeName)) return false;
 
+  const nextAncestors = new Set(ancestors);
+  nextAncestors.add(schema);
   const propertyNames = new Set<string>();
 
   for (const field of schema.fields) {
+    if (!isRecord(field)) return false;
+
+    const requiresObjectSchema = (
+      field.type === "object"
+      || (
+        field.type === "array"
+        && field.arrayItemType === "object"
+      )
+    );
+
     if (
-      !isRecord(field)
-      || typeof field.name !== "string"
+      typeof field.name !== "string"
       || typeof field.optional !== "boolean"
       || !isApiResponseFieldType(field.type)
       || !typeScriptIdentifierPattern.test(field.name)
@@ -199,6 +272,24 @@ export function isValidApiResponseSchema(
       || (
         field.type !== "array"
         && field.arrayItemType !== undefined
+      )
+      || (
+        requiresObjectSchema
+        && field.objectSchema === undefined
+        && !allowLegacyOpaqueObject
+      )
+      || (
+        requiresObjectSchema
+        && field.objectSchema !== undefined
+        && !isValidApiResponseSchemaValue(
+          field.objectSchema,
+          nextAncestors,
+          allowLegacyOpaqueObject,
+        )
+      )
+      || (
+        !requiresObjectSchema
+        && field.objectSchema !== undefined
       )
     ) {
       return false;
