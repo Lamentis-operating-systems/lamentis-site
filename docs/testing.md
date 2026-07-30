@@ -19,34 +19,38 @@ npm-Skripte. Abhängigkeiten werden ausschließlich mit `npm ci` aus dem
 getrackten Lockfile installiert; Versionsbereiche im Manifest sind nicht
 erlaubt.
 
-### Offener Upstream-Audit-Blocker
+### Transitive Security-Pins
 
-Stand 30. Juli 2026 bleibt der Dependency-Audit trotz des unterstützten
-Next.js-Patchstands 16.2.12 rot:
+Next.js 16.2.12 pinnt noch verwundbare Versionen von PostCSS und Sharp. Weitere
+High-Advisories stammen aus transitiven Development-Abhängigkeiten von ESLint,
+TypeScript-ESLint und Stylelint. Das Manifest überschreibt deshalb ausschließlich
+die konkret betroffenen Versionen:
 
-- Next.js 16.2.12 pinnt `postcss@8.4.31`; die High-Advisories
-  [GHSA-6g55-p6wh-862q](https://github.com/advisories/GHSA-6g55-p6wh-862q)
-  und
-  [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849)
-  sind erst ab PostCSS 8.5.12 beziehungsweise 8.5.18 behoben.
-- Next.js 16.2.12 erlaubt ausschließlich `sharp@^0.34.5`; die High-Advisory
-  [GHSA-f88m-g3jw-g9cj](https://github.com/advisories/GHSA-f88m-g3jw-g9cj)
-  ist erst ab Sharp 0.35.0 behoben.
-- Der vollständige Audit meldet zusätzlich transitive Development-Funde in
-  `brace-expansion` über ESLint beziehungsweise TypeScript-ESLint und in
-  `fast-uri` über Stylelint/Ajv.
+- `postcss@8.4.31` wird durch `8.5.25` ersetzt.
+- `sharp@0.34.5` wird durch `0.35.3` ersetzt.
+- Verwundbare `brace-expansion`-Hauptlinien werden durch die sichere
+  Upstream-Version `5.0.8` ersetzt. Ein versiongesichertes `postinstall`-Skript
+  ergänzt ausschließlich deren CommonJS-Export um die von alten
+  `minimatch`-Verbrauchern erwartete Funktionsform; der benannte `expand`-Export
+  bleibt erhalten. Das Skript schlägt bei einer unerwarteten Upstream-Version
+  hart fehl.
+- `fast-uri@3.1.3` wird durch `3.1.4` ersetzt.
 
-Die Anwendung nimmt weder fremdes CSS noch fremde Bilder entgegen. Das
-reduziert die aktuell belegte Erreichbarkeit der beiden Production-Funde,
-ersetzt aber keinen grünen Audit. Die CI-Auswertung bleibt deshalb absichtlich
-ein Hard-Fail. Es gibt weder eine Advisory-Allowlist noch erzwungene Overrides
-außerhalb der von Next.js unterstützten Versionsbereiche.
+Der Sharp-Pin liegt bewusst außerhalb des derzeit von Next.js deklarierten
+Bereichs `^0.34.5`. Er ist daher eine zeitlich begrenzte
+Kompatibilitätsüberbrückung und muss entfernt werden, sobald Next.js eine sichere
+Sharp-Version deklariert. Ein Next.js-Downgrade über `npm audit fix --force`
+ist ausgeschlossen.
 
-Der Blocker wird erst mit offiziell kompatiblen Upstream-Versionen aktualisiert.
-Danach müssen beide Audit-Befehle, `npm run verify`, die vollständige
-Chromium-Suite und die Firefox-/WebKit-Smokes erneut grün laufen. Bis dahin ist
-der Stand lokal regressionsgeprüft, aber nicht als vollständig
-produktionsfreigegeben zu bezeichnen.
+`@axe-core/playwright` erlaubt einen offenen `playwright-core`-Bereich. Der
+Override hält ihn auf `1.61.1` und damit exakt auf dem Stand des getrackten
+`@playwright/test`, damit keine inkompatiblen `Page`-Typen parallel installiert
+werden.
+
+Die CI-Audits bleiben unveränderte Hard-Fails; es gibt weder Advisory-Allowlist
+noch `continue-on-error`. Jede Änderung an den Pins muss beide Audit-Befehle,
+`npm run verify`, die vollständige Chromium-Suite und die
+Firefox-/WebKit-Smokes erneut grün durchlaufen.
 
 `npm run test:e2e` baut die Anwendung und prüft standardmäßig den
 Production-Server. Für eine schnelle lokale Diagnose gegen den Dev-Server
