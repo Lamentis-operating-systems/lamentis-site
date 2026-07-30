@@ -64,9 +64,12 @@ test("adds and persists a route while restoring focus after Escape", {
   await expect(responseDialog.getByText(
     "Create a response type or use an existing one as an editable template.",
   )).toBeVisible();
+  await expect(responseDialog.getByRole("heading", {
+    name: "Response properties",
+  })).toHaveCount(0);
   await expect(responseDialog.getByText(
     "Define the fields returned in this response.",
-  )).toBeVisible();
+  )).toHaveCount(0);
 
   const closeOverlay = responseDialog.getByRole("button", {
     name: "Close the response editor",
@@ -80,7 +83,10 @@ test("adds and persists a route while restoring focus after Escape", {
     name: "Route actions /orders/{orderid}",
   })).toHaveCount(0);
 
-  await responseDialog.getByRole("button", {
+  const responseTypeRegion = responseDialog.getByRole("region", {
+    name: "Response type",
+  });
+  await responseTypeRegion.getByRole("button", {
     name: "Add property",
   }).click();
   await expect(responseDialog.getByText(
@@ -397,25 +403,16 @@ test("derives object names from properties and can prefill an existing model", a
   const objectTemplate = dialog.getByRole("button", {
     name: "Object type template",
   });
-  const objectToggle = dialog.getByRole("button", {
+  await expect(dialog.getByRole("button", {
     name: "Object definition: profile",
-  });
-  const objectPanelId = await objectToggle.getAttribute("aria-controls");
-  const objectPanel = dialog.locator(`[id="${objectPanelId}"]`);
-  const objectPropertyRow = objectToggle.locator("..");
-  await expect(objectToggle).toHaveAttribute("aria-expanded", "true");
+  })).toHaveCount(0);
+  const objectPropertyRow = objectTemplate.locator("xpath=ancestor::li[1]");
   await expect(objectPropertyRow.getByRole("button", {
     name: "Add property",
   })).toHaveCount(1);
-  await expect(objectPanel.getByRole("button", {
-    name: "Add property",
-  })).toHaveCount(0);
   await expect(dialog.getByRole("textbox", {
     name: "Object type",
   })).toHaveCount(0);
-  await expect.poll(() => objectPanel.evaluate(
-    (element) => getComputedStyle(element, "::before").content,
-  )).toBe("none");
   await expect(objectTemplate).toContainText("New");
   await expect(save).toBeEnabled();
 
@@ -423,22 +420,40 @@ test("derives object names from properties and can prefill an existing model", a
   await dialog.getByRole("list", {
     name: "Object type template",
   }).getByRole("button", { name: "AddressResponse" }).click();
-  await expect(objectPanel.getByRole("textbox", {
+  const nestedProperties = objectPropertyRow.locator(
+    "[data-nested-properties]",
+  );
+  await expect(nestedProperties).toHaveCount(1);
+  await expect(nestedProperties.getByRole("textbox", {
     name: "Property name",
   })).toHaveValue("city");
-  const nestedProperties = objectPanel.locator("[data-nested-properties]");
-  await expect(nestedProperties).toHaveCount(1);
-  await expect(nestedProperties).toHaveCSS("border-inline-start-width", "2px");
-  await expect(nestedProperties).toHaveCSS("padding-inline-start", "16px");
+  const nestedPropertyList = nestedProperties.locator(":scope > ul");
+  await expect(nestedPropertyList).toHaveCSS("padding-inline-start", "16px");
+  const nestedPropertyRow = nestedPropertyList.locator(":scope > li");
+  await expect.poll(() => nestedPropertyRow.evaluate((element) => {
+    const connector = getComputedStyle(element, "::before");
+    return {
+      blockEndWidth: connector.getPropertyValue("border-block-end-width"),
+      inlineStartWidth: connector.getPropertyValue(
+        "border-inline-start-width",
+      ),
+      radius: connector.getPropertyValue("border-end-start-radius"),
+    };
+  })).toEqual({
+    blockEndWidth: "2px",
+    inlineStartWidth: "2px",
+    radius: "8px",
+  });
   await expect(save).toBeEnabled();
 
-  await objectPanel.getByRole("textbox", {
+  await nestedProperties.getByRole("textbox", {
     name: "Property name",
   }).fill("displayName");
   await expect(save).toBeEnabled();
   await expect(objectTemplate).toContainText("New");
-  await objectToggle.click();
-  await expect(objectToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(dialog.getByRole("button", {
+    name: "Object definition: profile",
+  })).toHaveCount(0);
   await expect(dialog.getByRole("textbox", {
     name: "Response type",
   })).toHaveValue("UserResponse");
@@ -485,6 +500,105 @@ test("derives object names from properties and can prefill an existing model", a
   expect(skill).toContain("export interface UserResponseProfile {");
   expect(skill).toContain("displayName: string;");
   expect(skill).not.toContain("{ [key: string]: unknown }");
+});
+
+test("renders object definitions inline without an empty state", async ({
+  page,
+}) => {
+  await page.goto(studioPath);
+
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  await routeInput.fill("profiles");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  await dialog.getByRole("button", { name: "Add property" }).click();
+  await dialog.getByRole("textbox", { name: "Property name" }).fill("profile");
+  await dialog.getByRole("button", { name: "Property type" }).click();
+  await dialog.getByRole("list", {
+    name: "Property type",
+  }).getByRole("button", { name: "object" }).click();
+
+  await expect(dialog.getByRole("button", {
+    name: "Object definition: profile",
+  })).toHaveCount(0);
+  await expect(dialog.locator("[data-nested-properties]")).toHaveCount(0);
+
+  const objectPropertyRow = dialog.getByRole("listitem");
+  await expect(objectPropertyRow).toHaveCount(1);
+  const addObjectProperty = objectPropertyRow.getByRole("button", {
+    name: "Add property",
+  });
+  await expect(addObjectProperty).toHaveCount(1);
+  await addObjectProperty.click();
+  await expect(dialog.getByRole("button", {
+    name: "Object definition: profile",
+  })).toHaveCount(0);
+  const nestedProperties = dialog.locator("[data-nested-properties]");
+  await expect(nestedProperties).toHaveCount(1);
+  await expect(nestedProperties.getByRole("textbox", {
+    name: "Property name",
+  })).toBeVisible();
+  const rootProperties = dialog.locator('[data-root-properties="true"]');
+  await expect(rootProperties).toHaveCount(1);
+  await expect(rootProperties).toHaveCSS("padding-inline-start", "16px");
+  const rootPropertyRow = rootProperties.locator(":scope > li");
+  const nestedPropertyRow = nestedProperties.locator(":scope > ul > li");
+  await expect.poll(async () => Promise.all(
+    [rootPropertyRow, nestedPropertyRow].map((propertyRow) => (
+      propertyRow.evaluate((element) => {
+        const endCap = getComputedStyle(element, "::before");
+        const continuation = getComputedStyle(element, "::after");
+        return {
+          continuation: continuation.content,
+          endCapBlockWidth: endCap.getPropertyValue(
+            "border-block-end-width",
+          ),
+          endCapInlineWidth: endCap.getPropertyValue(
+            "border-inline-start-width",
+          ),
+          endCapRadius: endCap.getPropertyValue(
+            "border-end-start-radius",
+          ),
+        };
+      })
+    )),
+  )).toEqual([
+    {
+      continuation: "none",
+      endCapBlockWidth: "2px",
+      endCapInlineWidth: "2px",
+      endCapRadius: "8px",
+    },
+    {
+      continuation: "none",
+      endCapBlockWidth: "2px",
+      endCapInlineWidth: "2px",
+      endCapRadius: "8px",
+    },
+  ]);
+  const removeProperties = dialog.getByRole("button", {
+    name: "Remove property 1",
+  });
+  await expect(removeProperties).toHaveCount(2);
+  const [objectRemove, nestedRemove] = await removeProperties.all();
+  const [objectRemoveBox, nestedRemoveBox] = await Promise.all([
+    objectRemove?.boundingBox(),
+    nestedRemove?.boundingBox(),
+  ]);
+  expect(objectRemoveBox).not.toBeNull();
+  expect(nestedRemoveBox).not.toBeNull();
+  if (!objectRemoveBox || !nestedRemoveBox) {
+    throw new Error("Property remove controls must be measurable.");
+  }
+  expect(Math.abs(
+    objectRemoveBox.x + objectRemoveBox.width
+    - nestedRemoveBox.x - nestedRemoveBox.width,
+  )).toBeLessThanOrEqual(1);
 });
 
 test("downloads the persisted contracts with the stable file contract", {

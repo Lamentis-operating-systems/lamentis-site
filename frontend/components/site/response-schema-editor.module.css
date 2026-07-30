@@ -10,8 +10,7 @@
   width: 100%;
 }
 
-.section,
-.propertiesSection {
+.section {
   display: grid;
   min-width: 0;
   gap: var(--space-4);
@@ -32,13 +31,16 @@
 .responseTypeControls {
   display: grid;
   min-width: 0;
+  grid-template-columns: minmax(0, 1fr) var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .responseTypeControls[data-has-template="true"] {
   grid-template-columns:
     minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.65fr);
-  gap: var(--space-3);
+    minmax(var(--response-property-field-min-width), 0.65fr)
+    var(--control-height);
 }
 
 .label,
@@ -58,17 +60,6 @@
   color: var(--color-text-muted);
   font-size: var(--text-caption);
   line-height: var(--line-body);
-}
-
-.propertiesHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.propertiesHeader .sectionHeader {
-  flex: 1 1 auto;
 }
 
 .addProperty {
@@ -92,14 +83,17 @@
 }
 
 .propertyList {
+  position: relative;
   display: grid;
   margin: 0;
   padding: 0;
+  padding-inline-start: var(--space-4);
   gap: var(--space-3);
   list-style: none;
 }
 
 .propertyCard {
+  position: relative;
   display: grid;
   min-width: 0;
   margin: 0;
@@ -109,13 +103,56 @@
   gap: var(--space-3);
 }
 
+.propertyList > .propertyCard::before,
+.propertyList > .propertyCard:not(:last-child)::after {
+  position: absolute;
+  inset-inline-start: calc(-1 * var(--space-4));
+  box-sizing: border-box;
+  border-inline-start:
+    var(--connector-line-width)
+    solid
+    var(--color-border);
+  content: "";
+  pointer-events: none;
+}
+
+.propertyList > .propertyCard::before {
+  inset-block-start: calc(-1 * var(--space-3));
+  width: var(--space-4);
+  height:
+    calc(
+      var(--space-3)
+      + var(--control-height-large) / 2
+    );
+  border-block-end:
+    var(--connector-line-width)
+    solid
+    var(--color-border);
+  border-end-start-radius: var(--radius-small);
+}
+
+.propertyList[data-root-properties="true"]
+  > .propertyCard:first-child::before {
+  inset-block-start: calc(-1 * var(--space-6));
+  height:
+    calc(
+      var(--space-6)
+      + var(--control-height-large) / 2
+    );
+}
+
+.propertyList > .propertyCard:not(:last-child)::after {
+  inset-block:
+    calc(var(--control-height-large) / 2)
+    calc(-1 * var(--space-3));
+}
+
 .propertyGrid {
   display: grid;
   min-width: 0;
   grid-template-columns:
     minmax(0, 1fr)
     var(--response-property-field-min-width)
-    var(--control-height)
     calc(
       var(--control-height)
       + var(--control-height)
@@ -135,7 +172,6 @@
       ),
       1.25fr
     )
-    var(--control-height)
     calc(
       var(--control-height)
       + var(--control-height)
@@ -168,13 +204,13 @@
 .objectDefinition {
   display: grid;
   min-width: 0;
-  margin: var(--space-3) 0 0;
   gap: var(--space-3);
 }
 
 .propertyActions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-3);
 }
 
@@ -186,11 +222,6 @@
 .objectProperties {
   display: grid;
   min-width: 0;
-  border-inline-start:
-    var(--connector-line-width)
-    solid
-    var(--color-border);
-  padding-inline-start: var(--space-4);
   gap: var(--space-3);
 }
 
@@ -248,13 +279,22 @@
 
 @media (width <= 40rem) {
   .responseTypeControls[data-has-template="true"] {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) var(--control-height);
+  }
+
+  .responseTypeControls[data-has-template="true"] > div:nth-of-type(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .responseTypeControls[data-has-template="true"] > .addProperty {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .propertyGrid {
     grid-template-columns:
       1fr
-      var(--control-height)
       calc(
         var(--control-height)
         + var(--control-height)
@@ -267,13 +307,8 @@
     grid-column: 1 / -1;
   }
 
-  .propertyGrid > button[aria-expanded] {
-    grid-column: 2;
-    grid-row: 3;
-  }
-
   .propertyActions {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 3;
   }
 }
