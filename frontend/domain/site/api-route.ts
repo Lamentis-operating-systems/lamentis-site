@@ -1,6 +1,6 @@
 import {
   hasIncompatibleApiResponseSchema,
-  isValidApiResponseSchema,
+  isValidPersistedApiResponseSchema,
   type ApiResponseSchema,
 } from "./api-response-schema";
 import { isValidApiRoutePath } from "./api-route-path";
@@ -79,7 +79,7 @@ function isApiRouteContract(
 
   return (
     value.response === undefined
-    || isValidApiResponseSchema(value.response)
+    || isValidPersistedApiResponseSchema(value.response)
   );
 }
 

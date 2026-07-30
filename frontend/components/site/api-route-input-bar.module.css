@@ -1,0 +1,10 @@
+.split {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns:
+    minmax(0, var(--control-http-method-width))
+    minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+}

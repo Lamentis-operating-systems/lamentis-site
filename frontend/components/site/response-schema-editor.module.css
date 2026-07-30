@@ -6,8 +6,8 @@
   gap: var(--space-6);
 }
 
-.form > .overlayRouteRow {
-  width: calc(100% + var(--space-3));
+.form > .overlayRouteInput {
+  width: 100%;
 }
 
 .section,
@@ -72,23 +72,11 @@
 }
 
 .addProperty {
-  display: inline-flex;
-  min-height: var(--control-height);
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
   border: 0;
   border-radius: var(--radius-full);
-  padding-inline: var(--space-3);
   background: var(--color-field-menu-background);
   color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-compact);
   transition-property: background-color, color, transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
 }
 
 .addProperty:hover {
@@ -112,16 +100,32 @@
 }
 
 .propertyCard {
+  display: grid;
   min-width: 0;
   margin: 0;
   border: 0;
   padding: 0;
   background: transparent;
+  gap: var(--space-3);
 }
 
 .propertyGrid {
   display: grid;
   min-width: 0;
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--response-property-field-min-width)
+    var(--control-height)
+    calc(
+      var(--control-height)
+      + var(--control-height)
+      + var(--space-3)
+    );
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.propertyGridArray {
   grid-template-columns:
     minmax(0, 1fr)
     minmax(
@@ -131,10 +135,12 @@
       ),
       1.25fr
     )
-    auto
-    var(--control-height);
-  align-items: center;
-  gap: var(--space-3);
+    var(--control-height)
+    calc(
+      var(--control-height)
+      + var(--control-height)
+      + var(--space-3)
+    );
 }
 
 .typeExpression {
@@ -159,8 +165,64 @@
   line-height: var(--line-compact);
 }
 
-.checkboxField {
-  white-space: nowrap;
+.objectDefinition {
+  display: grid;
+  min-width: 0;
+  margin: var(--space-3) 0 0;
+  gap: var(--space-3);
+}
+
+.propertyActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.objectTemplateControl {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.objectProperties {
+  display: grid;
+  min-width: 0;
+  border-inline-start:
+    var(--connector-line-width)
+    solid
+    var(--color-border);
+  padding-inline-start: var(--space-4);
+  gap: var(--space-3);
+}
+
+.objectProperties > .propertyList {
+  width: 100%;
+  margin-block-end: var(--space-5);
+}
+
+.optionalToggle {
+  margin-inline-end: calc(-1 * var(--space-3));
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  opacity: var(--opacity-toggle-inactive);
+  transition-property: color, opacity;
+}
+
+.optionalToggle:hover {
+  background: transparent;
+  color: var(--color-text);
+  opacity: var(--opacity-option-muted);
+  transform: none;
+}
+
+.optionalToggle:focus-visible {
+  outline: none;
+}
+
+.optionalToggle[aria-pressed="true"] {
+  background: transparent;
+  color: var(--color-text);
+  opacity: 1;
 }
 
 .removeProperty {
@@ -190,7 +252,14 @@
   }
 
   .propertyGrid {
-    grid-template-columns: 1fr var(--control-height);
+    grid-template-columns:
+      1fr
+      var(--control-height)
+      calc(
+        var(--control-height)
+        + var(--control-height)
+        + var(--space-3)
+      );
   }
 
   .propertyNameField,
@@ -198,12 +267,13 @@
     grid-column: 1 / -1;
   }
 
-  .checkboxField {
-    grid-column: 1;
+  .propertyGrid > button[aria-expanded] {
+    grid-column: 2;
+    grid-row: 3;
   }
 
-  .removeProperty {
-    grid-column: 2;
+  .propertyActions {
+    grid-column: 3;
     grid-row: 3;
   }
 }

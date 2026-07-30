@@ -8,15 +8,19 @@ import { SelectMenu, type SelectMenuOption } from "./select-menu";
 
 type HttpMethodSelectorProps = {
   disabledMethods?: readonly HttpMethod[];
+  height?: "default" | "large";
   label: string;
   onChange: (method: HttpMethod) => void;
+  rounded?: boolean;
   value: HttpMethod;
 };
 
 export function HttpMethodSelector({
   disabledMethods = [],
+  height,
   label,
   onChange,
+  rounded,
   value,
 }: HttpMethodSelectorProps) {
   const options: SelectMenuOption[] = httpMethods.map((method) => ({
@@ -29,8 +33,10 @@ export function HttpMethodSelector({
 
   return (
     <SelectMenu
+      height={height}
       label={label}
       options={options}
+      rounded={rounded}
       selectedId={value}
       width="method"
     />

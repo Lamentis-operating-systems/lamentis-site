@@ -12,6 +12,7 @@ import {
   hasApiRouteIdentity,
   httpMethods,
   nextApiRouteId,
+  type ApiRouteContract,
   type HttpMethod,
 } from "@/domain/site/api-route";
 import { parseApiRoutePath } from "@/domain/site/api-route-path";
@@ -21,10 +22,8 @@ import {
   ApiRouteRow,
   type ApiRouteRowContent,
 } from "./api-route-row";
-import { BracedPathInput } from "./braced-path-input";
-import textInputStyles from "./form/text-input.module.css";
+import { ApiRouteInputBar } from "./api-route-input-bar";
 import { CheckIcon } from "./icons/check-icon";
-import { HttpMethodSelector } from "./http-method-selector";
 import { useOverlay } from "./overlay/overlay-provider";
 import { ResponseSchemaEditor } from "./response-schema-editor";
 import { SearchSurface } from "./search-surface";
@@ -33,8 +32,6 @@ import styles from "./search-page.module.css";
 
 const studioOverlaySize = "var(--overlay-size-large)";
 const studioOverlayResize = {
-  maxHeight: 900,
-  maxWidth: 960,
   minHeight: 320,
   minWidth: 360,
 } as const;
@@ -77,6 +74,8 @@ export function ApiCreatorStudio({
   copyRouteLabel,
   deleteRouteLabel,
   duplicatePathError,
+  editPropertiesDescription,
+  editResponseTypeDescription,
   editRouteLabel,
   editRouteTitle,
   heading,
@@ -87,7 +86,6 @@ export function ApiCreatorStudio({
   responseOverlayTitle,
   routeActionsLabel,
   routeListLabel,
-  saveRouteLabel,
   storageErrorLabel,
   label,
   placeholder,
@@ -98,6 +96,7 @@ export function ApiCreatorStudio({
   const [routes, setRoutes, storageStatus] = useLocalStorageState(
     apiRoutesStorage,
   );
+  const routesRef = useRef(routes);
   const responseFormId = useId();
   const routeInputRef = useRef<HTMLInputElement>(null);
   const focusRouteInputAfterMutation = useRef(false);
@@ -123,11 +122,127 @@ export function ApiCreatorStudio({
   };
 
   useLayoutEffect(() => {
+    routesRef.current = routes;
+
     if (!focusRouteInputAfterMutation.current) return;
 
     focusRouteInputAfterMutation.current = false;
     routeInputRef.current?.focus();
   }, [routes]);
+
+  function openResponseEditor(
+    route: ApiRouteContract,
+    mode: "create" | "edit",
+    routeSnapshot: readonly ApiRouteContract[],
+  ) {
+    const disabledMethods = httpMethods.filter((candidateMethod) => (
+      candidateMethod !== route.method
+      && routeSnapshot.some((candidateRoute) => (
+        candidateRoute.id !== route.id
+        && candidateRoute.path === route.path
+        && candidateRoute.method === candidateMethod
+      ))
+    ));
+    const editorContent = mode === "edit"
+      ? {
+          ...responseEditor,
+          propertiesDescription: editPropertiesDescription,
+          responseTypeDescription: editResponseTypeDescription,
+        }
+      : responseEditor;
+
+    openOverlay({
+      body: (
+        <ResponseSchemaEditor
+          content={editorContent}
+          disabledRouteMethods={disabledMethods}
+          existingResponseSchemas={routeSnapshot.flatMap(
+            (candidateRoute) => (
+              candidateRoute.id !== route.id && candidateRoute.response
+                ? [candidateRoute.response]
+                : []
+            ),
+          )}
+          formId={responseFormId}
+          getRouteValidationReason={(nextMethod, nextPath) => {
+            if (!parseApiRoutePath(nextPath)) return "syntax";
+
+            return hasApiRouteIdentity(
+              routesRef.current,
+              { method: nextMethod, path: nextPath },
+              route.id,
+            )
+              ? "duplicate"
+              : null;
+          }}
+          initialSchema={mode === "edit" ? route.response : undefined}
+          onRouteMethodChange={(nextMethod) => {
+            updateRouteMethod(route.id, nextMethod);
+          }}
+          onSave={(response, nextRoute) => {
+            let didSave = false;
+            setRoutes((currentRoutes) => {
+              if (
+                !currentRoutes.some((candidateRoute) => (
+                  candidateRoute.id === route.id
+                ))
+                || hasApiRouteIdentity(
+                  currentRoutes,
+                  nextRoute,
+                  route.id,
+                )
+                || hasApiResponseSchemaConflict(
+                  currentRoutes,
+                  response,
+                  route.id,
+                )
+              ) {
+                return currentRoutes;
+              }
+
+              didSave = true;
+              return currentRoutes.map((candidateRoute) => (
+                candidateRoute.id === route.id
+                  ? {
+                      ...candidateRoute,
+                      ...nextRoute,
+                      response,
+                    }
+                  : candidateRoute
+              ));
+            });
+            if (!didSave) return false;
+
+            closeOverlay();
+            return true;
+          }}
+          route={route}
+          routeInputContent={{
+            duplicatePathError,
+            invalidPathError,
+            label,
+            methodSelectorLabel,
+            pathPrefixHint,
+            placeholder,
+          }}
+        />
+      ),
+      closeLabel: mode === "edit"
+        ? closeEditRouteOverlayLabel
+        : closeResponseOverlayLabel,
+      height: studioOverlaySize,
+      initialFocus: "first-form-control",
+      placement: "bottom-right",
+      resizable: studioOverlayResize,
+      submitAction: {
+        formId: responseFormId,
+        icon: <CheckIcon />,
+        label: responseEditor.saveLabel,
+      },
+      title: mode === "edit" ? editRouteTitle : responseOverlayTitle,
+      width: studioOverlaySize,
+    });
+  }
 
   function addRoute(path: string) {
     let createdRouteId: number | undefined;
@@ -147,71 +262,11 @@ export function ApiCreatorStudio({
     if (createdRouteId === undefined) return;
     const routeId = createdRouteId;
     const createdRoute = { id: routeId, method, path };
-    const disabledMethods = httpMethods.filter((candidateMethod) => (
-      candidateMethod !== method
-      && routesAtCreation.some((route) => (
-        route.path === path && route.method === candidateMethod
-      ))
-    ));
-
-    openOverlay({
-      body: (
-        <ResponseSchemaEditor
-          content={responseEditor}
-          disabledRouteMethods={disabledMethods}
-          existingResponseSchemas={routesAtCreation.flatMap((route) => (
-            route.response ? [route.response] : []
-          ))}
-          formId={responseFormId}
-          onCopyRoute={() => copyRoute(path)}
-          onDeleteRoute={() => {
-            deleteRoute(routeId);
-            closeOverlay();
-          }}
-          onEditRoute={editRoute}
-          onRouteMethodChange={(nextMethod) => {
-            updateRouteMethod(routeId, nextMethod);
-          }}
-          onSave={(response) => {
-            let didSave = false;
-            setRoutes((currentRoutes) => {
-              if (
-                !currentRoutes.some((route) => route.id === routeId)
-                || hasApiResponseSchemaConflict(
-                  currentRoutes,
-                  response,
-                  routeId,
-                )
-              ) {
-                return currentRoutes;
-              }
-
-              didSave = true;
-              return currentRoutes.map((route) => (
-                route.id === routeId ? { ...route, response } : route
-              ));
-            });
-            if (!didSave) return false;
-
-            closeOverlay();
-            return true;
-          }}
-          route={createdRoute}
-          routeContent={routeRowContent}
-        />
-      ),
-      closeLabel: closeResponseOverlayLabel,
-      height: studioOverlaySize,
-      placement: "bottom-right",
-      resizable: studioOverlayResize,
-      submitAction: {
-        formId: responseFormId,
-        icon: <CheckIcon />,
-        label: responseEditor.saveLabel,
-      },
-      title: responseOverlayTitle,
-      width: studioOverlaySize,
-    });
+    openResponseEditor(
+      createdRoute,
+      "create",
+      [...routesAtCreation, createdRoute],
+    );
   }
 
   function updateRouteMethod(routeId: number, nextMethod: HttpMethod) {
@@ -251,20 +306,14 @@ export function ApiCreatorStudio({
     });
   }
 
-  function editRoute() {
-    openOverlay({
-      closeLabel: closeEditRouteOverlayLabel,
-      height: studioOverlaySize,
-      placement: "bottom-right",
-      resizable: studioOverlayResize,
-      submitAction: {
-        icon: <CheckIcon />,
-        label: saveRouteLabel,
-        onAction: closeOverlay,
-      },
-      title: editRouteTitle,
-      width: studioOverlaySize,
-    });
+  function editRoute(routeId: number) {
+    const routeSnapshot = routesRef.current;
+    const route = routeSnapshot.find((candidateRoute) => (
+      candidateRoute.id === routeId
+    ));
+    if (!route) return;
+
+    openResponseEditor(route, "edit", routeSnapshot);
   }
 
   const persistenceWarning = (
@@ -296,7 +345,7 @@ export function ApiCreatorStudio({
                     disabledMethods={disabledMethods}
                     onCopy={() => copyRoute(route.path)}
                     onDelete={() => deleteRoute(route.id)}
-                    onEdit={editRoute}
+                    onEdit={() => editRoute(route.id)}
                     onMethodChange={(nextMethod) => {
                       updateRouteMethod(route.id, nextMethod);
                     }}
@@ -323,33 +372,33 @@ export function ApiCreatorStudio({
       heading={heading}
       label={label}
       role="group"
-      withMethod
-    >
-      <HttpMethodSelector
-        label={methodSelectorLabel}
-        onChange={setMethod}
-        value={method}
-      />
-      <BracedPathInput
-        actionLabel={actionLabel}
-        className={textInputStyles.input}
-        getValidationReason={(path) => {
-          if (!parseApiRoutePath(path)) return "syntax";
+      surface={(
+        <ApiRouteInputBar
+          actionLabel={actionLabel}
+          getValidationReason={(candidateMethod, path) => {
+            if (!parseApiRoutePath(path)) return "syntax";
 
-          return hasApiRouteIdentity(routes, { method, path })
-            ? "duplicate"
-            : null;
-        }}
-        inputRef={routeInputRef}
-        label={label}
-        onAdd={addRoute}
-        placeholder={placeholder}
-        prefixHint={pathPrefixHint}
-        validationMessages={{
-          duplicate: duplicatePathError,
-          syntax: invalidPathError,
-        }}
-      />
-    </SearchSurface>
+            return hasApiRouteIdentity(
+              routes,
+              { method: candidateMethod, path },
+            )
+              ? "duplicate"
+              : null;
+          }}
+          inputRef={routeInputRef}
+          label={label}
+          method={method}
+          methodSelectorLabel={methodSelectorLabel}
+          onAdd={addRoute}
+          onMethodChange={setMethod}
+          placeholder={placeholder}
+          prefixHint={pathPrefixHint}
+          validationMessages={{
+            duplicate: duplicatePathError,
+            syntax: invalidPathError,
+          }}
+        />
+      )}
+    />
   );
 }

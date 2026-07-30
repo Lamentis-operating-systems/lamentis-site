@@ -4,6 +4,7 @@ import {
   areApiResponseSchemasEquivalent,
   canonicalizeApiResponseSchema,
   hasIncompatibleApiResponseSchema,
+  isValidPersistedApiResponseSchema,
   isValidTypeScriptTypeName,
   isValidApiResponseSchema,
   type ApiResponseSchema,
@@ -47,6 +48,16 @@ describe("API response schemas", () => {
           {
             arrayItemType: "object",
             name: "items",
+            objectSchema: {
+              fields: [
+                {
+                  name: "id",
+                  optional: false,
+                  type: "string",
+                },
+              ],
+              typeName: "Item",
+            },
             optional: true,
             type: "array",
           },
@@ -99,6 +110,27 @@ describe("API response schemas", () => {
       isValidApiResponseSchema({
         typeName: "UserResponse",
         fields: [
+          { name: "profile", optional: false, type: "object" },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isValidApiResponseSchema({
+        typeName: "UserResponse",
+        fields: [
+          {
+            arrayItemType: "object",
+            name: "profiles",
+            optional: false,
+            type: "array",
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isValidApiResponseSchema({
+        typeName: "UserResponse",
+        fields: [
           { name: "items", optional: false, type: "array" },
         ],
       }),
@@ -116,5 +148,81 @@ describe("API response schemas", () => {
         ],
       }),
     ).toBe(false);
+  });
+
+  it("requires and validates named object schemas recursively", () => {
+    const address = {
+      fields: [
+        { name: "city", optional: false, type: "string" as const },
+      ],
+      typeName: "Address",
+    };
+
+    expect(isValidApiResponseSchema({
+      fields: [
+        {
+          name: "address",
+          objectSchema: address,
+          optional: false,
+          type: "object",
+        },
+        {
+          arrayItemType: "object",
+          name: "previousAddresses",
+          objectSchema: address,
+          optional: true,
+          type: "array",
+        },
+      ],
+      typeName: "UserResponse",
+    })).toBe(true);
+
+    expect(hasIncompatibleApiResponseSchema(
+      [{
+        fields: [
+          {
+            name: "address",
+            objectSchema: address,
+            optional: false,
+            type: "object",
+          },
+        ],
+        typeName: "UserResponse",
+      }],
+      {
+        fields: [
+          {
+            name: "address",
+            objectSchema: {
+              fields: [
+                { name: "city", optional: false, type: "number" },
+              ],
+              typeName: "Address",
+            },
+            optional: false,
+            type: "object",
+          },
+        ],
+        typeName: "AccountResponse",
+      },
+    )).toBe(true);
+  });
+
+  it("keeps legacy opaque objects readable without accepting them as new schemas", () => {
+    const legacySchema = {
+      fields: [
+        { name: "profile", optional: false, type: "object" },
+        {
+          arrayItemType: "object",
+          name: "items",
+          optional: false,
+          type: "array",
+        },
+      ],
+      typeName: "LegacyResponse",
+    };
+
+    expect(isValidApiResponseSchema(legacySchema)).toBe(false);
+    expect(isValidPersistedApiResponseSchema(legacySchema)).toBe(true);
   });
 });

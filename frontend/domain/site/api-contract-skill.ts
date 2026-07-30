@@ -8,8 +8,8 @@ import { parseApiRoutePath } from "./api-route-path";
 import {
   apiResponseSchemaSignature,
   canonicalizeApiResponseSchema,
-  type ApiResponseArrayItemType,
-  type ApiResponseFieldType,
+  collectApiResponseSchemas,
+  type ApiResponseField,
   type ApiResponseSchema,
 } from "./api-response-schema";
 
@@ -102,11 +102,13 @@ function responseModelGroups(
   for (const route of routes) {
     if (!route.response) continue;
 
-    const schema = canonicalizeApiResponseSchema(route.response);
-    const variants = groups.get(schema.typeName)
-      ?? new Map<string, ApiResponseSchema>();
-    variants.set(responseSignature(schema), schema);
-    groups.set(schema.typeName, variants);
+    for (const responseSchema of collectApiResponseSchemas(route.response)) {
+      const schema = canonicalizeApiResponseSchema(responseSchema);
+      const variants = groups.get(schema.typeName)
+        ?? new Map<string, ApiResponseSchema>();
+      variants.set(responseSignature(schema), schema);
+      groups.set(schema.typeName, variants);
+    }
   }
 
   return [...groups.entries()]
@@ -125,20 +127,17 @@ function pathParameters(path: string): string[] {
   ));
 }
 
-function typeScriptPrimitive(
-  type: ApiResponseFieldType | ApiResponseArrayItemType,
-): string {
-  if (type === "object") return "{ [key: string]: unknown }";
-  return type;
-}
+function typeScriptFieldType(field: ApiResponseField): string {
+  if (field.type === "object") {
+    return field.objectSchema?.typeName
+      ?? "{ [key: string]: unknown }";
+  }
+  if (field.type !== "array") return field.type;
 
-function typeScriptFieldType(
-  type: ApiResponseFieldType,
-  arrayItemType?: ApiResponseArrayItemType,
-): string {
-  if (type !== "array") return typeScriptPrimitive(type);
-
-  const itemType = typeScriptPrimitive(arrayItemType ?? "unknown");
+  const itemType = field.arrayItemType === "object"
+    ? field.objectSchema?.typeName
+      ?? "{ [key: string]: unknown }"
+    : field.arrayItemType ?? "unknown";
   return itemType.startsWith("{")
     ? `(${itemType})[]`
     : `${itemType}[]`;
@@ -151,7 +150,7 @@ function renderTypeScriptModel(schema: ApiResponseSchema): string {
 
   const fields = schema.fields.map((field) => (
     `  ${field.name}${field.optional ? "?" : ""}: ${
-      typeScriptFieldType(field.type, field.arrayItemType)
+      typeScriptFieldType(field)
     };`
   ));
 

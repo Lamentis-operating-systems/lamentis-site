@@ -17,6 +17,11 @@ describe("shared form controls", () => {
         name="responseType"
         placeholder="UserResponse"
         required
+        trailingControl={(
+          <button type="button" aria-label="Toggle optional">
+            *
+          </button>
+        )}
       />,
     );
 
@@ -24,6 +29,9 @@ describe("shared form controls", () => {
     expect(input).toHaveAttribute("name", "responseType");
     expect(input).toHaveAttribute("placeholder", "UserResponse");
     expect(input).toBeRequired();
+    expect(input.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Toggle optional" }),
+    );
   });
 
   it("keeps the checkbox and its visible label as one native control", () => {
@@ -139,5 +147,45 @@ describe("shared form controls", () => {
         Reflect.deleteProperty(HTMLElement.prototype, "hidePopover");
       }
     }
+  });
+
+  it("preserves focus intentionally moved by a select action", () => {
+    render(
+      <>
+        <input aria-label="New response type name" />
+        <SelectMenu
+          label="Response type template"
+          options={[
+            {
+              id: "existing",
+              kind: "action",
+              label: "Existing response",
+              onSelect: () => {
+                screen.getByRole("textbox", {
+                  name: "New response type name",
+                }).focus();
+              },
+            },
+          ]}
+          selectedId=""
+        />
+      </>,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "Response type template",
+    });
+    fireEvent.click(trigger);
+    const menu = screen.getByRole("list", {
+      name: "Response type template",
+    });
+    fireEvent.click(screen.getByRole("button", {
+      name: "Existing response",
+    }));
+    fireEvent.animationEnd(menu);
+
+    expect(screen.getByRole("textbox", {
+      name: "New response type name",
+    })).toHaveFocus();
   });
 });

@@ -33,6 +33,7 @@ import {
 type OverlayPlacement = "bottom-right";
 type OverlayDimension = number | string;
 type OverlayActionIconPosition = "left" | "right";
+type OverlayInitialFocus = "dialog" | "first-form-control";
 
 type OverlayActionAppearance = {
   disabled?: boolean;
@@ -61,6 +62,7 @@ export type OverlayRequest = {
   cancelAction?: OverlayCancelAction;
   closeLabel: string;
   height?: OverlayDimension;
+  initialFocus?: OverlayInitialFocus;
   onDismiss?: () => void;
   placement?: OverlayPlacement;
   resizable?: OverlayResizeOptions;
@@ -302,7 +304,7 @@ function OverlayHost({
 }: OverlayHostProps) {
   const request = overlay?.request ?? null;
   const dialogRef = useModalDialog(Boolean(request), {
-    focusDialogOnOpen: true,
+    focusDialogOnOpen: request?.initialFocus !== "first-form-control",
   });
   const panelRef = useRef<HTMLElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
@@ -338,6 +340,32 @@ function OverlayHost({
   const resizeEnabled = Boolean(
     request?.resizable && canUseOverlayResize(),
   );
+
+  useEffect(() => {
+    if (
+      request?.initialFocus !== "first-form-control"
+      || overlay?.phase !== "open"
+    ) {
+      return;
+    }
+
+    const firstFormControl = (
+      dialogRef.current?.querySelector<
+        HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >("[data-overlay-initial-focus]")
+      ?? dialogRef.current?.querySelector<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      >(
+        "input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+      )
+    );
+    firstFormControl?.focus();
+  }, [
+    dialogRef,
+    overlay?.owner,
+    overlay?.phase,
+    request?.initialFocus,
+  ]);
 
   const finishResize = useCallback((
     outcome: "commit" | "discard" | "revert",

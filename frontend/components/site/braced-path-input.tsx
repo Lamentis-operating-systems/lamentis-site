@@ -13,18 +13,22 @@ import { PlusIcon } from "./icons/plus-icon";
 import { VisuallyHidden } from "./visually-hidden";
 import styles from "./braced-path-input.module.css";
 
-type BracedPathValidationReason = "duplicate" | "syntax";
+export type BracedPathValidationReason = "duplicate" | "syntax";
 
 type BracedPathInputProps = {
-  actionLabel: string;
+  actionLabel?: string;
   className: string;
   getValidationReason: (
     canonicalPath: string,
   ) => BracedPathValidationReason | null;
   label: string;
-  onAdd: (path: string) => void;
+  initialPath?: string;
+  onAdd?: (path: string) => void;
+  onPathChange?: (path: string) => void;
   placeholder: string;
   prefixHint: string;
+  preferredInitialFocus?: boolean;
+  required?: boolean;
   validationMessages: Readonly<
     Record<BracedPathValidationReason, string>
   >;
@@ -50,16 +54,22 @@ export function BracedPathInput({
   actionLabel,
   className,
   getValidationReason,
+  initialPath = "",
   label,
   onAdd,
+  onPathChange,
   placeholder,
   prefixHint,
+  preferredInitialFocus = false,
+  required = false,
   validationMessages,
   inputRef: externalInputRef,
 }: BracedPathInputProps) {
   const prefixHintId = useId();
   const validationErrorId = useId();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(() => (
+    formatEditablePath(initialPath)
+  ));
   const [scrollLeft, setScrollLeft] = useState(0);
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef ?? internalInputRef;
@@ -88,6 +98,16 @@ export function BracedPathInput({
     pendingSelectionRef.current = null;
   }, [inputRef, value]);
 
+  useLayoutEffect(() => {
+    onPathChange?.(path);
+    inputRef.current?.setCustomValidity(validationMessage ?? "");
+  }, [
+    inputRef,
+    onPathChange,
+    path,
+    validationMessage,
+  ]);
+
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.ctrlKey || event.metaKey) return;
 
@@ -96,8 +116,10 @@ export function BracedPathInput({
     const selectionEnd = input.selectionEnd ?? selectionStart;
 
     if (event.key === "Enter") {
-      event.preventDefault();
-      addRoute();
+      if (onAdd) {
+        event.preventDefault();
+        addRoute();
+      }
       return;
     }
 
@@ -244,7 +266,7 @@ export function BracedPathInput({
   }
 
   function addRoute() {
-    if (!valid) return;
+    if (!valid || !onAdd) return;
 
     onAdd(path);
     setValue("");
@@ -285,12 +307,16 @@ export function BracedPathInput({
             className={`${className} ${styles.input}`}
             type="text"
             name="route"
+            data-overlay-initial-focus={
+              preferredInitialFocus ? "true" : undefined
+            }
             aria-label={label}
             aria-describedby={describedBy}
             aria-invalid={validationReason ? true : undefined}
             placeholder={placeholder}
             autoComplete="off"
             spellCheck={false}
+            required={required}
             value={value}
             onChange={(event) => {
               setValue(formatEditablePath(event.currentTarget.value));
@@ -308,15 +334,17 @@ export function BracedPathInput({
         </VisuallyHidden>
       ) : null}
 
-      <IconButton
-        type="button"
-        className={styles.action}
-        aria-label={actionLabel}
-        disabled={!valid}
-        onClick={addRoute}
-      >
-        <PlusIcon />
-      </IconButton>
+      {actionLabel && onAdd ? (
+        <IconButton
+          type="button"
+          className={styles.action}
+          aria-label={actionLabel}
+          disabled={!valid}
+          onClick={addRoute}
+        >
+          <PlusIcon />
+        </IconButton>
+      ) : null}
     </div>
   );
 }

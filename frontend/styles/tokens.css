@@ -78,6 +78,7 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: var(--space-1);
   --control-border-width: 1px;
+  --connector-line-width: 2px;
   --shadow-control-border:
     inset 0 0 0 var(--control-border-width) var(--color-border);
   --shadow-control-border-transparent:
@@ -90,6 +91,7 @@
   --effect-hover-brightness: brightness(0.92);
   --opacity-control-disabled: 0.45;
   --opacity-option-muted: 0.76;
+  --opacity-toggle-inactive: 0.38;
   --scale-overlay-collapsed: 0.94;
   --transform-button-hover: scale(0.98);
   --transform-chevron-open: rotate(180deg);

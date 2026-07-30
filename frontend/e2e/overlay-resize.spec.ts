@@ -137,10 +137,10 @@ test("all overlay edges and corners preserve their opposite axes", async ({
   await expect(dialog).not.toBeVisible();
 });
 
-test("resize limits clamp to the viewport and restore the preferred size", async ({
+test("maximum resize keeps equal viewport gaps and restores the preferred size", async ({
   page,
 }) => {
-  await page.setViewportSize({ height: 900, width: 1_440 });
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
   const { panel } = await openResponseOverlay(page);
 
   let result = await dragHandle({
@@ -159,8 +159,20 @@ test("resize limits clamp to the viewport and restore the preferred size", async
     page,
     panel,
   });
-  expectNear(result.after.width, 960);
+  expectNear(result.after.x, 24);
+  expectNear(1_440 - result.after.x - result.after.width, 24);
   const preferredWidth = result.after.width;
+
+  result = await dragHandle({
+    deltaX: 0,
+    deltaY: -2_000,
+    direction: "n",
+    page,
+    panel,
+  });
+  expectNear(result.after.y, 24);
+  expectNear(1_000 - result.after.y - result.after.height, 24);
+  const preferredHeight = result.after.height;
 
   await page.setViewportSize({ height: 500, width: 700 });
   await expect.poll(async () => {
@@ -184,9 +196,27 @@ test("resize limits clamp to the viewport and restore the preferred size", async
     topGap: 20,
   });
 
-  await page.setViewportSize({ height: 900, width: 1_440 });
-  await expect.poll(async () => (await panel.boundingBox())?.width)
-    .toBe(preferredWidth);
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  await expect.poll(async () => {
+    const box = await panel.boundingBox();
+    return box
+      ? {
+          bottomGap: 1_000 - box.y - box.height,
+          height: box.height,
+          leftGap: box.x,
+          rightGap: 1_440 - box.x - box.width,
+          topGap: box.y,
+          width: box.width,
+        }
+      : null;
+  }).toEqual({
+    bottomGap: 24,
+    height: preferredHeight,
+    leftGap: 24,
+    rightGap: 24,
+    topGap: 24,
+    width: preferredWidth,
+  });
 });
 
 test("touch/mobile keeps the existing non-resizable overlay behavior", async ({
