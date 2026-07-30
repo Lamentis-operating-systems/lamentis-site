@@ -78,10 +78,10 @@ for (const locale of supportedLocales) {
     }
     await expect(
       navigation.getByRole("link", {
-        name: navigationCopy.addSiteAction.label,
+        name: navigationCopy.action.label,
         exact: true,
       }),
-    ).toHaveAttribute("href", navigationCopy.addSiteAction.href);
+    ).toHaveAttribute("href", navigationCopy.action.href);
 
     for (const section of footerCopy.sections) {
       await expect(

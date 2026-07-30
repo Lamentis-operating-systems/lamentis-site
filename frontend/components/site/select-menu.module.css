@@ -35,7 +35,11 @@
 }
 
 .root[data-width="method"] .trigger {
-  width: var(--control-http-method-width);
+  width: 100%;
+}
+
+.root[data-width="method"] {
+  width: min(100%, var(--control-http-method-width));
 }
 
 .trigger:hover:not(:disabled) {

@@ -65,30 +65,16 @@
 }
 
 .action {
-  display: grid;
-  width: var(--control-height);
-  height: var(--control-height);
-  flex: 0 0 auto;
-  place-items: center;
   border: 0;
   border-radius: var(--radius-full);
-  padding: 0;
   background: var(--color-route-action-background);
   color: var(--color-route-action-foreground);
-  cursor: pointer;
   transition-property:
     background-color,
     box-shadow,
     color,
     filter,
     transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
-}
-
-.action svg {
-  width: var(--icon-size-control);
-  height: var(--icon-size-control);
 }
 
 .action:disabled {

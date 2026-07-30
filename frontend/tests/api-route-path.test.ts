@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { isValidApiRoutePath } from "@/domain/site/api-route-path";
+import {
+  isValidApiRoutePath,
+  parseApiRoutePath,
+} from "@/domain/site/api-route-path";
 
 describe("API route path syntax", () => {
+  it("parses canonical literal and parameter segments once", () => {
+    expect(parseApiRoutePath("/users/{uuid}/posts")).toEqual({
+      path: "/users/{uuid}/posts",
+      segments: [
+        { kind: "literal", value: "users" },
+        { kind: "parameter", name: "uuid" },
+        { kind: "literal", value: "posts" },
+      ],
+    });
+    expect(parseApiRoutePath("/")).toBeNull();
+    expect(parseApiRoutePath("/users/")).toBeNull();
+  });
+
   it.each([
-    "/",
     "/users",
     "/users/{uuid}",
     "/users/{userid}/posts",
@@ -14,6 +29,7 @@ describe("API route path syntax", () => {
 
   it.each([
     "",
+    "/",
     "users/{uuid}",
     "/users/",
     "/users//posts",

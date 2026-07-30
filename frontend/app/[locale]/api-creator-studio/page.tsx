@@ -1,4 +1,5 @@
-import { SearchPage } from "@/components/site/search-page";
+import { ApiCreatorStudio } from "@/components/site/api-creator-studio";
+import { OverlayProvider } from "@/components/site/overlay/overlay-provider";
 import { getApiCreatorStudioContent } from "@/domain/site/content";
 import {
   metadataForLocalizedRoute,
@@ -16,9 +17,8 @@ export default async function ApiCreatorStudioPage({
   const locale = await resolvePageLocale(params);
 
   return (
-    <SearchPage
-      {...getApiCreatorStudioContent(locale)}
-      highlightBracedInput
-    />
+    <OverlayProvider>
+      <ApiCreatorStudio {...getApiCreatorStudioContent(locale)} />
+    </OverlayProvider>
   );
 }

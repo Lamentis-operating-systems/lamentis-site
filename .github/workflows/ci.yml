@@ -20,16 +20,14 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
-  verify:
-    name: Verify repository
+  dependency-audit:
+    name: Audit dependencies
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -47,19 +45,86 @@ jobs:
 
       - name: Audit production dependency risk
         working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit complete dependency risk
+        if: ${{ always() }}
+        working-directory: frontend
         run: npm audit --audit-level=high
+
+  verify:
+    name: Verify repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup npm
+        run: npm install --global npm@11.6.4
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit
 
       - name: Run frontend verification
         working-directory: frontend
         run: npm run verify
 
-      - name: Install Chromium
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
+  browser:
+    name: Verify browser behavior on canonical visual platform
+    runs-on: macos-14
+    timeout-minutes: 30
 
-      - name: Run browser tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup npm
+        run: npm install --global npm@11.6.4
+
+      - name: Install frontend dependencies
         working-directory: frontend
-        run: npm run test:e2e
+        run: npm ci --no-audit
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install chromium firefox webkit
+
+      - name: Build production application
+        id: production-build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Run Chromium browser tests
+        working-directory: frontend
+        run: npm run test:e2e:run
+        env:
+          PLAYWRIGHT_HTML_REPORT: ./playwright-report/chromium
+          PLAYWRIGHT_OUTPUT_DIR: ./test-results/chromium
+
+      - name: Run Firefox and WebKit smoke tests
+        if: ${{ !cancelled() && steps.production-build.outcome == 'success' }}
+        working-directory: frontend
+        run: npm run test:e2e:cross-browser:run
+        env:
+          PLAYWRIGHT_HTML_REPORT: ./playwright-report/cross-browser
+          PLAYWRIGHT_OUTPUT_DIR: ./test-results/cross-browser
 
       - name: Upload browser failure artifacts
         if: failure()
@@ -72,12 +137,34 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  whitespace:
+    name: Check whitespace
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Check whitespace errors
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             git diff --check "origin/${GITHUB_BASE_REF}...HEAD"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            before_sha="${{ github.event.before }}"
+            zero_sha="0000000000000000000000000000000000000000"
+            if [[ "$before_sha" == "$zero_sha" ]] \
+              || ! git cat-file -e "${before_sha}^{commit}" 2>/dev/null; then
+              empty_tree="$(git hash-object -t tree /dev/null)"
+              git diff --check "$empty_tree" "$GITHUB_SHA"
+            else
+              git diff --check "${before_sha}...${GITHUB_SHA}"
+            fi
           elif git rev-parse HEAD^ >/dev/null 2>&1; then
-            git diff-tree --check --no-commit-id --pretty=on -r HEAD
+            git diff --check "HEAD^...HEAD"
           else
-            git diff --check HEAD
+            empty_tree="$(git hash-object -t tree /dev/null)"
+            git diff --check "$empty_tree" HEAD
           fi

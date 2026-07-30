@@ -22,7 +22,7 @@
 
 .action:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: var(--opacity-control-disabled);
 }
 
 .action:hover:not(:disabled) {

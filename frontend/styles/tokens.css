@@ -58,6 +58,10 @@
   --control-height-large: 3.25rem;
   --control-http-method-width: 7.75rem;
   --control-route-actions-menu-width: 10rem;
+  --overlay-default-width: 32rem;
+  --overlay-default-height: 36rem;
+  --overlay-size-large: 40rem;
+  --response-property-field-min-width: 8rem;
   --brand-mark-size: 1.75rem;
   --icon-size-control: var(--space-5);
 
@@ -78,7 +82,14 @@
     inset 0 0 0 var(--control-border-width) transparent;
   --shadow-control-focus:
     inset 0 0 0 var(--focus-ring-width) var(--color-focus);
+  --shadow-popover:
+    0 var(--space-3) var(--space-8) var(--color-shadow);
+  --shadow-overlay:
+    0 0 var(--space-8) var(--color-shadow);
   --effect-hover-brightness: brightness(0.92);
+  --opacity-control-disabled: 0.45;
+  --opacity-option-muted: 0.76;
+  --scale-overlay-collapsed: 0.94;
   --transform-button-hover: scale(0.98);
   --transform-chevron-open: rotate(180deg);
 

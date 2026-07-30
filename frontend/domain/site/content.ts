@@ -39,6 +39,7 @@ export type ResponseSchemaEditorContent = {
   propertyNamePlaceholder: string;
   propertyTypeLabel: string;
   removePropertyLabel: string;
+  responseTypeConflictError: string;
   responseTypeLabel: string;
   responseTypePlaceholder: string;
   saveLabel: string;
@@ -49,16 +50,21 @@ export type ApiCreatorStudioContent = SearchContent & {
   actionLabel: string;
   closeEditRouteOverlayLabel: string;
   closeResponseOverlayLabel: string;
+  copyRouteErrorLabel: string;
   copyRouteLabel: string;
   deleteRouteLabel: string;
+  duplicatePathError: string;
   editRouteLabel: string;
   editRouteTitle: string;
+  invalidPathError: string;
   methodSelectorLabel: string;
+  pathPrefixHint: string;
   responseEditor: ResponseSchemaEditorContent;
   responseOverlayTitle: string;
   routeActionsLabel: string;
   routeListLabel: string;
   saveRouteLabel: string;
+  storageErrorLabel: string;
 };
 
 type LocalizedSiteContent = {
@@ -71,6 +77,7 @@ type LocalizedSiteContent = {
     ariaLabel: string;
     closeMenuLabel: string;
     downloadApiContractsLabel: string;
+    downloadApiContractsErrorLabel: string;
     homeLabel: string;
     openMenuLabel: string;
   };
@@ -134,12 +141,17 @@ export const contentByLocale = {
       actionLabel: "Add API route",
       closeEditRouteOverlayLabel: "Close Edit this route",
       closeResponseOverlayLabel: "Close Add response",
+      copyRouteErrorLabel: "The route could not be copied.",
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
+      duplicatePathError: "This HTTP method and path already exist.",
       editRouteLabel: "Edit",
       editRouteTitle: "Edit this route",
       heading: "Create API Contracts",
+      invalidPathError:
+        "Use lowercase letters and numbers in path segments. Wrap parameter names in braces and start them with a letter.",
       methodSelectorLabel: "HTTP method",
+      pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
         addPropertyLabel: "Add property",
         arrayItemTypeLabel: "Array item type",
@@ -151,6 +163,8 @@ export const contentByLocale = {
         propertyNamePlaceholder: "propertyName",
         propertyTypeLabel: "Property type",
         removePropertyLabel: "Remove property",
+        responseTypeConflictError:
+          "This response type already uses a different schema.",
         responseTypeLabel: "Response type",
         responseTypePlaceholder: "UserResponse",
         saveLabel: "Save",
@@ -168,6 +182,8 @@ export const contentByLocale = {
       routeActionsLabel: "Route actions",
       routeListLabel: "API routes",
       saveRouteLabel: "Save",
+      storageErrorLabel:
+        "Routes are available in this tab but could not be read from or saved to local storage. Download them before reloading.",
       label: "API endpoint path",
       placeholder: "type path here...",
     },
@@ -176,6 +192,7 @@ export const contentByLocale = {
       ariaLabel: "Primary navigation",
       closeMenuLabel: "Close primary navigation",
       downloadApiContractsLabel: "Download",
+      downloadApiContractsErrorLabel: "Download failed",
       homeLabel: "Lamentis home",
       openMenuLabel: "Open primary navigation",
     },
@@ -241,12 +258,19 @@ export const contentByLocale = {
       actionLabel: "API-Route hinzufügen",
       closeEditRouteOverlayLabel: "Route bearbeiten schließen",
       closeResponseOverlayLabel: "Antwort hinzufügen schließen",
+      copyRouteErrorLabel: "Die Route konnte nicht kopiert werden.",
       copyRouteLabel: "Kopieren",
       deleteRouteLabel: "Löschen",
+      duplicatePathError:
+        "Diese HTTP-Methode und dieser Pfad sind bereits vorhanden.",
       editRouteLabel: "Bearbeiten",
       editRouteTitle: "Diese Route bearbeiten",
       heading: "API-Verträge erstellen",
+      invalidPathError:
+        "Verwende Kleinbuchstaben und Zahlen in Pfadsegmenten. Setze Parameternamen in geschweifte Klammern und beginne sie mit einem Buchstaben.",
       methodSelectorLabel: "HTTP-Methode",
+      pathPrefixHint:
+        "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
         addPropertyLabel: "Eigenschaft hinzufügen",
         arrayItemTypeLabel: "Array-Elementtyp",
@@ -258,6 +282,8 @@ export const contentByLocale = {
         propertyNamePlaceholder: "eigenschaftName",
         propertyTypeLabel: "Eigenschaftstyp",
         removePropertyLabel: "Eigenschaft entfernen",
+        responseTypeConflictError:
+          "Dieser Antworttyp verwendet bereits ein anderes Schema.",
         responseTypeLabel: "Antworttyp",
         responseTypePlaceholder: "BenutzerAntwort",
         saveLabel: "Speichern",
@@ -275,6 +301,8 @@ export const contentByLocale = {
       routeActionsLabel: "Routenaktionen",
       routeListLabel: "API-Routen",
       saveRouteLabel: "Speichern",
+      storageErrorLabel:
+        "Die Routen sind in diesem Tab verfügbar, konnten aber nicht aus dem lokalen Speicher gelesen oder dort gespeichert werden. Lade sie vor dem Neuladen herunter.",
       label: "API-Endpunktpfad",
       placeholder: "pfad hier eingeben...",
     },
@@ -283,6 +311,7 @@ export const contentByLocale = {
       ariaLabel: "Hauptnavigation",
       closeMenuLabel: "Hauptnavigation schließen",
       downloadApiContractsLabel: "Herunterladen",
+      downloadApiContractsErrorLabel: "Download fehlgeschlagen",
       homeLabel: "Lamentis-Startseite",
       openMenuLabel: "Hauptnavigation öffnen",
     },
@@ -310,11 +339,22 @@ type NavigationItem = InternalLink & {
   href: string;
 };
 
+type NavigationDownloadAction = {
+  errorLabel: string;
+  id: "navigation-download-api-contracts";
+  kind: "api-contract-download";
+  label: string;
+};
+
+export type NavigationAction =
+  | NavigationItem
+  | NavigationDownloadAction;
+
 export type NavigationContent = {
-  addSiteAction: NavigationItem;
+  action: NavigationItem;
+  actionOverrides: Partial<Record<SiteRouteId, NavigationAction>>;
   ariaLabel: string;
   closeMenuLabel: string;
-  downloadApiContractsLabel: string;
   homeHref: string;
   homeLabel: string;
   items: NavigationItem[];
@@ -391,18 +431,19 @@ export function getNavigationContent(locale: Locale): NavigationContent {
     locale,
     routeId: "home",
   } as const;
-  const actionRouteId = navigationRouteIds("action")[0];
+  const actionRouteIds = navigationRouteIds("action");
 
-  if (!actionRouteId) {
-    throw new Error("The route catalog must define a navigation action.");
+  if (actionRouteIds.length !== 1 || !actionRouteIds[0]) {
+    throw new Error(
+      "The route catalog must define exactly one navigation action.",
+    );
   }
+  const actionRouteId = actionRouteIds[0];
 
   return {
     locale,
     ariaLabel: content.navigation.ariaLabel,
     closeMenuLabel: content.navigation.closeMenuLabel,
-    downloadApiContractsLabel:
-      content.navigation.downloadApiContractsLabel,
     homeLabel: content.navigation.homeLabel,
     homeHref: routePath(homeRef),
     openMenuLabel: content.navigation.openMenuLabel,
@@ -410,9 +451,17 @@ export function getNavigationContent(locale: Locale): NavigationContent {
       ...createInternalLink(locale, routeId, `navigation-${routeId}`),
       label: getRouteCopy(locale, routeId).title,
     })),
-    addSiteAction: {
+    action: {
       ...createInternalLink(locale, actionRouteId, "navigation-add-site"),
       label: getRouteCopy(locale, actionRouteId).title,
+    },
+    actionOverrides: {
+      apiCreatorStudio: {
+        errorLabel: content.navigation.downloadApiContractsErrorLabel,
+        id: "navigation-download-api-contracts",
+        kind: "api-contract-download",
+        label: content.navigation.downloadApiContractsLabel,
+      },
     },
   };
 }

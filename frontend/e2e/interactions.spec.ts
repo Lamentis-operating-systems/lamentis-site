@@ -2,20 +2,30 @@ import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
-test("mobile navigation owns focus and releases scroll lock", async ({ page }) => {
+test("mobile navigation owns focus and releases scroll lock", {
+  tag: "@cross-browser-smoke",
+}, async ({ page }) => {
   await page.goto("/en");
   const openTrigger = page.getByRole("button", { name: "Open primary navigation" });
   await expect(openTrigger).toHaveAccessibleName("Open primary navigation");
   const controlledDialogId = await openTrigger.getAttribute("aria-controls");
   expect(controlledDialogId).toBeTruthy();
+  if (!controlledDialogId) {
+    throw new Error("The mobile trigger must reference its dialog.");
+  }
   await openTrigger.click();
 
   const trigger = page.locator(`button[aria-controls="${controlledDialogId}"]`);
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await expect(trigger).toHaveAccessibleName("Close primary navigation");
   const dialog = page.getByRole("dialog", { name: "Primary navigation" });
-  await expect(dialog).toHaveAttribute("id", controlledDialogId!);
+  await expect(dialog).toHaveAttribute("id", controlledDialogId);
   await expect(dialog).toBeVisible();
+  await expect.poll(
+    () => dialog.evaluate(
+      (element) => element.contains(document.activeElement),
+    ),
+  ).toBe(true);
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).overflow)).toBe("hidden");
 
   await page.keyboard.press("Escape");
@@ -28,8 +38,8 @@ test("mobile route navigation closes the dialog", async ({ page }) => {
   await page.goto("/en");
   await page.getByRole("button", { name: "Open primary navigation" }).click();
   const dialog = page.getByRole("dialog", { name: "Primary navigation" });
-  await dialog.getByRole("link", { name: "Today" }).click();
-  await expect(page).toHaveURL(/\/en\/today$/);
+  await dialog.getByRole("link", { name: "API Creator Studio" }).click();
+  await expect(page).toHaveURL(/\/en\/api-creator-studio$/);
   await expect(dialog).not.toBeVisible();
 });
 

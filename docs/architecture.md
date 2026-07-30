@@ -32,6 +32,7 @@ SEO-Projektionen entstehen ausschließlich aus diesen Katalogen.
 | `/{locale}/today` | statische leere Plattformseite | `noindex` |
 | `/{locale}/trending` | statische leere Plattformseite | `noindex` |
 | `/{locale}/search` | statische Search-Fläche ohne aktive Suche | `noindex` |
+| `/{locale}/api-creator-studio` | statische Route mit lokaler API-Creator-Client-Insel | `noindex` |
 | `/add-site` | globale leere Plattformseite mit ausgehandelter Inhaltssprache | `noindex` |
 | `/{locale}/legal-notice` | statischer Platzhalter | `noindex` |
 | `/{locale}/about/elias-papavlassopoulos` | statischer Platzhalter | `noindex` |
@@ -58,8 +59,8 @@ Canonicals sind absolute URLs.
 
 ## Komponenten- und State-Grenzen
 
-Server Components sind der Standard. Navigation und Locale-Umschalter sind
-kleine Client-Inseln:
+Server Components sind der Standard. Navigation, Locale-Umschalter und API
+Creator Studio sind begrenzte Client-Inseln:
 
 - Die Navigation besitzt ausschließlich lokalen Zustand für den mobilen Dialog.
 - Der Locale-Umschalter besitzt ausschließlich lokalen Zustand für sein Menü.
@@ -72,11 +73,64 @@ kleine Client-Inseln:
   existiert nicht.
 - Die primäre Navigation und die globale Add-site-Aktion werden mit ihren
   lokalisierten Titeln aus derselben Authority abgeleitet.
-- Die Search-Fläche ist eine Server Component. Überschrift, Label und
-  Placeholder stammen aus dem Locale-Dictionary. Das unkontrollierte Suchfeld
-  besitzt weder Client-State noch Form-Action; ausschließlich die explizite
-  Search-Route wählt diese Seitenkomponente.
+- `SearchPage` bleibt eine Server Component. Überschrift, Label und Placeholder
+  stammen aus dem Locale-Dictionary. Das unkontrollierte Suchfeld besitzt weder
+  Client-State noch Form-Action. Die gemeinsame, zustandsfreie
+  `SearchSurface` stellt nur die visuelle und semantische Hülle bereit.
+- `ApiCreatorStudio` ist eine eigene Client Component und verwendet dieselbe
+  `SearchSurface`, ohne die passive Search-Route in seine Client-, Overlay- oder
+  LocalStorage-Grenze einzubeziehen.
+- Der `OverlayProvider` gehört ausschließlich zur
+  `/{locale}/api-creator-studio`-Seite. Er umschließt weder Navigation noch
+  Footer oder andere Seiten und wird bei einem Route-Wechsel zusammen mit der
+  Studio-Seite entfernt.
+- API-Routen liegen im Browser unter dem versionierten, schema-validierten
+  LocalStorage-Eintrag `lamentis:api-creator-routes:v1`. Studio und Download
+  lesen denselben `useSyncExternalStore`-Snapshot. Erfolgreiche Writes werden
+  als gespeichert markiert; bei einem Write-Fehler bleibt der aktuelle Wert
+  ausdrücklich nur als `volatile` im Tab verfügbar und die Oberfläche warnt vor
+  einem Reload. Storage-Events synchronisieren andere Tabs.
+- `METHOD + path` ist die kanonische Routenidentität. Der Editor verhindert
+  neue doppelte Identitäten sowohl an der Eingabe als auch beim Methodenwechsel;
+  numerische IDs bleiben ausschließlich stabile lokale Listenschlüssel.
+- Response-Schemas werden im Domain-Layer kanonisch nach Feldnamen geordnet.
+  Derselbe TypeScript-Typname darf auf mehreren Routen nur ein äquivalentes
+  Schema bezeichnen. Der Editor verhindert neue inkompatible Definitionen und
+  prüft beim tatsächlichen Write nochmals den aktuellen Routen-Snapshot.
+  Bestehende v1-Konflikte bleiben lesbar und werden im Export weiterhin
+  ausdrücklich als `BLOCKED` markiert, statt Daten still zu verwerfen.
+- Die Navigation projiziert eine serialisierbare Action-Union. Der globale
+  Add-site-Link ist die Default-Action; die API-Creator-Route überschreibt sie
+  deklarativ mit dem Contract-Download. Desktop und Mobile rendern denselben
+  Action-Vertrag. Der API-spezifische Download-/Storage-Client wird als eigener
+  dynamischer Chunk nur auf der Studio-Route geladen.
+- Gemeinsame Menüsemantik liegt in `SelectMenu`, `options-menu` und
+  `useDismissiblePopover`. Icon-only Controls verwenden `IconButton` mit
+  verpflichtendem zugänglichem Namen; visuell verborgene Beschriftungen
+  verwenden `VisuallyHidden`. Kontextabhängige Farben, aktive Zustände und
+  Layoutvarianten bleiben lokal.
+- Jede Overlay-Anfrage besitzt intern einen eindeutigen Owner. Replacement,
+  Cancel-Reentrancy, Animationsende und Timeout-Fallback können deshalb nur den
+  zugehörigen Request schließen; `onDismiss` läuft höchstens einmal. Die
+  Fallback-Dauer wird aus der berechneten CSS-Animationsdauer abgeleitet.
+- Die Routentabelle baut pro Snapshot einmal einen
+  `Map<path, Set<method>>`-Index. Deaktivierte Methoden werden daraus in
+  konstanter Lookup-Zeit abgeleitet, statt die gesamte Liste je Tabellenzeile
+  erneut zu durchsuchen.
 - Interne Links verwenden `next/link`; externe Links bleiben explizit typisiert.
+
+LocalStorage ist dabei weder Server-Authority noch Konto-, Geräte- oder
+Cloud-Synchronisation. Die Versionsnummer schützt den Schema-Namensraum, belegt
+aber noch keine Migration zwischen künftigen Versionen. Ungültiger oder nicht
+verfügbarer Storage fällt auf den leeren validierten Default zurück; daraus darf
+keine erfolgreiche Persistenz abgeleitet werden. Gleichzeitige Änderungen in
+mehreren Tabs sind keine Transaktion: Storage-Events verteilen den jeweils
+zuletzt geschriebenen vollständigen Snapshot (`last write wins`), ohne
+automatischen Merge oder Konfliktauflösung. Ein bereits als `volatile`
+markierter Tab-Snapshot hat dabei Vorrang vor späteren Storage-Events:
+Peer-Writes und `clear()` dürfen ungesicherte lokale Routen nicht still
+verwerfen. Der nächste erfolgreiche lokale Write persistiert wieder den
+vollständigen Tab-Snapshot und kehrt zur normalen Event-Synchronisation zurück.
 
 `/add-site` bleibt bewusst außerhalb des lokalisierten Root-Layouts. Der
 Wechsel zwischen dieser globalen Route und einem lokalisierten Pfad lädt daher

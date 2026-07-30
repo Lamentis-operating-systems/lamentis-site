@@ -1,12 +1,16 @@
 import {
+  apiRouteIdentity,
   httpMethods,
   type ApiRouteContract,
   type HttpMethod,
 } from "./api-route";
-import type {
-  ApiResponseArrayItemType,
-  ApiResponseFieldType,
-  ApiResponseSchema,
+import { parseApiRoutePath } from "./api-route-path";
+import {
+  apiResponseSchemaSignature,
+  canonicalizeApiResponseSchema,
+  type ApiResponseArrayItemType,
+  type ApiResponseFieldType,
+  type ApiResponseSchema,
 } from "./api-response-schema";
 
 export const apiContractsAgentSkillFileName =
@@ -46,27 +50,9 @@ function compareRoutes(
     - (methodOrder.get(right.method) ?? 0);
 }
 
-function canonicalResponseSchema(
-  schema: ApiResponseSchema,
-): ApiResponseSchema {
-  return {
-    typeName: schema.typeName,
-    fields: [...schema.fields]
-      .sort((left, right) => compareText(left.name, right.name))
-      .map((field) => ({
-        name: field.name,
-        optional: field.optional,
-        type: field.type,
-        ...(field.type === "array"
-          ? { arrayItemType: field.arrayItemType }
-          : {}),
-      })),
-  };
-}
-
 function responseSignature(schema: ApiResponseSchemaOrNone): string {
   if (!schema) return "no-response";
-  return JSON.stringify(canonicalResponseSchema(schema));
+  return apiResponseSchemaSignature(schema);
 }
 
 function canonicalRouteGroups(
@@ -80,7 +66,7 @@ function canonicalRouteGroups(
   }>();
 
   for (const route of routes) {
-    const identity = `${route.method} ${route.path}`;
+    const identity = apiRouteIdentity(route);
     const group = groups.get(identity) ?? {
       method: route.method,
       path: route.path,
@@ -88,7 +74,7 @@ function canonicalRouteGroups(
       sourceCount: 0,
     };
     const response = route.response
-      ? canonicalResponseSchema(route.response)
+      ? canonicalizeApiResponseSchema(route.response)
       : null;
 
     group.sourceCount += 1;
@@ -116,7 +102,7 @@ function responseModelGroups(
   for (const route of routes) {
     if (!route.response) continue;
 
-    const schema = canonicalResponseSchema(route.response);
+    const schema = canonicalizeApiResponseSchema(route.response);
     const variants = groups.get(schema.typeName)
       ?? new Map<string, ApiResponseSchema>();
     variants.set(responseSignature(schema), schema);
@@ -134,15 +120,15 @@ function responseModelGroups(
 }
 
 function pathParameters(path: string): string[] {
-  return [...path.matchAll(/\{([a-z][a-z0-9]*)\}/g)]
-    .map((match) => match[1])
-    .filter((parameter): parameter is string => Boolean(parameter));
+  return (parseApiRoutePath(path)?.segments ?? []).flatMap((segment) => (
+    segment.kind === "parameter" ? [segment.name] : []
+  ));
 }
 
 function typeScriptPrimitive(
   type: ApiResponseFieldType | ApiResponseArrayItemType,
 ): string {
-  if (type === "object") return "Record<string, unknown>";
+  if (type === "object") return "{ [key: string]: unknown }";
   return type;
 }
 
@@ -153,14 +139,14 @@ function typeScriptFieldType(
   if (type !== "array") return typeScriptPrimitive(type);
 
   const itemType = typeScriptPrimitive(arrayItemType ?? "unknown");
-  return itemType.startsWith("Record<")
-    ? `Array<${itemType}>`
+  return itemType.startsWith("{")
+    ? `(${itemType})[]`
     : `${itemType}[]`;
 }
 
 function renderTypeScriptModel(schema: ApiResponseSchema): string {
   if (schema.fields.length === 0) {
-    return `export type ${schema.typeName} = Record<string, never>;`;
+    return `export type ${schema.typeName} = { [key: string]: never };`;
   }
 
   const fields = schema.fields.map((field) => (

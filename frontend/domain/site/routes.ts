@@ -290,8 +290,18 @@ export function footerRouteIds(
     });
 }
 
+function requireLocalizedRouteIds(
+  routeIds: readonly SiteRouteId[],
+): readonly LocalizedRouteId[] {
+  if (!routeIds.every(isLocalizedRouteId)) {
+    throw new Error("Primary navigation routes must be localized.");
+  }
+
+  return routeIds;
+}
+
 export const primaryNavigationRouteIds = Object.freeze(
-  navigationRouteIds("primary") as LocalizedRouteId[],
+  requireLocalizedRouteIds(navigationRouteIds("primary")),
 );
 
 export const indexableRouteIds = Object.freeze(

@@ -10,24 +10,11 @@
 }
 
 .trigger {
-  display: grid;
-  width: var(--control-height);
-  height: var(--control-height);
-  place-items: center;
-  border: 1px solid transparent;
+  border: var(--control-border-width) solid transparent;
   border-radius: var(--radius-full);
-  padding: 0;
   background: transparent;
   color: var(--color-text-muted);
-  cursor: pointer;
   transition-property: background-color, border-color, color, transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
-}
-
-.trigger svg {
-  width: var(--icon-size-control);
-  height: var(--icon-size-control);
 }
 
 .trigger:hover {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { CopyIcon } from "./copy-icon";
-import { DeleteIcon } from "./delete-icon";
-import { EditIcon } from "./edit-icon";
-import { MoreIcon } from "./more-icon";
+import { useId } from "react";
+import { CopyIcon } from "./icons/copy-icon";
+import { DeleteIcon } from "./icons/delete-icon";
+import { EditIcon } from "./icons/edit-icon";
+import { MoreIcon } from "./icons/more-icon";
+import { IconButton } from "./icon-button";
 import optionStyles from "./options-menu.module.css";
 import styles from "./route-actions-menu.module.css";
+import { useDismissiblePopover } from "./use-dismissible-popover";
 
 type RouteActionsMenuProps = {
   copyLabel: string;
@@ -29,35 +31,17 @@ export function RouteActionsMenu({
   onEdit,
   path,
 }: RouteActionsMenuProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-
-    function closeOnPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setMenuOpen(false);
-      triggerRef.current?.focus();
-    }
-
-    document.addEventListener("pointerdown", closeOnPointerDown);
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnPointerDown);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [menuOpen]);
+  const {
+    closePopover,
+    isOpen,
+    rootRef,
+    togglePopover,
+    triggerRef,
+  } = useDismissiblePopover();
 
   function runAction(action: () => void) {
-    setMenuOpen(false);
+    closePopover(true);
     action();
   }
 
@@ -65,21 +49,21 @@ export function RouteActionsMenu({
     <div
       ref={rootRef}
       className={styles.root}
-      data-open={menuOpen}
+      data-open={isOpen}
     >
-      <button
+      <IconButton
         ref={triggerRef}
         type="button"
         className={styles.trigger}
         aria-label={label}
-        aria-expanded={menuOpen}
+        aria-expanded={isOpen}
         aria-controls={menuId}
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={togglePopover}
       >
         <MoreIcon />
-      </button>
+      </IconButton>
 
-      {menuOpen ? (
+      {isOpen ? (
         <ul
           id={menuId}
           className={`${styles.menu} ${optionStyles.menu}`}

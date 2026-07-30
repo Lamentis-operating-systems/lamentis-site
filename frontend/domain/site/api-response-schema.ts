@@ -34,6 +34,118 @@ export type ApiResponseSchema = {
 };
 
 export const typeScriptIdentifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const reservedTypeScriptDeclarationNames = new Set([
+  "any",
+  "await",
+  "bigint",
+  "boolean",
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "enum",
+  "export",
+  "extends",
+  "false",
+  "finally",
+  "for",
+  "function",
+  "if",
+  "implements",
+  "import",
+  "in",
+  "instanceof",
+  "interface",
+  "let",
+  "never",
+  "new",
+  "null",
+  "number",
+  "object",
+  "package",
+  "private",
+  "protected",
+  "public",
+  "return",
+  "static",
+  "string",
+  "super",
+  "switch",
+  "symbol",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typeof",
+  "undefined",
+  "unknown",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield",
+]);
+
+export function isValidTypeScriptTypeName(value: string): boolean {
+  return (
+    typeScriptIdentifierPattern.test(value)
+    && !reservedTypeScriptDeclarationNames.has(value)
+  );
+}
+
+function compareText(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+export function canonicalizeApiResponseSchema(
+  schema: ApiResponseSchema,
+): ApiResponseSchema {
+  return {
+    fields: [...schema.fields]
+      .sort((left, right) => compareText(left.name, right.name))
+      .map((field) => ({
+        ...(field.type === "array"
+          ? { arrayItemType: field.arrayItemType }
+          : {}),
+        name: field.name,
+        optional: field.optional,
+        type: field.type,
+      })),
+    typeName: schema.typeName,
+  };
+}
+
+export function apiResponseSchemaSignature(
+  schema: ApiResponseSchema,
+): string {
+  return JSON.stringify(canonicalizeApiResponseSchema(schema));
+}
+
+export function areApiResponseSchemasEquivalent(
+  left: ApiResponseSchema,
+  right: ApiResponseSchema,
+): boolean {
+  return apiResponseSchemaSignature(left) === apiResponseSchemaSignature(right);
+}
+
+export function hasIncompatibleApiResponseSchema(
+  schemas: readonly ApiResponseSchema[],
+  candidate: ApiResponseSchema,
+): boolean {
+  return schemas.some((schema) => (
+    schema.typeName === candidate.typeName
+    && !areApiResponseSchemasEquivalent(schema, candidate)
+  ));
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -68,7 +180,7 @@ export function isValidApiResponseSchema(
     return false;
   }
 
-  if (!typeScriptIdentifierPattern.test(schema.typeName)) return false;
+  if (!isValidTypeScriptTypeName(schema.typeName)) return false;
 
   const propertyNames = new Set<string>();
 
@@ -83,6 +195,10 @@ export function isValidApiResponseSchema(
       || (
         field.type === "array"
         && !isApiResponseArrayItemType(field.arrayItemType)
+      )
+      || (
+        field.type !== "array"
+        && field.arrayItemType !== undefined
       )
     ) {
       return false;

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  apiRouteIdentity,
+  hasApiResponseSchemaConflict,
+  hasApiRouteIdentity,
   isApiRouteContractList,
   nextApiRouteId,
   type ApiRouteContract,
@@ -48,5 +51,58 @@ describe("API-route persistence schema", () => {
       { id: 2, method: "GET", path: "/two" },
       { id: 0, method: "POST", path: "/zero" },
     ])).toBe(1);
+  });
+
+  it("derives and checks the canonical method-plus-path identity", () => {
+    expect(apiRouteIdentity(validRoute)).toBe("GET /users/{uuid}");
+    expect(hasApiRouteIdentity(
+      [validRoute],
+      { method: "GET", path: "/users/{uuid}" },
+    )).toBe(true);
+    expect(hasApiRouteIdentity(
+      [validRoute],
+      { method: "POST", path: "/users/{uuid}" },
+    )).toBe(false);
+    expect(hasApiRouteIdentity(
+      [validRoute],
+      { method: "GET", path: "/users/{uuid}" },
+      validRoute.id,
+    )).toBe(false);
+  });
+
+  it("detects incompatible response schemas with the same type name", () => {
+    expect(hasApiResponseSchemaConflict(
+      [validRoute],
+      {
+        ...validRoute.response!,
+        fields: [...validRoute.response!.fields].reverse(),
+      },
+    )).toBe(false);
+    expect(hasApiResponseSchemaConflict(
+      [validRoute],
+      {
+        fields: [
+          { name: "items", optional: false, type: "number" },
+        ],
+        typeName: "UserResponse",
+      },
+    )).toBe(true);
+    expect(hasApiResponseSchemaConflict(
+      [validRoute],
+      {
+        fields: [
+          { name: "items", optional: false, type: "number" },
+        ],
+        typeName: "OtherResponse",
+      },
+    )).toBe(false);
+    expect(hasApiResponseSchemaConflict(
+      [validRoute],
+      {
+        fields: [],
+        typeName: "UserResponse",
+      },
+      validRoute.id,
+    )).toBe(false);
   });
 });

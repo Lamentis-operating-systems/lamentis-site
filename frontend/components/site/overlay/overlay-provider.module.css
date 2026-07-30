@@ -44,7 +44,7 @@
   overflow: hidden;
   border-radius: var(--radius-extra-large);
   background: var(--color-field-background);
-  box-shadow: 0 0 var(--space-8) var(--color-shadow);
+  box-shadow: var(--shadow-overlay);
   transform-origin: bottom right;
   will-change: opacity, transform;
 }
@@ -84,25 +84,11 @@
 }
 
 .closeButton {
-  display: grid;
-  width: var(--control-height);
-  height: var(--control-height);
-  flex: 0 0 auto;
-  place-items: center;
   border: 0;
   border-radius: var(--radius-full);
-  padding: 0;
   background: transparent;
   color: var(--color-text-secondary);
-  cursor: pointer;
   transition-property: background-color, color, transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
-}
-
-.closeButton svg {
-  width: var(--icon-size-control);
-  height: var(--icon-size-control);
 }
 
 .closeButton:hover {
@@ -155,14 +141,16 @@
 
 @media (forced-colors: active) {
   .panel {
-    border: 1px solid CanvasText;
+    border: var(--control-border-width) solid CanvasText;
   }
 }
 
 @keyframes overlay-pop-in {
   from {
     opacity: 0;
-    transform: translate(var(--space-6), var(--space-6)) scale(0.94);
+    transform:
+      translate(var(--space-6), var(--space-6))
+      scale(var(--scale-overlay-collapsed));
   }
 
   to {
@@ -179,6 +167,8 @@
 
   to {
     opacity: 0;
-    transform: translate(var(--space-6), var(--space-6)) scale(0.94);
+    transform:
+      translate(var(--space-6), var(--space-6))
+      scale(var(--scale-overlay-collapsed));
   }
 }

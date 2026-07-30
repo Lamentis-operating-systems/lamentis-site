@@ -1,48 +1,95 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  useEffect,
   useId,
   useRef,
   useState,
   type MouseEvent,
 } from "react";
-import type { NavigationContent } from "@/domain/site/content";
+import type {
+  NavigationAction,
+  NavigationContent,
+} from "@/domain/site/content";
 import { assetManifest } from "@/domain/site/assets";
 import { serializeLocalePreference } from "@/domain/site/locale-preference";
 import { siteConfig, type SiteRouteId } from "@/domain/site/routes";
+import { IconButton } from "../icon-button";
 import layoutStyles from "../layout/site-layout.module.css";
 import primaryActionStyles from "../primary-action.module.css";
-import { ApiContractsDownloadButton } from "./api-contracts-download-button";
+import { PlusIcon } from "../icons/plus-icon";
+import { useModalDialog } from "../use-modal-dialog";
 import { MenuIcon } from "./menu-icon";
-import { PlusIcon } from "./plus-icon";
 import styles from "./site-navigation.module.css";
+
+const ApiContractsDownloadButton = dynamic(() => (
+  import("./api-contracts-download-button").then(
+    (module) => module.ApiContractsDownloadButton,
+  )
+));
 
 type NavigationMenuProps = {
   activeRouteId: SiteRouteId | null;
   content: NavigationContent;
 };
 
+type NavigationActionItemProps = {
+  action: NavigationAction;
+  activeRouteId: SiteRouteId | null;
+  className: string;
+  onDownload?: () => void;
+  onNavigate: () => void;
+};
+
+function NavigationActionItem({
+  action,
+  activeRouteId,
+  className,
+  onDownload,
+  onNavigate,
+}: NavigationActionItemProps) {
+  if (action.kind === "api-contract-download") {
+    return (
+      <ApiContractsDownloadButton
+        className={className}
+        errorLabel={action.errorLabel}
+        label={action.label}
+        onDownload={onDownload}
+      />
+    );
+  }
+
+  return (
+    <Link
+      className={className}
+      href={action.href}
+      aria-label={action.label}
+      aria-current={
+        activeRouteId === action.routeId ? "page" : undefined
+      }
+      onClick={onNavigate}
+    >
+      <PlusIcon />
+      <span>{action.label}</span>
+    </Link>
+  );
+}
+
 export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dialogId = useId();
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useModalDialog(mobileMenuOpen, {
+    returnFocusRef: menuButtonRef,
+  });
   const brandMark = assetManifest.files.brandMark;
-  const showApiContractsDownload = activeRouteId === "apiCreatorStudio";
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return undefined;
-
-    if (mobileMenuOpen && !dialog.open) dialog.showModal();
-    if (!mobileMenuOpen && dialog.open) dialog.close();
-
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  }, [mobileMenuOpen]);
+  const action = (
+    activeRouteId
+      ? content.actionOverrides[activeRouteId]
+      : undefined
+  ) ?? content.action;
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
@@ -52,7 +99,7 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
     document.cookie = serializeLocalePreference(content.locale);
   }
 
-  function handleMobileAddSiteNavigation() {
+  function handleMobileNavigation() {
     rememberContentLocale();
     closeMobileMenu();
   }
@@ -93,33 +140,17 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
           ))}
         </div>
 
-        {showApiContractsDownload ? (
-          <ApiContractsDownloadButton
-            className={
-              `${styles.navigationAction} ${primaryActionStyles.action}`
-            }
-            label={content.downloadApiContractsLabel}
-          />
-        ) : (
-          <Link
-            className={
-              `${styles.navigationAction} ${primaryActionStyles.action}`
-            }
-            href={content.addSiteAction.href}
-            aria-label={content.addSiteAction.label}
-            aria-current={
-              activeRouteId === content.addSiteAction.routeId
-                ? "page"
-                : undefined
-            }
-            onClick={rememberContentLocale}
-          >
-            <PlusIcon />
-            <span>{content.addSiteAction.label}</span>
-          </Link>
-        )}
+        <NavigationActionItem
+          action={action}
+          activeRouteId={activeRouteId}
+          className={
+            `${styles.navigationAction} ${primaryActionStyles.action}`
+          }
+          onNavigate={rememberContentLocale}
+        />
 
-        <button
+        <IconButton
+          ref={menuButtonRef}
           type="button"
           className={styles.menuButton}
           aria-label={mobileMenuOpen ? content.closeMenuLabel : content.openMenuLabel}
@@ -128,7 +159,7 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
           onClick={() => setMobileMenuOpen((open) => !open)}
         >
           <MenuIcon open={mobileMenuOpen} />
-        </button>
+        </IconButton>
 
         <dialog
           ref={dialogRef}
@@ -144,14 +175,14 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
         >
           <div className={styles.mobileDialogHeader}>
             <span>{siteConfig.brandName}</span>
-            <button
+            <IconButton
               type="button"
               className={styles.dialogCloseButton}
               aria-label={content.closeMenuLabel}
               onClick={closeMobileMenu}
             >
               <MenuIcon open />
-            </button>
+            </IconButton>
           </div>
 
           <div className={styles.mobileDialogContent}>
@@ -166,31 +197,19 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
                 {item.label}
               </Link>
             ))}
-            {showApiContractsDownload ? (
-              <ApiContractsDownloadButton
-                className={
-                  `${styles.mobileLink} ${styles.mobileAction} ${
-                    styles.mobileDownloadAction
-                  }`
-                }
-                label={content.downloadApiContractsLabel}
-                onDownload={closeMobileMenu}
-              />
-            ) : (
-              <Link
-                href={content.addSiteAction.href}
-                className={`${styles.mobileLink} ${styles.mobileAction}`}
-                aria-current={
-                  activeRouteId === content.addSiteAction.routeId
-                    ? "page"
-                    : undefined
-                }
-                onClick={handleMobileAddSiteNavigation}
-              >
-                <PlusIcon />
-                <span>{content.addSiteAction.label}</span>
-              </Link>
-            )}
+            <NavigationActionItem
+              action={action}
+              activeRouteId={activeRouteId}
+              className={
+                action.kind === "api-contract-download"
+                  ? `${styles.mobileLink} ${styles.mobileAction} ${
+                      styles.mobileDownloadAction
+                    }`
+                  : `${styles.mobileLink} ${styles.mobileAction}`
+              }
+              onDownload={closeMobileMenu}
+              onNavigate={handleMobileNavigation}
+            />
           </div>
         </dialog>
       </div>

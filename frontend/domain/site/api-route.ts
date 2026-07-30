@@ -1,4 +1,5 @@
 import {
+  hasIncompatibleApiResponseSchema,
   isValidApiResponseSchema,
   type ApiResponseSchema,
 } from "./api-response-schema";
@@ -8,12 +9,48 @@ export const httpMethods = ["GET", "POST", "PATCH", "DELETE"] as const;
 
 export type HttpMethod = (typeof httpMethods)[number];
 
+export type ApiRouteIdentity = `${HttpMethod} ${string}`;
+
 export type ApiRouteContract = {
   id: number;
   method: HttpMethod;
   path: string;
   response?: ApiResponseSchema;
 };
+
+type ApiRouteIdentitySource = Pick<ApiRouteContract, "method" | "path">;
+
+export function apiRouteIdentity(
+  route: ApiRouteIdentitySource,
+): ApiRouteIdentity {
+  return `${route.method} ${route.path}`;
+}
+
+export function hasApiRouteIdentity(
+  routes: readonly ApiRouteContract[],
+  candidate: ApiRouteIdentitySource,
+  excludingId?: number,
+): boolean {
+  const candidateIdentity = apiRouteIdentity(candidate);
+
+  return routes.some((route) => (
+    route.id !== excludingId
+    && apiRouteIdentity(route) === candidateIdentity
+  ));
+}
+
+export function hasApiResponseSchemaConflict(
+  routes: readonly ApiRouteContract[],
+  candidate: ApiResponseSchema,
+  excludingId?: number,
+): boolean {
+  return hasIncompatibleApiResponseSchema(
+    routes.flatMap((route) => (
+      route.id !== excludingId && route.response ? [route.response] : []
+    )),
+    candidate,
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

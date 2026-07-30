@@ -189,13 +189,17 @@ describe("site route authority", () => {
     expect(navigation.items.map((item) => item.routeId)).toEqual(
       navigationRouteIds("primary"),
     );
-    expect(navigation.addSiteAction).toMatchObject({
+    expect(navigation.action).toMatchObject({
       scope: "global",
       routeId: "addSite",
       href: "/add-site",
       label: "Add site",
     });
-    expect(navigation.downloadApiContractsLabel).toBe("Download");
+    expect(navigation.actionOverrides.apiCreatorStudio).toMatchObject({
+      kind: "api-contract-download",
+      label: "Download",
+      errorLabel: "Download failed",
+    });
     for (const section of footer.sections) {
       const internalRouteIds = section.links.flatMap((link) => (
         link.kind === "internal" ? [link.routeId] : []
@@ -214,8 +218,12 @@ describe("site route authority", () => {
     expect(getGlobalSiteChromeModel("de").navigation).toMatchObject({
       locale: "de",
       ariaLabel: "Hauptnavigation",
-      addSiteAction: { label: "Website hinzufügen" },
-      downloadApiContractsLabel: "Herunterladen",
+      action: { label: "Website hinzufügen" },
+      actionOverrides: {
+        apiCreatorStudio: {
+          label: "Herunterladen",
+        },
+      },
     });
   });
 
@@ -224,7 +232,7 @@ describe("site route authority", () => {
       const navigation = getNavigationContent(locale);
       const footer = getFooterContent(locale);
 
-      for (const item of [...navigation.items, navigation.addSiteAction]) {
+      for (const item of [...navigation.items, navigation.action]) {
         expect(matchRoute(item.href)).toEqual({
           scope: item.scope,
           routeId: item.routeId,

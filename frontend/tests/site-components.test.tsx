@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -7,10 +8,12 @@ import {
 } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { ApiCreatorStudio } from "@/components/site/api-creator-studio";
 import { EmptyPage } from "@/components/site/empty-page";
 import { LocaleSwitcher } from "@/components/site/footer/locale-switcher";
 import { SiteFooter } from "@/components/site/footer/site-footer";
 import { JsonLd } from "@/components/site/json-ld";
+import { ApiContractsDownloadButton } from "@/components/site/navigation/api-contracts-download-button";
 import { SiteNavigation } from "@/components/site/navigation/site-navigation";
 import {
   OverlayProvider,
@@ -32,7 +35,6 @@ const browserDownloadState = vi.hoisted(() => ({
 }));
 const apiCreatorStudioProps = {
   ...getApiCreatorStudioContent("en"),
-  highlightBracedInput: true,
 } as const;
 
 vi.mock("next/navigation", () => ({
@@ -113,6 +115,171 @@ function OverlayServiceHarness() {
       </button>
       <output aria-label="Overlay result">{result}</output>
     </>
+  );
+}
+
+function OverlayOwnershipHarness({
+  onFirstDismiss,
+  onFirstSubmit,
+  onReplacementDismiss,
+  onReplacementSubmit,
+}: {
+  onFirstDismiss: () => void;
+  onFirstSubmit: () => void;
+  onReplacementDismiss: () => void;
+  onReplacementSubmit: () => void;
+}) {
+  const { closeOverlay, openOverlay } = useOverlay();
+  const [result, setResult] = useState("Idle");
+
+  function openReplacement() {
+    openOverlay({
+      closeLabel: "Close replacement overlay",
+      onDismiss: onReplacementDismiss,
+      submitAction: {
+        label: "Use replacement",
+        onAction: () => {
+          onReplacementSubmit();
+          setResult("Replacement submitted");
+        },
+      },
+      title: "Replacement overlay",
+    });
+  }
+
+  function openFirst() {
+    openOverlay({
+      body: (
+        <>
+          <button type="button" onClick={openReplacement}>
+            Replace immediately
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeOverlay();
+              queueMicrotask(openReplacement);
+            }}
+          >
+            Close then replace
+          </button>
+        </>
+      ),
+      cancelAction: {
+        label: "Cancel and replace",
+        onAction: openReplacement,
+      },
+      closeLabel: "Close first overlay",
+      onDismiss: onFirstDismiss,
+      submitAction: {
+        label: "Use first",
+        onAction: () => {
+          onFirstSubmit();
+          setResult("First submitted");
+        },
+      },
+      title: "First overlay",
+    });
+  }
+
+  return (
+    <>
+      <button type="button" onClick={openFirst}>
+        Open first overlay
+      </button>
+      <output aria-label="Ownership result">{result}</output>
+    </>
+  );
+}
+
+function renderOverlayOwnershipHarness() {
+  const callbacks = {
+    onFirstDismiss: vi.fn(),
+    onFirstSubmit: vi.fn(),
+    onReplacementDismiss: vi.fn(),
+    onReplacementSubmit: vi.fn(),
+  };
+
+  renderWithOverlay(<OverlayOwnershipHarness {...callbacks} />);
+  fireEvent.click(screen.getByRole("button", {
+    name: "Open first overlay",
+  }));
+
+  return callbacks;
+}
+
+function SameIdFormReplacementHarness() {
+  const { openOverlay } = useOverlay();
+  const formId = "shared-overlay-form";
+
+  function openReplacement() {
+    openOverlay({
+      body: (
+        <form id={formId} aria-label="Replacement form">
+          <label>
+            Replacement required field
+            <input aria-label="Replacement required field" required />
+          </label>
+        </form>
+      ),
+      closeLabel: "Close replacement form overlay",
+      submitAction: {
+        formId,
+        label: "Save replacement",
+      },
+      title: "Replacement form overlay",
+    });
+  }
+
+  function openFirst() {
+    openOverlay({
+      body: (
+        <form id={formId} aria-label="First form">
+          <label>
+            First required field
+            <input
+              aria-label="First required field"
+              defaultValue="valid"
+              required
+            />
+          </label>
+          <button type="button" onClick={openReplacement}>
+            Replace with same form id
+          </button>
+        </form>
+      ),
+      closeLabel: "Close first form overlay",
+      submitAction: {
+        formId,
+        label: "Save first",
+      },
+      title: "First form overlay",
+    });
+  }
+
+  return (
+    <button type="button" onClick={openFirst}>
+      Open form overlay
+    </button>
+  );
+}
+
+function OverlayUnmountHarness({ onDismiss }: { onDismiss: () => void }) {
+  const { openOverlay } = useOverlay();
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        openOverlay({
+          closeLabel: "Close unmount overlay",
+          onDismiss,
+          title: "Unmount overlay",
+        });
+      }}
+    >
+      Open unmount overlay
+    </button>
   );
 }
 
@@ -207,11 +374,210 @@ describe("overlay provider", () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  it("dismisses a replaced owner once and submits only the replacement with Enter", async () => {
+    const callbacks = renderOverlayOwnershipHarness();
+    const firstDialog = await screen.findByRole("dialog", {
+      name: "First overlay",
+    });
+
+    fireEvent.click(within(firstDialog).getByRole("button", {
+      name: "Replace immediately",
+    }));
+
+    const replacementDialog = await screen.findByRole("dialog", {
+      name: "Replacement overlay",
+    });
+    expect(callbacks.onFirstDismiss).toHaveBeenCalledTimes(1);
+    expect(callbacks.onReplacementDismiss).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(replacementDialog, { key: "Enter" });
+    expect(callbacks.onFirstSubmit).not.toHaveBeenCalled();
+    expect(callbacks.onReplacementSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status", {
+      name: "Ownership result",
+    })).toHaveTextContent("Replacement submitted");
+  });
+
+  it("keeps a replacement opened during the previous owner's closing phase", async () => {
+    const callbacks = renderOverlayOwnershipHarness();
+    const firstDialog = await screen.findByRole("dialog", {
+      name: "First overlay",
+    });
+
+    fireEvent.click(within(firstDialog).getByRole("button", {
+      name: "Close then replace",
+    }));
+    expect(firstDialog).toHaveAttribute("data-state", "closing");
+
+    const replacementDialog = await screen.findByRole("dialog", {
+      name: "Replacement overlay",
+    });
+    expect(callbacks.onFirstDismiss).toHaveBeenCalledTimes(1);
+
+    await new Promise((resolve) => window.setTimeout(resolve, 75));
+    expect(replacementDialog).toHaveAttribute("data-state", "open");
+    expect(screen.getByRole("dialog", {
+      name: "Replacement overlay",
+    })).toBe(replacementDialog);
+    expect(callbacks.onReplacementDismiss).not.toHaveBeenCalled();
+  });
+
+  it("does not let cancel cleanup close a replacement opened by its callback", async () => {
+    const callbacks = renderOverlayOwnershipHarness();
+    const firstDialog = await screen.findByRole("dialog", {
+      name: "First overlay",
+    });
+
+    fireEvent.click(within(firstDialog).getByRole("button", {
+      name: "Cancel and replace",
+    }));
+
+    const replacementDialog = await screen.findByRole("dialog", {
+      name: "Replacement overlay",
+    });
+    expect(replacementDialog).toHaveAttribute("data-state", "open");
+    expect(callbacks.onFirstDismiss).toHaveBeenCalledTimes(1);
+    expect(callbacks.onReplacementDismiss).not.toHaveBeenCalled();
+  });
+
+  it("calls onDismiss exactly once when completion signals repeat", async () => {
+    const callbacks = renderOverlayOwnershipHarness();
+    const dialog = await screen.findByRole("dialog", {
+      name: "First overlay",
+    });
+    const panel = dialog.querySelector("section");
+    if (!panel) throw new Error("The overlay panel must exist.");
+
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Close first overlay",
+    }));
+    expect(dialog).toHaveAttribute("data-state", "closing");
+    fireEvent.animationEnd(panel);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", {
+        name: "First overlay",
+      })).not.toBeInTheDocument();
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 75));
+    fireEvent(dialog, new Event("close"));
+
+    expect(callbacks.onFirstDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("finalizes an open owner when the native dialog closes", async () => {
+    const callbacks = renderOverlayOwnershipHarness();
+    const dialog = await screen.findByRole("dialog", {
+      name: "First overlay",
+    });
+
+    fireEvent(dialog, new Event("close"));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", {
+        name: "First overlay",
+      })).not.toBeInTheDocument();
+    });
+    expect(callbacks.onFirstDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebinds validity when a replacement reuses the same form id", async () => {
+    renderWithOverlay(<SameIdFormReplacementHarness />);
+    fireEvent.click(screen.getByRole("button", {
+      name: "Open form overlay",
+    }));
+
+    const firstDialog = await screen.findByRole("dialog", {
+      name: "First form overlay",
+    });
+    await waitFor(() => {
+      expect(within(firstDialog).getByRole("button", {
+        name: "Save first",
+      })).toBeEnabled();
+    });
+    fireEvent.click(within(firstDialog).getByRole("button", {
+      name: "Replace with same form id",
+    }));
+
+    const replacementDialog = await screen.findByRole("dialog", {
+      name: "Replacement form overlay",
+    });
+    const replacementSave = within(replacementDialog).getByRole("button", {
+      name: "Save replacement",
+    });
+    expect(replacementSave).toBeDisabled();
+
+    fireEvent.change(within(replacementDialog).getByRole("textbox", {
+      name: "Replacement required field",
+    }), {
+      target: { value: "valid" },
+    });
+    await waitFor(() => expect(replacementSave).toBeEnabled());
+  });
+
+  it("dismisses the active owner exactly once when the provider unmounts", async () => {
+    const onDismiss = vi.fn();
+    const view = renderWithOverlay(
+      <OverlayUnmountHarness onDismiss={onDismiss} />,
+    );
+    fireEvent.click(screen.getByRole("button", {
+      name: "Open unmount overlay",
+    }));
+    await screen.findByRole("dialog", { name: "Unmount overlay" });
+
+    view.unmount();
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("derives the exit fallback from the rendered animation timing", () => {
+    vi.useFakeTimers();
+    const callbacks = renderOverlayOwnershipHarness();
+    const dialog = screen.getByRole("dialog", { name: "First overlay" });
+    const panel = dialog.querySelector("section");
+    if (!panel) throw new Error("The overlay panel must exist.");
+
+    const readComputedStyle = window.getComputedStyle.bind(window);
+    const panelComputedStyle = readComputedStyle(panel);
+    const animatedPanelStyle = new Proxy(panelComputedStyle, {
+      get(target, property) {
+        if (property === "animationDelay") return "20ms";
+        if (property === "animationDuration") return "180ms";
+
+        const value = Reflect.get(target, property, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const computedStyle = vi.spyOn(window, "getComputedStyle")
+      .mockImplementation((element) => (
+        element === panel ? animatedPanelStyle : readComputedStyle(element)
+      ));
+
+    try {
+      fireEvent.click(within(dialog).getByRole("button", {
+        name: "Close first overlay",
+      }));
+
+      act(() => vi.advanceTimersByTime(249));
+      expect(dialog).toHaveAttribute("data-state", "closing");
+      expect(callbacks.onFirstDismiss).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(1));
+      expect(screen.queryByRole("dialog", {
+        name: "First overlay",
+      })).not.toBeInTheDocument();
+      expect(callbacks.onFirstDismiss).toHaveBeenCalledTimes(1);
+    } finally {
+      computedStyle.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("search page", () => {
   it("renders an accessible inert search field without action controls", () => {
-    renderWithOverlay(
+    render(
       <SearchPage
         heading="Search sites"
         label="Search sites"
@@ -234,8 +600,54 @@ describe("search page", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("exposes the API route editor as a named group, not a search landmark", () => {
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const routeEditor = screen.getByRole("group", {
+      name: "API endpoint path",
+    });
+    const routeInput = within(routeEditor).getByRole("textbox", {
+      name: "API endpoint path",
+    });
+
+    expect(routeEditor).toContainElement(routeInput);
+    expect(routeInput).toHaveAccessibleDescription(
+      "A leading slash is added automatically.",
+    );
+    expect(routeInput).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByRole("search", {
+      name: "API endpoint path",
+    })).not.toBeInTheDocument();
+  });
+
+  it("announces a distinct route syntax error without changing the surface", () => {
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const input = screen.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    fireEvent.change(input, { target: { value: "users/{}" } });
+
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(
+      "A leading slash is added automatically. "
+      + "Use lowercase letters and numbers in path segments. "
+      + "Wrap parameter names in braces and start them with a letter.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use lowercase letters and numbers in path segments.",
+    );
+
+    fireEvent.change(input, { target: { value: "users/{userid}" } });
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(input).toHaveAccessibleDescription(
+      "A leading slash is added automatically.",
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("selects an HTTP method from an accessible overlay", async () => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const trigger = screen.getByRole("button", { name: "HTTP method" });
     expect(trigger).toHaveTextContent("GET");
@@ -295,10 +707,10 @@ describe("search page", () => {
     const responsePanel = responseDialog.querySelector("section");
     expect(responseDialog).toHaveAttribute("data-placement", "bottom-right");
     expect(responsePanel?.style.getPropertyValue("--overlay-width")).toBe(
-      "40rem",
+      "var(--overlay-size-large)",
     );
     expect(responsePanel?.style.getPropertyValue("--overlay-height")).toBe(
-      "40rem",
+      "var(--overlay-size-large)",
     );
     expect(responseDialog.querySelector("header")).toHaveTextContent(
       "Add response",
@@ -431,6 +843,21 @@ describe("search page", () => {
     );
     await waitFor(() => expect(execCommand).toHaveBeenCalledWith("copy"));
 
+    execCommand.mockReturnValueOnce(false);
+    writeText.mockRejectedValueOnce(new Error("Clipboard denied"));
+    fireEvent.click(routeActions);
+    routeActionsMenu = screen.getByRole("list", {
+      name: "Route actions /users/{uuid}/posts",
+    });
+    fireEvent.click(
+      within(routeActionsMenu).getByRole("button", {
+        name: "Copy /users/{uuid}/posts",
+      }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "The route could not be copied.",
+    );
+
     fireEvent.click(routeActions);
     routeActionsMenu = screen.getByRole("list", {
       name: "Route actions /users/{uuid}/posts",
@@ -474,10 +901,224 @@ describe("search page", () => {
     expect(
       screen.queryByRole("list", { name: "API routes" }),
     ).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
+  });
+
+  it("keeps overlay submit disabled for duplicate response properties", async () => {
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const routeInput = screen.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    fireEvent.change(routeInput, { target: { value: "users" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add API route" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add response",
+    });
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Response type" }),
+      { target: { value: "UserResponse" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add property" }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add property" }),
+    );
+
+    const propertyNames = within(dialog).getAllByRole("textbox", {
+      name: "Property name",
+    });
+    fireEvent.change(propertyNames[0]!, { target: { value: "id" } });
+    fireEvent.change(propertyNames[1]!, { target: { value: "id" } });
+
+    await waitFor(() => {
+      expect(save).toBeDisabled();
+      expect(propertyNames[0]).toHaveAttribute("aria-invalid", "true");
+      expect(propertyNames[1]).toHaveAttribute("aria-invalid", "true");
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "Property names must be unique.",
+      );
+    });
+
+    fireEvent.change(propertyNames[1]!, { target: { value: "name" } });
+    await waitFor(() => {
+      expect(save).toBeEnabled();
+      expect(propertyNames[0]).not.toHaveAttribute("aria-invalid");
+      expect(propertyNames[1]).not.toHaveAttribute("aria-invalid");
+      expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    const responseType = within(dialog).getByRole("textbox", {
+      name: "Response type",
+    });
+    fireEvent.change(responseType, { target: { value: "class" } });
+    await waitFor(() => {
+      expect(save).toBeDisabled();
+      expect(responseType).toHaveAttribute("aria-invalid", "true");
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "Use a valid TypeScript identifier.",
+      );
+    });
+
+    fireEvent.change(responseType, { target: { value: "UserResponse" } });
+    await waitFor(() => {
+      expect(save).toBeEnabled();
+      expect(responseType).not.toHaveAttribute("aria-invalid");
+      expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  it("prevents incompatible response schemas while allowing canonical reuse", async () => {
+    window.localStorage.setItem(
+      apiRoutesStorage.key,
+      JSON.stringify([
+        {
+          id: 7,
+          method: "GET",
+          path: "/users",
+          response: {
+            fields: [
+              { name: "id", optional: false, type: "string" },
+            ],
+            typeName: "UserResponse",
+          },
+        },
+      ]),
+    );
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const routeInput = screen.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    fireEvent.change(routeInput, { target: { value: "accounts" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add API route" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add response",
+    });
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    const responseType = within(dialog).getByRole("textbox", {
+      name: "Response type",
+    });
+    fireEvent.change(responseType, {
+      target: { value: "UserResponse" },
+    });
+
+    await waitFor(() => {
+      expect(save).toBeDisabled();
+      expect(responseType).toHaveAttribute("aria-invalid", "true");
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "This response type already uses a different schema.",
+      );
+    });
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add property" }),
+    );
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Property name" }),
+      { target: { value: "id" } },
+    );
+    await waitFor(() => {
+      expect(save).toBeEnabled();
+      expect(responseType).not.toHaveAttribute("aria-invalid");
+      expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(
+      within(dialog).getByRole("combobox", { name: "Property type" }),
+      { target: { value: "number" } },
+    );
+    await waitFor(() => {
+      expect(save).toBeDisabled();
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "This response type already uses a different schema.",
+      );
+    });
+
+    fireEvent.change(
+      within(dialog).getByRole("combobox", { name: "Property type" }),
+      { target: { value: "string" } },
+    );
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Add response" }),
+      ).not.toBeInTheDocument();
+      const routes = JSON.parse(
+        window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
+      ) as Array<{ response?: { typeName?: string } }>;
+      expect(routes).toHaveLength(2);
+      expect(routes.map((route) => route.response?.typeName)).toEqual([
+        "UserResponse",
+        "UserResponse",
+      ]);
+    });
+  });
+
+  it("rechecks response-schema compatibility against concurrent storage changes", async () => {
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const routeInput = screen.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    fireEvent.change(routeInput, { target: { value: "accounts" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add API route" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Add response",
+    });
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Response type" }),
+      { target: { value: "UserResponse" } },
+    );
+    await waitFor(() => expect(save).toBeEnabled());
+
+    window.localStorage.setItem(
+      apiRoutesStorage.key,
+      JSON.stringify([
+        { id: 0, method: "GET", path: "/accounts" },
+        {
+          id: 1,
+          method: "GET",
+          path: "/users",
+          response: {
+            fields: [
+              { name: "id", optional: false, type: "string" },
+            ],
+            typeName: "UserResponse",
+          },
+        },
+      ]),
+    );
+    fireEvent(
+      window,
+      new StorageEvent("storage", { key: apiRoutesStorage.key }),
+    );
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(dialog).toBeInTheDocument();
+      expect(save).toBeDisabled();
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "This response type already uses a different schema.",
+      );
+      const routes = JSON.parse(
+        window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
+      ) as Array<{ path: string; response?: unknown }>;
+      expect(routes.find(({ path }) => path === "/accounts")?.response)
+        .toBeUndefined();
+    });
   });
 
   it("normalizes pasted routes to lowercase letters, numbers, braces, and slashes", () => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", {
       name: "API endpoint path",
@@ -502,7 +1143,7 @@ describe("search page", () => {
     );
 
     const firstRender = renderWithOverlay(
-      <SearchPage {...apiCreatorStudioProps} />,
+      <ApiCreatorStudio {...apiCreatorStudioProps} />,
     );
     const storedRoute = await screen.findByRole("listitem");
     expect(storedRoute).toHaveTextContent("PATCH");
@@ -524,7 +1165,7 @@ describe("search page", () => {
     });
 
     firstRender.unmount();
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
     expect(await screen.findByRole("listitem")).toHaveTextContent("DELETE");
 
     const routeActions = screen.getByRole("button", {
@@ -549,8 +1190,172 @@ describe("search page", () => {
     });
   });
 
+  it("keeps volatile routes downloadable and reports the storage failure", async () => {
+    browserDownloadState.downloadTextFile.mockClear();
+    const setItem = vi
+      .spyOn(window.localStorage, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("Storage full", "QuotaExceededError");
+      });
+
+    try {
+      renderWithOverlay(
+        <>
+          <ApiCreatorStudio {...apiCreatorStudioProps} />
+          <ApiContractsDownloadButton
+            className=""
+            errorLabel="Download failed"
+            label="Download contracts"
+          />
+        </>,
+      );
+
+      const input = screen.getByRole("textbox", {
+        name: "API endpoint path",
+      });
+      fireEvent.change(input, { target: { value: "orders/{orderid}" } });
+      fireEvent.click(screen.getByRole("button", {
+        name: "Add API route",
+      }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "Routes are available in this tab",
+      );
+      const dialog = await screen.findByRole("dialog", {
+        name: "Add response",
+      });
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", {
+          name: "Add response",
+        })).not.toBeInTheDocument();
+      });
+
+      setItem.mockRestore();
+      window.localStorage.setItem(
+        apiRoutesStorage.key,
+        JSON.stringify([
+          { id: 9, method: "DELETE", path: "/peer" },
+        ]),
+      );
+      fireEvent(
+        window,
+        new StorageEvent("storage", { key: apiRoutesStorage.key }),
+      );
+      window.localStorage.clear();
+      fireEvent(
+        window,
+        new StorageEvent("storage", { key: null }),
+      );
+
+      expect(screen.getByRole("listitem")).toHaveTextContent(
+        "/orders/{orderid}",
+      );
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Routes are available in this tab",
+      );
+
+      fireEvent.click(screen.getByRole("button", {
+        name: "Download contracts",
+      }));
+      await waitFor(() => {
+        expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
+          contents: expect.stringContaining("GET /orders/{orderid}"),
+          fileName: "api-contracts-agent-skill.md",
+          mimeType: "text/markdown;charset=utf-8",
+        });
+      });
+
+      const route = screen.getByRole("listitem");
+      fireEvent.click(within(route).getByRole("button", {
+        name: "HTTP method /orders/{orderid}",
+      }));
+      fireEvent.click(within(route).getByRole("button", { name: "POST" }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+        expect(JSON.parse(
+          window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
+        )).toMatchObject([
+          {
+            method: "POST",
+            path: "/orders/{orderid}",
+          },
+        ]);
+      });
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it("prevents duplicate method-plus-path route identities", async () => {
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const input = screen.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    const addRoute = screen.getByRole("button", { name: "Add API route" });
+    fireEvent.change(input, { target: { value: "users" } });
+    fireEvent.click(addRoute);
+
+    const firstDialog = await screen.findByRole("dialog", {
+      name: "Add response",
+    });
+    fireEvent(firstDialog, new Event("cancel", { cancelable: true }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", {
+        name: "Add response",
+      })).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(input, { target: { value: "users" } });
+    expect(addRoute).toBeDisabled();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(
+      "A leading slash is added automatically. "
+      + "This HTTP method and path already exist.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This HTTP method and path already exist.",
+    );
+
+    const newRouteMethod = screen.getByRole("button", {
+      name: "HTTP method",
+    });
+    fireEvent.click(newRouteMethod);
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "HTTP method",
+    })).getByRole("button", { name: "POST" }));
+    expect(addRoute).toBeEnabled();
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(input).toHaveAccessibleDescription(
+      "A leading slash is added automatically.",
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(addRoute);
+
+    const secondDialog = await screen.findByRole("dialog", {
+      name: "Add response",
+    });
+    fireEvent(secondDialog, new Event("cancel", { cancelable: true }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", {
+        name: "Add response",
+      })).not.toBeInTheDocument();
+    });
+
+    const [getRoute] = screen.getAllByRole("listitem");
+    if (!getRoute) throw new Error("The GET route must exist.");
+    fireEvent.click(within(getRoute).getByRole("button", {
+      name: "HTTP method /users",
+    }));
+    expect(within(getRoute).getByRole("button", {
+      name: "POST",
+    })).toBeDisabled();
+  });
+
   it("auto-completes and skips a route parameter closing brace", () => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", { name: "API endpoint path" });
     fireEvent.keyDown(input, { key: "{", altKey: true });
@@ -567,7 +1372,7 @@ describe("search page", () => {
   });
 
   it("submits a valid route with Enter", () => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", {
       name: "API endpoint path",
@@ -588,7 +1393,7 @@ describe("search page", () => {
     { key: "Backspace", selection: 9 },
     { key: "Delete", selection: 8 },
   ])("removes both parameter braces with $key", ({ key, selection }) => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", {
       name: "API endpoint path",
@@ -605,7 +1410,7 @@ describe("search page", () => {
   it.each(["/", " "])(
     "adds a formatted route separator when pressing %s",
     (key) => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", {
       name: "API endpoint path",
@@ -621,7 +1426,7 @@ describe("search page", () => {
   );
 
   it("deletes a formatted separator without getting stuck", () => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", {
       name: "API endpoint path",
@@ -642,7 +1447,7 @@ describe("search page", () => {
   });
 
   it("moves Space outside a route parameter before adding a separator", () => {
-    renderWithOverlay(<SearchPage {...apiCreatorStudioProps} />);
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const input = screen.getByRole("textbox", {
       name: "API endpoint path",
@@ -659,7 +1464,7 @@ describe("search page", () => {
 });
 
 describe("site navigation", () => {
-  it("replaces the add-site action with the API-contract download", () => {
+  it("replaces the add-site action with the API-contract download", async () => {
     browserDownloadState.downloadTextFile.mockClear();
     navigationState.pathname = "/en/api-creator-studio";
     render(<SiteNavigation content={getNavigationContent("en")} />);
@@ -673,14 +1478,16 @@ describe("site navigation", () => {
 
     expect(screen.queryByRole("link", { name: "Add site" }))
       .not.toBeInTheDocument();
-    const download = screen.getByRole("button", { name: "Download" });
+    const download = await screen.findByRole("button", { name: "Download" });
     expect(download.querySelector('svg[aria-hidden="true"]'))
       .toBeInTheDocument();
     fireEvent.click(download);
-    expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
-      contents: expect.stringContaining("name: implement-api-contracts"),
-      fileName: "api-contracts-agent-skill.md",
-      mimeType: "text/markdown;charset=utf-8",
+    await waitFor(() => {
+      expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
+        contents: expect.stringContaining("name: implement-api-contracts"),
+        fileName: "api-contracts-agent-skill.md",
+        mimeType: "text/markdown;charset=utf-8",
+      });
     });
     expect(
       screen.getByRole("link", { name: "Lamentis home" }).querySelector('img[alt=""]'),
@@ -706,14 +1513,29 @@ describe("site navigation", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Primary navigation",
     });
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: "Download" }),
-    );
+    fireEvent.click(await within(dialog).findByRole("button", {
+      name: "Download",
+    }));
 
-    expect(browserDownloadState.downloadTextFile).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(browserDownloadState.downloadTextFile).toHaveBeenCalledTimes(1);
+    });
     await waitFor(() => {
       expect(trigger).toHaveAttribute("aria-expanded", "false");
     });
+  });
+
+  it("reports a failed API-contract download without claiming success", async () => {
+    browserDownloadState.downloadTextFile.mockClear();
+    browserDownloadState.downloadTextFile.mockReturnValueOnce("failed");
+    navigationState.pathname = "/en/api-creator-studio";
+    render(<SiteNavigation content={getNavigationContent("en")} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Download" }));
+
+    expect(await screen.findByRole("button", {
+      name: "Download failed",
+    })).toBeInTheDocument();
   });
 
   it("opens an accessible mobile dialog with the same links", async () => {
@@ -721,6 +1543,7 @@ describe("site navigation", () => {
     render(<SiteNavigation content={getNavigationContent("en")} />);
 
     const trigger = screen.getByRole("button", { name: "Open primary navigation" });
+    trigger.focus();
     fireEvent.click(trigger);
     await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "true"));
 
@@ -730,6 +1553,12 @@ describe("site navigation", () => {
     expect(dialog).toHaveTextContent("Home");
     expect(dialog).toHaveTextContent("API Creator Studio");
     expect(dialog).toHaveTextContent("Add site");
+
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    await waitFor(() => {
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(trigger).toHaveFocus();
+    });
   });
 
   it("marks the global add-site action as current", () => {

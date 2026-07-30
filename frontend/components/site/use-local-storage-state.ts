@@ -1,20 +1,31 @@
 "use client";
 
-import {
-  useSyncExternalStore,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useSyncExternalStore, type SetStateAction } from "react";
 import {
   readLocalStorageItem,
   writeLocalStorageItem,
   type LocalStorageItem,
+  type LocalStorageReadResult,
+  type LocalStorageWriteStatus,
 } from "@/domain/site/local-storage";
 
+export type LocalStorageStateStatus =
+  | LocalStorageReadResult<unknown>["status"]
+  | "volatile";
+
+type LocalStorageStateSnapshot<T> = {
+  status: LocalStorageStateStatus;
+  value: T;
+};
+
+type SetLocalStorageState<T> = (
+  nextValue: SetStateAction<T>,
+) => LocalStorageWriteStatus;
+
 type LocalStorageStateStore<T> = {
-  getServerSnapshot: () => T;
-  getSnapshot: () => T;
-  setValue: Dispatch<SetStateAction<T>>;
+  getServerSnapshot: () => LocalStorageStateSnapshot<T>;
+  getSnapshot: () => LocalStorageStateSnapshot<T>;
+  setValue: SetLocalStorageState<T>;
   subscribe: (listener: () => void) => () => void;
 };
 
@@ -26,7 +37,10 @@ const localStorageStateStores = new WeakMap<
 function createLocalStorageStateStore<T>(
   item: LocalStorageItem<T>,
 ): LocalStorageStateStore<T> {
-  const serverSnapshot = item.createDefault();
+  const serverSnapshot: LocalStorageStateSnapshot<T> = {
+    status: "empty",
+    value: item.createDefault(),
+  };
   const listeners = new Set<() => void>();
   let initialized = false;
   let snapshot = serverSnapshot;
@@ -37,7 +51,7 @@ function createLocalStorageStateStore<T>(
 
   function getSnapshot() {
     if (!initialized) {
-      snapshot = readLocalStorageItem(item).value;
+      snapshot = readLocalStorageItem(item);
       initialized = true;
     }
     return snapshot;
@@ -45,7 +59,9 @@ function createLocalStorageStateStore<T>(
 
   function synchronizeFromStorage(event: StorageEvent) {
     if (event.key !== null && event.key !== item.key) return;
-    snapshot = readLocalStorageItem(item).value;
+    if (snapshot.status === "volatile") return;
+
+    snapshot = readLocalStorageItem(item);
     initialized = true;
     emitChange();
   }
@@ -55,23 +71,29 @@ function createLocalStorageStateStore<T>(
     getSnapshot,
     setValue(nextValue) {
       const resolvedValue = typeof nextValue === "function"
-        ? (nextValue as (currentValue: T) => T)(getSnapshot())
+        ? (nextValue as (currentValue: T) => T)(getSnapshot().value)
         : nextValue;
 
-      if (!item.isValid(resolvedValue)) return;
+      if (!item.isValid(resolvedValue)) return "invalid";
 
-      snapshot = resolvedValue;
+      const writeStatus = writeLocalStorageItem(item, resolvedValue);
+      snapshot = {
+        status: writeStatus === "stored" ? "stored" : "volatile",
+        value: resolvedValue,
+      };
       initialized = true;
-      writeLocalStorageItem(item, resolvedValue);
       emitChange();
+      return writeStatus;
     },
     subscribe(listener) {
       const firstSubscriber = listeners.size === 0;
       listeners.add(listener);
 
       if (firstSubscriber) {
-        snapshot = readLocalStorageItem(item).value;
-        initialized = true;
+        if (!initialized || snapshot.status !== "volatile") {
+          snapshot = readLocalStorageItem(item);
+          initialized = true;
+        }
         window.addEventListener("storage", synchronizeFromStorage);
       }
 
@@ -104,13 +126,13 @@ function localStorageStateStore<T>(
 
 export function useLocalStorageState<T>(
   item: LocalStorageItem<T>,
-): [T, Dispatch<SetStateAction<T>>] {
+): [T, SetLocalStorageState<T>, LocalStorageStateStatus] {
   const store = localStorageStateStore(item);
-  const value = useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
     store.getServerSnapshot,
   );
 
-  return [value, store.setValue];
+  return [snapshot.value, store.setValue, snapshot.status];
 }

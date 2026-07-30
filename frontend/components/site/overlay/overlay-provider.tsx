@@ -15,8 +15,10 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { IconButton } from "../icon-button";
 import primaryActionStyles from "../primary-action.module.css";
-import { CloseIcon } from "./close-icon";
+import { CloseIcon } from "../icons/close-icon";
+import { useModalDialog } from "../use-modal-dialog";
 import styles from "./overlay-provider.module.css";
 
 type OverlayPlacement = "bottom-right";
@@ -62,7 +64,12 @@ type OverlayService = {
   openOverlay: (request: OverlayRequest) => void;
 };
 
+type OverlayOwner = {
+  id: number;
+};
+
 type ActiveOverlay = {
+  owner: OverlayOwner;
   phase: "open" | "closing";
   request: OverlayRequest;
 };
@@ -70,6 +77,7 @@ type ActiveOverlay = {
 type BoundFormValidity = {
   formId: string;
   isValid: boolean;
+  owner: OverlayOwner;
 };
 
 type OverlayPanelStyle = CSSProperties & {
@@ -78,15 +86,15 @@ type OverlayPanelStyle = CSSProperties & {
 };
 
 type OverlayHostProps = {
-  closeOverlay: () => void;
-  completeClose: () => void;
+  closeOverlay: (owner: OverlayOwner) => void;
+  completeClose: (owner: OverlayOwner) => void;
   overlay: ActiveOverlay | null;
 };
 
-const defaultOverlayWidth = "32rem";
-const defaultOverlayHeight = "36rem";
+const defaultOverlayWidth = "var(--overlay-default-width)";
+const defaultOverlayHeight = "var(--overlay-default-height)";
 const defaultOverlayPlacement: OverlayPlacement = "bottom-right";
-const overlayExitFallbackMs = 300;
+const animationFallbackSafetyMs = 50;
 const enterPrioritySelector = [
   "a[href]",
   "button",
@@ -105,6 +113,44 @@ function toCssDimension(
 ) {
   if (typeof value === "number") return `${value}px`;
   return value ?? fallback;
+}
+
+function parseCssTime(time: string | undefined): number {
+  const normalizedTime = time?.trim();
+  if (!normalizedTime) return 0;
+
+  if (normalizedTime.endsWith("ms")) {
+    return Number.parseFloat(normalizedTime) || 0;
+  }
+
+  if (normalizedTime.endsWith("s")) {
+    return (Number.parseFloat(normalizedTime) || 0) * 1_000;
+  }
+
+  return 0;
+}
+
+function splitCssList(value: string): string[] {
+  return value.split(",").map((item) => item.trim());
+}
+
+function getAnimationCompletionMs(element: HTMLElement): number {
+  const computedStyle = window.getComputedStyle(element);
+  const durations = splitCssList(computedStyle.animationDuration);
+  const delays = splitCssList(computedStyle.animationDelay);
+  const animationCount = Math.max(durations.length, delays.length);
+  let longestAnimationMs = 0;
+
+  for (let index = 0; index < animationCount; index += 1) {
+    const durationMs = parseCssTime(durations[index % durations.length]);
+    const delayMs = parseCssTime(delays[index % delays.length]);
+    longestAnimationMs = Math.max(
+      longestAnimationMs,
+      Math.max(0, durationMs + delayMs),
+    );
+  }
+
+  return longestAnimationMs + animationFallbackSafetyMs;
 }
 
 function OverlayActionContent({
@@ -153,21 +199,25 @@ function OverlayHost({
   completeClose,
   overlay,
 }: OverlayHostProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const request = overlay?.request ?? null;
+  const dialogRef = useModalDialog(Boolean(request), {
+    focusDialogOnOpen: true,
+  });
+  const panelRef = useRef<HTMLElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const [boundFormValidity, setBoundFormValidity] =
     useState<BoundFormValidity | null>(null);
   const titleId = useId();
-  const request = overlay?.request ?? null;
+  const overlayOwner = overlay?.owner;
   const submitFormId = request?.submitAction?.formId;
   const submitDisabled = Boolean(
     request?.submitAction?.disabled
     || (
       submitFormId
       && (
-        boundFormValidity?.formId !== submitFormId
-        || !boundFormValidity.isValid
+        boundFormValidity?.owner !== overlayOwner
+        || boundFormValidity?.formId !== submitFormId
+        || !boundFormValidity?.isValid
       )
     ),
   );
@@ -176,33 +226,14 @@ function OverlayHost({
   );
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (request && !dialog.open) {
-      previousFocusRef.current = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-      dialog.showModal();
-      dialog.focus();
-      return;
-    }
-
-    if (!request && dialog.open) {
-      dialog.close();
-      previousFocusRef.current?.focus();
-      previousFocusRef.current = null;
-    }
-  }, [request]);
-
-  useEffect(() => {
-    if (!submitFormId) return undefined;
+    if (!submitFormId || !overlayOwner) return undefined;
 
     const form = document.getElementById(submitFormId);
     if (!(form instanceof HTMLFormElement)) return undefined;
 
     const activeForm = form;
     const activeFormId = submitFormId;
+    const activeOwner = overlayOwner;
     let isActive = true;
 
     function updateValidity() {
@@ -211,9 +242,11 @@ function OverlayHost({
       const nextValidity = {
         formId: activeFormId,
         isValid: hasValidFormControls(activeForm),
+        owner: activeOwner,
       };
       setBoundFormValidity((currentValidity) => (
-        currentValidity?.formId === nextValidity.formId
+        currentValidity?.owner === nextValidity.owner
+        && currentValidity.formId === nextValidity.formId
         && currentValidity?.isValid === nextValidity.isValid
           ? currentValidity
           : nextValidity
@@ -243,19 +276,20 @@ function OverlayHost({
       activeForm.removeEventListener("input", updateAfterFormEvent);
       activeForm.removeEventListener("reset", updateAfterFormEvent);
     };
-  }, [submitFormId]);
+  }, [overlayOwner, submitFormId]);
 
   useEffect(() => {
     if (overlay?.phase !== "closing") return undefined;
 
-    const fallback = window.setTimeout(completeClose, overlayExitFallbackMs);
+    const owner = overlay.owner;
+    const fallback = window.setTimeout(
+      () => completeClose(owner),
+      panelRef.current
+        ? getAnimationCompletionMs(panelRef.current)
+        : animationFallbackSafetyMs,
+    );
     return () => window.clearTimeout(fallback);
-  }, [completeClose, overlay?.phase]);
-
-  useEffect(() => () => {
-    const dialog = dialogRef.current;
-    if (dialog?.open) dialog.close();
-  }, []);
+  }, [completeClose, overlay]);
 
   const panelStyle: OverlayPanelStyle = {
     "--overlay-height": toCssDimension(
@@ -269,7 +303,9 @@ function OverlayHost({
   };
 
   function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
-    if (event.target === event.currentTarget) closeOverlay();
+    if (event.target === event.currentTarget && overlay) {
+      closeOverlay(overlay.owner);
+    }
   }
 
   function completeAnimatedClose(event: AnimationEvent<HTMLElement>) {
@@ -277,15 +313,18 @@ function OverlayHost({
       event.target === event.currentTarget
       && overlay?.phase === "closing"
     ) {
-      completeClose();
+      completeClose(overlay.owner);
     }
   }
 
   function cancelFromButton() {
+    if (!overlay) return;
+
+    const owner = overlay.owner;
     try {
       request?.cancelAction?.onAction?.();
     } finally {
-      closeOverlay();
+      closeOverlay(owner);
     }
   }
 
@@ -320,14 +359,17 @@ function OverlayHost({
       data-state={overlay?.phase}
       onCancel={(event) => {
         event.preventDefault();
-        closeOverlay();
+        if (overlay) closeOverlay(overlay.owner);
       }}
-      onClose={completeClose}
+      onClose={() => {
+        if (overlay) completeClose(overlay.owner);
+      }}
       onClick={closeOnBackdrop}
       onKeyDown={submitOnEnter}
     >
       {request ? (
         <section
+          ref={panelRef}
           className={styles.panel}
           style={panelStyle}
           onAnimationEnd={completeAnimatedClose}
@@ -336,17 +378,21 @@ function OverlayHost({
             <h2 id={titleId} className={styles.title}>
               {request.title}
             </h2>
-            <button
+            <IconButton
               type="button"
               className={styles.closeButton}
               aria-label={request.closeLabel}
-              onClick={closeOverlay}
+              onClick={() => {
+                if (overlay) closeOverlay(overlay.owner);
+              }}
             >
               <CloseIcon />
-            </button>
+            </IconButton>
           </header>
 
-          <div className={styles.body}>{request.body}</div>
+          <div key={overlay?.owner.id} className={styles.body}>
+            {request.body}
+          </div>
           {showFooter ? (
             <footer className={styles.footer}>
               {request.cancelAction ? (
@@ -394,19 +440,40 @@ export function useOverlay() {
 export function OverlayProvider({ children }: { children: ReactNode }) {
   const [overlay, setOverlay] = useState<ActiveOverlay | null>(null);
   const activeOverlayRef = useRef<ActiveOverlay | null>(null);
+  const dismissedOwnersRef = useRef(new WeakSet<OverlayOwner>());
+  const nextOwnerIdRef = useRef(0);
+
+  const dismissOverlay = useCallback((dismissedOverlay: ActiveOverlay) => {
+    if (dismissedOwnersRef.current.has(dismissedOverlay.owner)) return;
+
+    dismissedOwnersRef.current.add(dismissedOverlay.owner);
+    dismissedOverlay.request.onDismiss?.();
+  }, []);
 
   const openOverlay = useCallback((nextRequest: OverlayRequest) => {
+    const replacedOverlay = activeOverlayRef.current;
+    const owner: OverlayOwner = { id: nextOwnerIdRef.current };
+    nextOwnerIdRef.current += 1;
     const nextOverlay: ActiveOverlay = {
+      owner,
       phase: "open",
       request: nextRequest,
     };
     activeOverlayRef.current = nextOverlay;
     setOverlay(nextOverlay);
-  }, []);
 
-  const closeOverlay = useCallback(() => {
+    if (replacedOverlay) dismissOverlay(replacedOverlay);
+  }, [dismissOverlay]);
+
+  const closeOwnedOverlay = useCallback((owner: OverlayOwner) => {
     const activeOverlay = activeOverlayRef.current;
-    if (!activeOverlay || activeOverlay.phase === "closing") return;
+    if (
+      !activeOverlay
+      || activeOverlay.owner !== owner
+      || activeOverlay.phase === "closing"
+    ) {
+      return;
+    }
 
     const closingOverlay: ActiveOverlay = {
       ...activeOverlay,
@@ -416,14 +483,30 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     setOverlay(closingOverlay);
   }, []);
 
-  const completeClose = useCallback(() => {
+  const closeOverlay = useCallback(() => {
     const activeOverlay = activeOverlayRef.current;
-    if (!activeOverlay || activeOverlay.phase !== "closing") return;
+    if (activeOverlay) closeOwnedOverlay(activeOverlay.owner);
+  }, [closeOwnedOverlay]);
+
+  const completeClose = useCallback((owner: OverlayOwner) => {
+    const activeOverlay = activeOverlayRef.current;
+    if (
+      !activeOverlay
+      || activeOverlay.owner !== owner
+    ) {
+      return;
+    }
 
     activeOverlayRef.current = null;
     setOverlay(null);
-    activeOverlay.request.onDismiss?.();
-  }, []);
+    dismissOverlay(activeOverlay);
+  }, [dismissOverlay]);
+
+  useEffect(() => () => {
+    const activeOverlay = activeOverlayRef.current;
+    activeOverlayRef.current = null;
+    if (activeOverlay) dismissOverlay(activeOverlay);
+  }, [dismissOverlay]);
 
   const service = useMemo(
     () => ({ closeOverlay, openOverlay }),
@@ -434,7 +517,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     <OverlayContext.Provider value={service}>
       {children}
       <OverlayHost
-        closeOverlay={closeOverlay}
+        closeOverlay={closeOwnedOverlay}
         completeClose={completeClose}
         overlay={overlay}
       />

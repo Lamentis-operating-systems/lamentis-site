@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
-import { CheckIcon } from "./check-icon";
-import { ChevronIcon } from "./footer/chevron-icon";
+import { useId } from "react";
+import { CheckIcon } from "./icons/check-icon";
+import { ChevronIcon } from "./icons/chevron-icon";
 import optionStyles from "./options-menu.module.css";
 import styles from "./select-menu.module.css";
+import { useDismissiblePopover } from "./use-dismissible-popover";
 
 type SelectMenuBaseOption = {
   id: string;
   label: string;
-  selected: boolean;
 };
 
 type SelectMenuActionOption = SelectMenuBaseOption & {
+  disabled?: boolean;
   kind: "action";
   onSelect: () => void;
 };
@@ -32,7 +33,7 @@ type SelectMenuProps = {
   label: string;
   menuPlacement?: "bottom" | "top";
   options: readonly SelectMenuOption[];
-  valueLabel: string;
+  selectedId: string;
   width?: "content" | "method";
 };
 
@@ -40,47 +41,29 @@ export function SelectMenu({
   label,
   menuPlacement = "bottom",
   options,
-  valueLabel,
+  selectedId,
   width = "content",
 }: SelectMenuProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-
-    function closeOnPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setMenuOpen(false);
-      triggerRef.current?.focus();
-    }
-
-    document.addEventListener("pointerdown", closeOnPointerDown);
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnPointerDown);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [menuOpen]);
+  const selectedOption = options.find((option) => option.id === selectedId);
+  const {
+    closePopover,
+    isOpen,
+    rootRef,
+    togglePopover,
+    triggerRef,
+  } = useDismissiblePopover();
 
   function selectAction(option: SelectMenuActionOption) {
     option.onSelect();
-    setMenuOpen(false);
-    triggerRef.current?.focus();
+    closePopover(true);
   }
 
   return (
     <div
       ref={rootRef}
       className={styles.root}
-      data-open={menuOpen}
+      data-open={isOpen}
       data-placement={menuPlacement}
       data-width={width}
     >
@@ -89,15 +72,15 @@ export function SelectMenu({
         type="button"
         className={styles.trigger}
         aria-label={label}
-        aria-expanded={menuOpen}
+        aria-expanded={isOpen}
         aria-controls={menuId}
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={togglePopover}
       >
-        <span>{valueLabel}</span>
+        <span>{selectedOption?.label ?? selectedId}</span>
         <ChevronIcon />
       </button>
 
-      {menuOpen ? (
+      {isOpen ? (
         <ul
           id={menuId}
           className={`${styles.menu} ${optionStyles.menu}`}
@@ -110,23 +93,26 @@ export function SelectMenu({
                     <Link
                       href={option.href}
                       className={`${styles.option} ${optionStyles.option}`}
-                      aria-current={option.selected ? "page" : undefined}
+                      aria-current={
+                        option.id === selectedId ? "page" : undefined
+                      }
                       hrefLang={option.hrefLang}
-                      onClick={() => setMenuOpen(false)}
+                      onClick={() => closePopover()}
                     >
                       <span>{option.label}</span>
-                      {option.selected ? <CheckIcon /> : null}
+                      {option.id === selectedId ? <CheckIcon /> : null}
                     </Link>
                   )
                 : (
                     <button
                       type="button"
                       className={`${styles.option} ${optionStyles.option}`}
-                      aria-pressed={option.selected}
+                      aria-pressed={option.id === selectedId}
+                      disabled={option.disabled}
                       onClick={() => selectAction(option)}
                     >
                       <span>{option.label}</span>
-                      {option.selected ? <CheckIcon /> : null}
+                      {option.id === selectedId ? <CheckIcon /> : null}
                     </button>
                   )}
             </li>

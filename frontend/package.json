@@ -5,7 +5,7 @@
   "packageManager": "npm@11.6.4",
   "engines": {
     "node": "24.x",
-    "npm": "11.6.4"
+    "npm": ">=11.6.4 <12"
   },
   "devEngines": {
     "runtime": {
@@ -15,7 +15,7 @@
     },
     "packageManager": {
       "name": "npm",
-      "version": "11.6.4",
+      "version": ">=11.6.4 <12",
       "onFail": "error"
     }
   },
@@ -29,7 +29,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:dead-code": "knip",
-    "test:e2e": "npm run build && playwright test",
+    "test:e2e": "npm run build && npm run test:e2e:run",
+    "test:e2e:run": "playwright test",
+    "test:e2e:cross-browser": "npm run build && npm run test:e2e:cross-browser:run",
+    "test:e2e:cross-browser:run": "playwright test --browser=all --project=firefox --project=webkit --grep @cross-browser-smoke",
     "test:e2e:dev": "PLAYWRIGHT_DEV_SERVER=1 playwright test",
     "test:e2e:update": "npm run build && playwright test --update-snapshots",
     "verify": "npm run lint && npm run lint:css && npm run typecheck && npm run check:dead-code && npm run test && npm run build"
@@ -37,7 +40,7 @@
   "dependencies": {
     "@formatjs/intl-localematcher": "0.8.13",
     "negotiator": "1.0.0",
-    "next": "16.2.10",
+    "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -51,7 +54,7 @@
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.12",
     "jsdom": "29.1.1",
     "knip": "6.27.0",
     "stylelint": "17.14.0",

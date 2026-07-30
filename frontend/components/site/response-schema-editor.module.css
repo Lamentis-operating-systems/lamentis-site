@@ -22,7 +22,7 @@
   width: 100%;
   min-width: 0;
   min-height: var(--control-height);
-  border: 1px solid var(--color-border);
+  border: var(--control-border-width) solid var(--color-border);
   border-radius: var(--radius-medium);
   padding-inline: var(--space-3);
   outline: none;
@@ -99,22 +99,12 @@
   min-width: 0;
   grid-template-columns:
     minmax(0, 1fr)
-    minmax(8rem, 0.55fr)
-    minmax(8rem, 0.55fr)
+    minmax(var(--response-property-field-min-width), 0.55fr)
+    minmax(var(--response-property-field-min-width), 0.55fr)
     auto
     var(--control-height);
   align-items: end;
   gap: var(--space-3);
-}
-
-.legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 .checkbox {
@@ -137,19 +127,11 @@
 }
 
 .removeProperty {
-  display: grid;
-  width: var(--control-height);
-  height: var(--control-height);
-  place-items: center;
   border: 0;
   border-radius: var(--radius-full);
-  padding: 0;
   background: transparent;
   color: var(--color-text-muted);
-  cursor: pointer;
   transition-property: background-color, color, transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
 }
 
 .removeProperty:hover {

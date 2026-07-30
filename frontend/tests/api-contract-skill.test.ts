@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import ts from "typescript";
 import {
   apiContractsAgentSkillFileName,
   generateApiContractsAgentSkill,
 } from "@/domain/site/api-contract-skill";
 import type { ApiRouteContract } from "@/domain/site/api-route";
-import type { ApiResponseSchema } from "@/domain/site/api-response-schema";
+import {
+  isValidTypeScriptTypeName,
+  type ApiResponseSchema,
+} from "@/domain/site/api-response-schema";
 
 const userResponse: ApiResponseSchema = {
   fields: [
@@ -27,7 +31,131 @@ function occurrences(value: string, pattern: string): number {
   return value.split(pattern).length - 1;
 }
 
+function typeScriptBlocks(markdown: string): string {
+  return [...markdown.matchAll(/```ts\n([\s\S]*?)\n```/g)]
+    .map((match) => match[1])
+    .filter((block): block is string => Boolean(block))
+    .join("\n\n");
+}
+
+function typeScriptDiagnostics(source: string): string[] {
+  const fileName = "/generated-api-contracts.ts";
+  const compilerOptions: ts.CompilerOptions = {
+    module: ts.ModuleKind.ESNext,
+    noEmit: true,
+    skipLibCheck: true,
+    strict: true,
+    target: ts.ScriptTarget.ESNext,
+  };
+  const defaultHost = ts.createCompilerHost(compilerOptions);
+  const compilerHost: ts.CompilerHost = {
+    ...defaultHost,
+    fileExists: (candidate) => (
+      candidate === fileName || defaultHost.fileExists(candidate)
+    ),
+    getSourceFile: (
+      candidate,
+      languageVersion,
+      onError,
+      shouldCreateNewSourceFile,
+    ) => (
+      candidate === fileName
+        ? ts.createSourceFile(candidate, source, languageVersion, true)
+        : defaultHost.getSourceFile(
+          candidate,
+          languageVersion,
+          onError,
+          shouldCreateNewSourceFile,
+        )
+    ),
+    readFile: (candidate) => (
+      candidate === fileName ? source : defaultHost.readFile(candidate)
+    ),
+    writeFile: () => {},
+  };
+  const program = ts.createProgram(
+    [fileName],
+    compilerOptions,
+    compilerHost,
+  );
+
+  return ts.getPreEmitDiagnostics(program)
+    .filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error)
+    .map((diagnostic) => ts.flattenDiagnosticMessageText(
+      diagnostic.messageText,
+      "\n",
+    ));
+}
+
 describe("API-contract agent skill", () => {
+  it("accepts only interface names that compile in the pinned TypeScript", () => {
+    const keywordCandidates = Array.from(
+      {
+        length:
+          ts.SyntaxKind.LastKeyword - ts.SyntaxKind.FirstKeyword + 1,
+      },
+      (_, index) => ts.tokenToString(ts.SyntaxKind.FirstKeyword + index),
+    ).filter((candidate): candidate is string => Boolean(candidate));
+    const intrinsicTypeCandidates = [
+      "any",
+      "bigint",
+      "boolean",
+      "never",
+      "number",
+      "object",
+      "string",
+      "symbol",
+      "undefined",
+      "unknown",
+    ];
+    const acceptedCandidates = [
+      ...new Set([...keywordCandidates, ...intrinsicTypeCandidates]),
+    ].filter(isValidTypeScriptTypeName);
+    const declarations = acceptedCandidates
+      .map((candidate) => `export interface ${candidate} {}`)
+      .join("\n");
+
+    expect(typeScriptDiagnostics(declarations)).toEqual([]);
+  });
+
+  it("does not collide with Array or Record model names", () => {
+    const skill = generateApiContractsAgentSkill([
+      {
+        id: 0,
+        method: "GET",
+        path: "/arrays",
+        response: {
+          fields: [
+            {
+              arrayItemType: "object",
+              name: "items",
+              optional: false,
+              type: "array",
+            },
+          ],
+          typeName: "Array",
+        },
+      },
+      {
+        id: 1,
+        method: "GET",
+        path: "/records",
+        response: {
+          fields: [],
+          typeName: "Record",
+        },
+      },
+    ]);
+
+    expect(skill).toContain(
+      "items: ({ [key: string]: unknown })[];",
+    );
+    expect(skill).toContain(
+      "export type Record = { [key: string]: never };",
+    );
+    expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
+  });
+
   it("renders one deterministic, sorted contract per method and path", () => {
     const routes: ApiRouteContract[] = [
       {
@@ -82,6 +210,8 @@ describe("API-contract agent skill", () => {
     );
     expect(skill).toContain("Path parameters: `uuid`");
     expect(skill).not.toContain("id: 9");
+
+    expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
   });
 
   it("marks route and response-model conflicts as blocking conditions", () => {

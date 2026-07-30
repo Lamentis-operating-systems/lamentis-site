@@ -46,6 +46,9 @@ function collectPageErrors(page: Page, expectedStatus: number): string[] {
       errors.push(`${response.status()} ${response.url()}`);
     }
   });
+  page.on("pageerror", (error) => {
+    errors.push(error.message);
+  });
   return errors;
 }
 
@@ -76,6 +79,46 @@ for (const route of visualArchetypes) {
 }
 
 for (const colorScheme of colorSchemes) {
+  test(`API Creator Studio response and route list ${colorScheme}`, async ({
+    page,
+  }) => {
+    const pageErrors = collectPageErrors(page, 200);
+    await page.setViewportSize(viewports[1]);
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await page.goto(routePath({
+      scope: "localized",
+      locale: "en",
+      routeId: "apiCreatorStudio",
+    }));
+    const routeInput = page.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    await routeInput.fill("accounts/{accountid}");
+    await routeInput.press("Enter");
+    const responseDialog = page.getByRole("dialog", {
+      name: "Add response",
+    });
+    await expect(responseDialog).toBeVisible();
+    await settlePage(page);
+
+    expect(pageErrors).toEqual([]);
+    await expect(page).toHaveScreenshot(
+      `api-creator-studio-response-open-desktop-${colorScheme}.png`,
+      { fullPage: true, animations: "disabled", caret: "hide" },
+    );
+
+    await page.keyboard.press("Escape");
+    await expect(responseDialog).not.toBeVisible();
+    await expect(page.getByRole("list", { name: "API routes" })).toBeVisible();
+    await settlePage(page);
+
+    expect(pageErrors).toEqual([]);
+    await expect(page).toHaveScreenshot(
+      `api-creator-studio-desktop-${colorScheme}.png`,
+      { fullPage: true, animations: "disabled", caret: "hide" },
+    );
+  });
+
   test(`mobile navigation open ${colorScheme}`, async ({ page }) => {
     const pageErrors = collectPageErrors(page, 200);
     await page.setViewportSize(viewports[0]);

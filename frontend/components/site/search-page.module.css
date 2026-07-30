@@ -25,6 +25,7 @@
   display: grid;
   width: 100%;
   min-width: 0;
+  container-type: inline-size;
   justify-items: center;
   gap: var(--space-8);
 }
@@ -113,6 +114,10 @@
   list-style: none;
 }
 
+.routeMethod {
+  min-width: 0;
+}
+
 .routePath {
   display: flex;
   min-width: 0;
@@ -144,19 +149,36 @@
   color: var(--color-text-muted);
 }
 
-.visuallyHidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.persistenceWarning {
+  width: min(100%, var(--layout-form-wide));
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--line-body);
 }
 
 @media (forced-colors: active) {
   .search:focus-within {
     outline: var(--focus-ring-width) solid CanvasText;
     outline-offset: var(--focus-ring-offset);
+  }
+}
+
+@container (inline-size < 12rem) {
+  .searchWithMethod {
+    flex-wrap: wrap;
+    padding-block: var(--space-1);
+  }
+
+  .searchWithMethod > * {
+    flex: 1 1 100%;
+  }
+
+  .routeItem {
+    grid-template-columns: minmax(0, 1fr) var(--control-height);
+  }
+
+  .routeMethod {
+    grid-column: 1 / -1;
   }
 }

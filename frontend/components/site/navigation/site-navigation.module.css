@@ -79,24 +79,10 @@
 
 .menuButton,
 .dialogCloseButton {
-  width: var(--control-height);
-  height: var(--control-height);
-  align-items: center;
-  justify-content: center;
   border: 0;
-  padding: 0;
   background: transparent;
   color: var(--color-text);
-  cursor: pointer;
   transition-property: background-color, transform;
-  transition-duration: var(--motion-fast);
-  transition-timing-function: var(--motion-easing);
-}
-
-.menuButton svg,
-.dialogCloseButton svg {
-  width: var(--icon-size-control);
-  height: var(--icon-size-control);
 }
 
 .menuButton {

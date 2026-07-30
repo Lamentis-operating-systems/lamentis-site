@@ -7,29 +7,31 @@ import {
 import { SelectMenu, type SelectMenuOption } from "./select-menu";
 
 type HttpMethodSelectorProps = {
+  disabledMethods?: readonly HttpMethod[];
   label: string;
   onChange: (method: HttpMethod) => void;
   value: HttpMethod;
 };
 
 export function HttpMethodSelector({
+  disabledMethods = [],
   label,
   onChange,
   value,
 }: HttpMethodSelectorProps) {
   const options: SelectMenuOption[] = httpMethods.map((method) => ({
     id: method,
+    disabled: disabledMethods.includes(method),
     kind: "action",
     label: method,
     onSelect: () => onChange(method),
-    selected: method === value,
   }));
 
   return (
     <SelectMenu
       label={label}
       options={options}
-      valueLabel={value}
+      selectedId={value}
       width="method"
     />
   );

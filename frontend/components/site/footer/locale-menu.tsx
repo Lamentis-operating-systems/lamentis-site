@@ -14,14 +14,12 @@ type LocaleMenuProps = {
 };
 
 export function LocaleMenu({ label, locale, options, pathname }: LocaleMenuProps) {
-  const currentLabel = options.find((option) => option.code === locale)?.label ?? locale;
   const selectOptions: SelectMenuOption[] = options.map((option) => ({
     href: switchLocalePath(pathname, option.code),
     hrefLang: option.code,
     id: option.code,
     kind: "link",
     label: option.label,
-    selected: option.code === locale,
   }));
 
   return (
@@ -29,7 +27,7 @@ export function LocaleMenu({ label, locale, options, pathname }: LocaleMenuProps
       label={label}
       menuPlacement="top"
       options={selectOptions}
-      valueLabel={currentLabel}
+      selectedId={locale}
     />
   );
 }

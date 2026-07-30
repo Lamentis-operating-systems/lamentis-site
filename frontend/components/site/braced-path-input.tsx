@@ -1,21 +1,34 @@
 "use client";
 
 import {
+  useId,
   useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
-import { isValidApiRoutePath } from "@/domain/site/api-route-path";
-import { PlusIcon } from "./navigation/plus-icon";
+import { IconButton } from "./icon-button";
+import { PlusIcon } from "./icons/plus-icon";
+import { VisuallyHidden } from "./visually-hidden";
 import styles from "./braced-path-input.module.css";
+
+type BracedPathValidationReason = "duplicate" | "syntax";
 
 type BracedPathInputProps = {
   actionLabel: string;
   className: string;
+  getValidationReason: (
+    canonicalPath: string,
+  ) => BracedPathValidationReason | null;
   label: string;
   onAdd: (path: string) => void;
   placeholder: string;
+  prefixHint: string;
+  validationMessages: Readonly<
+    Record<BracedPathValidationReason, string>
+  >;
+  inputRef?: RefObject<HTMLInputElement | null>;
 };
 
 const bracedSegmentPattern = /(\{[^{}]*\})/g;
@@ -36,16 +49,33 @@ function canonicalPath(value: string): string {
 export function BracedPathInput({
   actionLabel,
   className,
+  getValidationReason,
   label,
   onAdd,
   placeholder,
+  prefixHint,
+  validationMessages,
+  inputRef: externalInputRef,
 }: BracedPathInputProps) {
+  const prefixHintId = useId();
+  const validationErrorId = useId();
   const [value, setValue] = useState("");
   const [scrollLeft, setScrollLeft] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalInputRef ?? internalInputRef;
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   const segments = value.split(bracedSegmentPattern);
-  const valid = value.length > 0 && isValidApiRoutePath(canonicalPath(value));
+  const path = canonicalPath(value);
+  const validationReason = value.length > 0
+    ? getValidationReason(path)
+    : null;
+  const validationMessage = validationReason
+    ? validationMessages[validationReason]
+    : null;
+  const valid = value.length > 0 && validationReason === null;
+  const describedBy = validationMessage
+    ? `${prefixHintId} ${validationErrorId}`
+    : prefixHintId;
 
   useLayoutEffect(() => {
     const pendingSelection = pendingSelectionRef.current;
@@ -56,7 +86,7 @@ export function BracedPathInput({
       pendingSelection.end,
     );
     pendingSelectionRef.current = null;
-  }, [value]);
+  }, [inputRef, value]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.ctrlKey || event.metaKey) return;
@@ -216,7 +246,7 @@ export function BracedPathInput({
   function addRoute() {
     if (!valid) return;
 
-    onAdd(canonicalPath(value));
+    onAdd(path);
     setValue("");
     setScrollLeft(0);
     inputRef.current?.focus();
@@ -256,6 +286,8 @@ export function BracedPathInput({
             type="text"
             name="route"
             aria-label={label}
+            aria-describedby={describedBy}
+            aria-invalid={validationReason ? true : undefined}
             placeholder={placeholder}
             autoComplete="off"
             spellCheck={false}
@@ -269,7 +301,14 @@ export function BracedPathInput({
         </div>
       </div>
 
-      <button
+      <VisuallyHidden id={prefixHintId}>{prefixHint}</VisuallyHidden>
+      {validationMessage ? (
+        <VisuallyHidden id={validationErrorId} role="alert">
+          {validationMessage}
+        </VisuallyHidden>
+      ) : null}
+
+      <IconButton
         type="button"
         className={styles.action}
         aria-label={actionLabel}
@@ -277,7 +316,7 @@ export function BracedPathInput({
         onClick={addRoute}
       >
         <PlusIcon />
-      </button>
+      </IconButton>
     </div>
   );
 }
