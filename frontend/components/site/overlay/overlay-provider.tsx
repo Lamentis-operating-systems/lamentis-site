@@ -11,8 +11,9 @@ import {
   useState,
   type AnimationEvent,
   type CSSProperties,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { IconButton } from "../icon-button";
@@ -20,6 +21,14 @@ import primaryActionStyles from "../primary-action.module.css";
 import { CloseIcon } from "../icons/close-icon";
 import { useModalDialog } from "../use-modal-dialog";
 import styles from "./overlay-provider.module.css";
+import {
+  fitOverlayRectToBounds,
+  resizeOverlayRect,
+  type OverlayBounds,
+  type OverlayRect,
+  type OverlayResizeDirection,
+  type OverlayResizeLimits,
+} from "./overlay-resize";
 
 type OverlayPlacement = "bottom-right";
 type OverlayDimension = number | string;
@@ -54,10 +63,13 @@ export type OverlayRequest = {
   height?: OverlayDimension;
   onDismiss?: () => void;
   placement?: OverlayPlacement;
+  resizable?: OverlayResizeOptions;
   submitAction?: OverlaySubmitAction;
   title: string;
   width?: OverlayDimension;
 };
+
+type OverlayResizeOptions = OverlayResizeLimits;
 
 type OverlayService = {
   closeOverlay: () => void;
@@ -82,7 +94,28 @@ type BoundFormValidity = {
 
 type OverlayPanelStyle = CSSProperties & {
   "--overlay-height": string;
+  "--overlay-left"?: string;
+  "--overlay-top"?: string;
   "--overlay-width": string;
+};
+
+type OverlayResizeSession = {
+  bounds: OverlayBounds;
+  direction: OverlayResizeDirection;
+  handle: HTMLElement;
+  lastRect: OverlayRect;
+  owner: OverlayOwner;
+  pointerId: number;
+  previousCursor: string;
+  previousUserSelect: string;
+  startClientX: number;
+  startClientY: number;
+  startRect: OverlayRect;
+};
+
+type PositionedOverlayRect = {
+  owner: OverlayOwner;
+  rect: OverlayRect;
 };
 
 type OverlayHostProps = {
@@ -95,6 +128,30 @@ const defaultOverlayWidth = "var(--overlay-default-width)";
 const defaultOverlayHeight = "var(--overlay-default-height)";
 const defaultOverlayPlacement: OverlayPlacement = "bottom-right";
 const animationFallbackSafetyMs = 50;
+const finePointerQuery = "(hover: hover) and (pointer: fine)";
+const overlayResizeDirections = [
+  "n",
+  "ne",
+  "e",
+  "se",
+  "s",
+  "sw",
+  "w",
+  "nw",
+] as const satisfies readonly OverlayResizeDirection[];
+const overlayResizeHandleClasses: Record<
+  OverlayResizeDirection,
+  string
+> = {
+  e: styles.resizeEast,
+  n: styles.resizeNorth,
+  ne: styles.resizeNorthEast,
+  nw: styles.resizeNorthWest,
+  s: styles.resizeSouth,
+  se: styles.resizeSouthEast,
+  sw: styles.resizeSouthWest,
+  w: styles.resizeWest,
+};
 const enterPrioritySelector = [
   "a[href]",
   "button",
@@ -106,6 +163,50 @@ const enterPrioritySelector = [
   "[role='listbox']",
 ].join(",");
 const OverlayContext = createContext<OverlayService | null>(null);
+
+function parsePixelValue(value: string) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getOverlayBounds(dialog: HTMLDialogElement): OverlayBounds {
+  const rect = dialog.getBoundingClientRect();
+  const computedStyle = window.getComputedStyle(dialog);
+
+  return {
+    bottom: rect.bottom - parsePixelValue(computedStyle.paddingBottom),
+    left: rect.left + parsePixelValue(computedStyle.paddingLeft),
+    right: rect.right - parsePixelValue(computedStyle.paddingRight),
+    top: rect.top + parsePixelValue(computedStyle.paddingTop),
+  };
+}
+
+function canUseOverlayResize() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia(finePointerQuery).matches;
+}
+
+function applyResizeDocumentStyles(cursor: string) {
+  const previousStyles = {
+    cursor: document.body.style.cursor,
+    userSelect: document.body.style.userSelect,
+  };
+  document.body.style.cursor = cursor;
+  document.body.style.userSelect = "none";
+  return previousStyles;
+}
+
+function restoreResizeDocumentStyles({
+  cursor,
+  userSelect,
+}: {
+  cursor: string;
+  userSelect: string;
+}) {
+  document.body.style.cursor = cursor;
+  document.body.style.userSelect = userSelect;
+}
 
 function toCssDimension(
   value: OverlayDimension | undefined,
@@ -205,6 +306,10 @@ function OverlayHost({
   });
   const panelRef = useRef<HTMLElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const preferredPanelRectRef = useRef<PositionedOverlayRect | null>(null);
+  const resizeSessionRef = useRef<OverlayResizeSession | null>(null);
+  const [positionedPanelRect, setPositionedPanelRect] =
+    useState<PositionedOverlayRect | null>(null);
   const [boundFormValidity, setBoundFormValidity] =
     useState<BoundFormValidity | null>(null);
   const titleId = useId();
@@ -224,6 +329,210 @@ function OverlayHost({
   const showFooter = Boolean(
     request?.cancelAction || request?.submitAction,
   );
+  const activePanelRect = (
+    positionedPanelRect
+    && positionedPanelRect.owner === overlayOwner
+      ? positionedPanelRect.rect
+      : null
+  );
+  const resizeEnabled = Boolean(
+    request?.resizable && canUseOverlayResize(),
+  );
+
+  const finishResize = useCallback((
+    outcome: "commit" | "discard" | "revert",
+  ) => {
+    const session = resizeSessionRef.current;
+    if (!session) return;
+
+    resizeSessionRef.current = null;
+    try {
+      if (
+        typeof session.handle.hasPointerCapture !== "function"
+        || session.handle.hasPointerCapture(session.pointerId)
+      ) {
+        session.handle.releasePointerCapture?.(session.pointerId);
+      }
+    } catch {
+      // Pointer capture can already be released by the browser.
+    }
+
+    restoreResizeDocumentStyles({
+      cursor: session.previousCursor,
+      userSelect: session.previousUserSelect,
+    });
+
+    if (outcome === "commit") {
+      preferredPanelRectRef.current = {
+        owner: session.owner,
+        rect: session.lastRect,
+      };
+      setPositionedPanelRect({
+        owner: session.owner,
+        rect: session.lastRect,
+      });
+    } else if (outcome === "revert") {
+      setPositionedPanelRect({
+        owner: session.owner,
+        rect: session.startRect,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!resizeEnabled || !request?.resizable || !overlayOwner) {
+      finishResize("discard");
+      preferredPanelRectRef.current = null;
+      return undefined;
+    }
+
+    const dialog = dialogRef.current;
+    const panel = panelRef.current;
+    if (!dialog || !panel) return undefined;
+
+    const measuredRect = panel.getBoundingClientRect();
+    const bounds = getOverlayBounds(dialog);
+    const measuredWidth = panel.offsetWidth || measuredRect.width;
+    const measuredHeight = panel.offsetHeight || measuredRect.height;
+    if (measuredWidth <= 0 || measuredHeight <= 0) {
+      return undefined;
+    }
+
+    const preferredRect = {
+      height: measuredHeight,
+      left: bounds.right - measuredWidth,
+      top: bounds.bottom - measuredHeight,
+      width: measuredWidth,
+    };
+    const nextPositionedRect = {
+      owner: overlayOwner,
+      rect: fitOverlayRectToBounds(
+        preferredRect,
+        bounds,
+        request.resizable,
+      ),
+    };
+    preferredPanelRectRef.current = {
+      owner: overlayOwner,
+      rect: preferredRect,
+    };
+    setPositionedPanelRect(nextPositionedRect);
+
+    return () => {
+      finishResize("discard");
+    };
+  }, [
+    dialogRef,
+    finishResize,
+    overlayOwner,
+    request?.resizable,
+    resizeEnabled,
+  ]);
+
+  useEffect(() => {
+    if (!resizeEnabled || !request?.resizable || !overlayOwner) {
+      return undefined;
+    }
+
+    function fitPreferredRectToViewport() {
+      finishResize("revert");
+      const dialog = dialogRef.current;
+      const preferred = preferredPanelRectRef.current;
+      if (
+        !dialog
+        || !preferred
+        || preferred.owner !== overlayOwner
+      ) {
+        return;
+      }
+
+      setPositionedPanelRect({
+        owner: overlayOwner,
+        rect: fitOverlayRectToBounds(
+          preferred.rect,
+          getOverlayBounds(dialog),
+          request?.resizable,
+        ),
+      });
+    }
+
+    window.addEventListener("resize", fitPreferredRectToViewport);
+    window.visualViewport?.addEventListener(
+      "resize",
+      fitPreferredRectToViewport,
+    );
+
+    return () => {
+      window.removeEventListener("resize", fitPreferredRectToViewport);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        fitPreferredRectToViewport,
+      );
+    };
+  }, [
+    dialogRef,
+    finishResize,
+    overlayOwner,
+    request?.resizable,
+    resizeEnabled,
+  ]);
+
+  useEffect(() => {
+    function moveResize(event: PointerEvent) {
+      const session = resizeSessionRef.current;
+      if (!session || event.pointerId !== session.pointerId) return;
+
+      event.preventDefault();
+      const nextRect = resizeOverlayRect({
+        bounds: session.bounds,
+        deltaX: event.clientX - session.startClientX,
+        deltaY: event.clientY - session.startClientY,
+        direction: session.direction,
+        limits: request?.resizable,
+        rect: session.startRect,
+      });
+      session.lastRect = nextRect;
+      setPositionedPanelRect({
+        owner: session.owner,
+        rect: nextRect,
+      });
+    }
+
+    function commitResize(event: PointerEvent) {
+      const session = resizeSessionRef.current;
+      if (!session || event.pointerId !== session.pointerId) return;
+      finishResize("commit");
+    }
+
+    function cancelResize(event: Event) {
+      if (!resizeSessionRef.current) return;
+      event.preventDefault();
+      finishResize("revert");
+    }
+
+    function cancelResizeOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape" || !resizeSessionRef.current) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finishResize("revert");
+    }
+
+    window.addEventListener("pointermove", moveResize, { passive: false });
+    window.addEventListener("pointerup", commitResize);
+    window.addEventListener("pointercancel", cancelResize);
+    window.addEventListener("blur", cancelResize);
+    window.addEventListener("keydown", cancelResizeOnEscape, true);
+
+    return () => {
+      finishResize("discard");
+      window.removeEventListener("pointermove", moveResize);
+      window.removeEventListener("pointerup", commitResize);
+      window.removeEventListener("pointercancel", cancelResize);
+      window.removeEventListener("blur", cancelResize);
+      window.removeEventListener("keydown", cancelResizeOnEscape, true);
+    };
+  }, [finishResize, request?.resizable]);
 
   useEffect(() => {
     if (!submitFormId || !overlayOwner) return undefined;
@@ -291,15 +600,66 @@ function OverlayHost({
     return () => window.clearTimeout(fallback);
   }, [completeClose, overlay]);
 
+  function beginResize(
+    direction: OverlayResizeDirection,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    const dialog = dialogRef.current;
+    if (
+      !resizeEnabled
+      || !canUseOverlayResize()
+      || !request?.resizable
+      || !overlayOwner
+      || !activePanelRect
+      || !dialog
+      || event.button !== 0
+      || !event.isPrimary
+      || event.pointerType !== "mouse"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    finishResize("discard");
+
+    const handle = event.currentTarget;
+    try {
+      handle.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture is an enhancement; window listeners remain authoritative.
+    }
+
+    const computedCursor = window.getComputedStyle(handle).cursor;
+    const previousDocumentStyles = applyResizeDocumentStyles(computedCursor);
+    resizeSessionRef.current = {
+      bounds: getOverlayBounds(dialog),
+      direction,
+      handle,
+      lastRect: activePanelRect,
+      owner: overlayOwner,
+      pointerId: event.pointerId,
+      previousCursor: previousDocumentStyles.cursor,
+      previousUserSelect: previousDocumentStyles.userSelect,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startRect: activePanelRect,
+    };
+  }
+
   const panelStyle: OverlayPanelStyle = {
-    "--overlay-height": toCssDimension(
-      request?.height,
-      defaultOverlayHeight,
-    ),
-    "--overlay-width": toCssDimension(
-      request?.width,
-      defaultOverlayWidth,
-    ),
+    "--overlay-height": activePanelRect
+      ? `${activePanelRect.height}px`
+      : toCssDimension(request?.height, defaultOverlayHeight),
+    "--overlay-left": activePanelRect
+      ? `${activePanelRect.left}px`
+      : undefined,
+    "--overlay-top": activePanelRect
+      ? `${activePanelRect.top}px`
+      : undefined,
+    "--overlay-width": activePanelRect
+      ? `${activePanelRect.width}px`
+      : toCssDimension(request?.width, defaultOverlayWidth),
   };
 
   function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
@@ -328,7 +688,7 @@ function OverlayHost({
     }
   }
 
-  function submitOnEnter(event: KeyboardEvent<HTMLDialogElement>) {
+  function submitOnEnter(event: ReactKeyboardEvent<HTMLDialogElement>) {
     if (
       event.key !== "Enter"
       || event.altKey
@@ -356,6 +716,7 @@ function OverlayHost({
       tabIndex={-1}
       aria-labelledby={request ? titleId : undefined}
       data-placement={request?.placement ?? defaultOverlayPlacement}
+      data-resizable={resizeEnabled ? true : undefined}
       data-state={overlay?.phase}
       onCancel={(event) => {
         event.preventDefault();
@@ -371,6 +732,7 @@ function OverlayHost({
         <section
           ref={panelRef}
           className={styles.panel}
+          data-positioned={activePanelRect ? true : undefined}
           style={panelStyle}
           onAnimationEnd={completeAnimatedClose}
         >
@@ -420,6 +782,23 @@ function OverlayHost({
                 </button>
               ) : null}
             </footer>
+          ) : null}
+          {request.resizable ? (
+            overlayResizeDirections.map((direction) => (
+              <div
+                key={direction}
+                className={
+                  `${styles.resizeHandle} ${
+                    overlayResizeHandleClasses[direction]
+                  }`
+                }
+                aria-hidden="true"
+                data-overlay-resize-handle={direction}
+                onPointerDown={(event) => {
+                  beginResize(direction, event);
+                }}
+              />
+            ))
           ) : null}
         </section>
       ) : null}
