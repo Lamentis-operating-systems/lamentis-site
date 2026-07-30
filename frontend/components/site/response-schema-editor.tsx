@@ -673,11 +673,13 @@ export function ResponseSchemaEditor({
   function renderPropertyFields(
     schemaFields: readonly DraftField[],
     schemaPath: readonly number[],
+    isRoot = false,
   ) {
     return (
       <ul
         aria-label={content.propertiesLabel}
         className={styles.propertyList}
+        data-root-properties={isRoot ? true : undefined}
       >
         {schemaFields.map((field, index) => {
           const nestedSchemaPath = [...schemaPath, field.id];
@@ -1026,7 +1028,7 @@ export function ResponseSchemaEditor({
             </div>
           </section>
 
-      {renderPropertyFields(fields, [])}
+      {renderPropertyFields(fields, [], true)}
 
       {visibleValidationError ? (
         <p

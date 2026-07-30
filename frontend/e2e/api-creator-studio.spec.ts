@@ -406,9 +406,7 @@ test("derives object names from properties and can prefill an existing model", a
   await expect(dialog.getByRole("button", {
     name: "Object definition: profile",
   })).toHaveCount(0);
-  const objectPropertyRow = dialog.locator("li").filter({
-    has: objectTemplate,
-  });
+  const objectPropertyRow = objectTemplate.locator("xpath=ancestor::li[1]");
   await expect(objectPropertyRow.getByRole("button", {
     name: "Add property",
   })).toHaveCount(1);
@@ -429,8 +427,23 @@ test("derives object names from properties and can prefill an existing model", a
   await expect(nestedProperties.getByRole("textbox", {
     name: "Property name",
   })).toHaveValue("city");
-  await expect(nestedProperties).toHaveCSS("border-inline-start-width", "2px");
-  await expect(nestedProperties).toHaveCSS("padding-inline-start", "16px");
+  const nestedPropertyList = nestedProperties.locator(":scope > ul");
+  await expect(nestedPropertyList).toHaveCSS("padding-inline-start", "16px");
+  const nestedPropertyRow = nestedPropertyList.locator(":scope > li");
+  await expect.poll(() => nestedPropertyRow.evaluate((element) => {
+    const connector = getComputedStyle(element, "::before");
+    return {
+      blockEndWidth: connector.getPropertyValue("border-block-end-width"),
+      inlineStartWidth: connector.getPropertyValue(
+        "border-inline-start-width",
+      ),
+      radius: connector.getPropertyValue("border-end-start-radius"),
+    };
+  })).toEqual({
+    blockEndWidth: "2px",
+    inlineStartWidth: "2px",
+    radius: "8px",
+  });
   await expect(save).toBeEnabled();
 
   await nestedProperties.getByRole("textbox", {
@@ -530,6 +543,44 @@ test("renders object definitions inline without an empty state", async ({
   await expect(nestedProperties.getByRole("textbox", {
     name: "Property name",
   })).toBeVisible();
+  const rootProperties = dialog.locator('[data-root-properties="true"]');
+  await expect(rootProperties).toHaveCount(1);
+  await expect(rootProperties).toHaveCSS("padding-inline-start", "16px");
+  const rootPropertyRow = rootProperties.locator(":scope > li");
+  const nestedPropertyRow = nestedProperties.locator(":scope > ul > li");
+  await expect.poll(async () => Promise.all(
+    [rootPropertyRow, nestedPropertyRow].map((propertyRow) => (
+      propertyRow.evaluate((element) => {
+        const endCap = getComputedStyle(element, "::before");
+        const continuation = getComputedStyle(element, "::after");
+        return {
+          continuation: continuation.content,
+          endCapBlockWidth: endCap.getPropertyValue(
+            "border-block-end-width",
+          ),
+          endCapInlineWidth: endCap.getPropertyValue(
+            "border-inline-start-width",
+          ),
+          endCapRadius: endCap.getPropertyValue(
+            "border-end-start-radius",
+          ),
+        };
+      })
+    )),
+  )).toEqual([
+    {
+      continuation: "none",
+      endCapBlockWidth: "2px",
+      endCapInlineWidth: "2px",
+      endCapRadius: "8px",
+    },
+    {
+      continuation: "none",
+      endCapBlockWidth: "2px",
+      endCapInlineWidth: "2px",
+      endCapRadius: "8px",
+    },
+  ]);
   const removeProperties = dialog.getByRole("button", {
     name: "Remove property 1",
   });
