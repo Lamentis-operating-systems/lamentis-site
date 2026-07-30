@@ -767,6 +767,45 @@ export function ResponseSchemaEditor({
     });
   }
 
+  function selectPropertyType(
+    schemaPath: readonly number[],
+    field: DraftField,
+    type: ApiResponseFieldType,
+  ) {
+    const arrayItemType = type === "array"
+      ? (field.type === "array" ? field.arrayItemType : "string")
+      : field.arrayItemType;
+    const needsObjectSchema = (
+      type === "object"
+      || (type === "array" && arrayItemType === "object")
+    );
+
+    updateProperty(schemaPath, field.id, {
+      arrayItemType,
+      objectSchema: needsObjectSchema
+        ? (field.objectSchema ?? createDraftObjectSchema())
+        : undefined,
+      type,
+    });
+    setObjectExpanded(field.id, needsObjectSchema, needsObjectSchema);
+  }
+
+  function selectArrayItemType(
+    schemaPath: readonly number[],
+    field: DraftField,
+    arrayItemType: ApiResponseArrayItemType,
+  ) {
+    const needsObjectSchema = arrayItemType === "object";
+
+    updateProperty(schemaPath, field.id, {
+      arrayItemType,
+      objectSchema: needsObjectSchema
+        ? (field.objectSchema ?? createDraftObjectSchema())
+        : undefined,
+    });
+    setObjectExpanded(field.id, needsObjectSchema, needsObjectSchema);
+  }
+
   function renderPropertyFields(
     schemaFields: readonly DraftField[],
     schemaPath: readonly number[],
@@ -866,37 +905,11 @@ export function ResponseSchemaEditor({
                         id: type,
                         kind: "action",
                         label: content.typeOptions[type],
-                        onSelect: () => {
-                          const arrayItemType = type === "array"
-                            ? (
-                                field.type === "array"
-                                  ? field.arrayItemType
-                                  : "string"
-                              )
-                            : field.arrayItemType;
-                          const needsObjectSchema = (
-                            type === "object"
-                            || (
-                              type === "array"
-                              && arrayItemType === "object"
-                            )
-                          );
-                          updateProperty(schemaPath, field.id, {
-                            arrayItemType,
-                            objectSchema: needsObjectSchema
-                              ? (
-                                  field.objectSchema
-                                  ?? createDraftObjectSchema()
-                                )
-                              : undefined,
-                            type,
-                          });
-                          if (needsObjectSchema) {
-                            setObjectExpanded(field.id, true, true);
-                          } else {
-                            setObjectExpanded(field.id, false);
-                          }
-                        },
+                        onSelect: () => selectPropertyType(
+                          schemaPath,
+                          field,
+                          type,
+                        ),
                       } satisfies SelectMenuOption))}
                       rounded
                       selectedId={field.type}
@@ -918,22 +931,11 @@ export function ResponseSchemaEditor({
                             id: type,
                             kind: "action",
                             label: content.typeOptions[type],
-                            onSelect: () => {
-                              updateProperty(schemaPath, field.id, {
-                                arrayItemType: type,
-                                objectSchema: type === "object"
-                                  ? (
-                                      field.objectSchema
-                                      ?? createDraftObjectSchema()
-                                    )
-                                  : undefined,
-                              });
-                              if (type === "object") {
-                                setObjectExpanded(field.id, true, true);
-                              } else {
-                                setObjectExpanded(field.id, false);
-                              }
-                            },
+                            onSelect: () => selectArrayItemType(
+                              schemaPath,
+                              field,
+                              type,
+                            ),
                           } satisfies SelectMenuOption))}
                           rounded
                           selectedId={field.arrayItemType}
