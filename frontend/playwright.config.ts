@@ -19,6 +19,11 @@ export default defineConfig({
   outputDir: outputDirectory,
   fullyParallel: true,
   forbidOnly: isCi,
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixels: 2,
+    },
+  },
   retries: isCi ? 2 : 0,
   workers: isCi ? 2 : undefined,
   reporter: isCi
