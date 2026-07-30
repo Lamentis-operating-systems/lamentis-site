@@ -8,6 +8,19 @@ test("mobile navigation owns focus and releases scroll lock", {
   await page.goto("/en");
   const openTrigger = page.getByRole("button", { name: "Open primary navigation" });
   await expect(openTrigger).toHaveAccessibleName("Open primary navigation");
+  const iconButtonGeometry = await openTrigger.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      borderRadius: Number.parseFloat(styles.borderRadius),
+      height: rect.height,
+      width: rect.width,
+    };
+  });
+  expect(iconButtonGeometry.width).toBe(iconButtonGeometry.height);
+  expect(iconButtonGeometry.borderRadius).toBeGreaterThanOrEqual(
+    iconButtonGeometry.width / 2,
+  );
   const controlledDialogId = await openTrigger.getAttribute("aria-controls");
   expect(controlledDialogId).toBeTruthy();
   if (!controlledDialogId) {
@@ -90,17 +103,19 @@ test("search accepts text without submitting or changing the route", async ({ pa
   await expect(search).toHaveValue("Lamentis");
 });
 
-test("search focus uses subtle contrast without adding an active border", async ({ page }) => {
+test("search focus preserves the shared surface styling without an active outline", async ({ page }) => {
   const focusSchemes = [
     {
       colorScheme: "light",
-      background: "rgb(238, 238, 238)",
-      foreground: "rgb(51, 51, 51)",
+      background: "rgb(247, 247, 247)",
+      icon: "rgb(102, 102, 102)",
+      placeholder: "rgb(102, 102, 102)",
     },
     {
       colorScheme: "dark",
-      background: "rgb(46, 46, 46)",
-      foreground: "rgba(255, 255, 255, 0.8)",
+      background: "rgb(33, 33, 33)",
+      icon: "rgba(255, 255, 255, 0.6)",
+      placeholder: "rgb(175, 175, 175)",
     },
   ] as const;
 
@@ -112,11 +127,11 @@ test("search focus uses subtle contrast without adding an active border", async 
     const searchRegion = page.getByRole("search", { name: "Search sites" });
     await search.focus();
     await expect(searchRegion).toHaveCSS("background-color", scheme.background);
-    await expect(searchRegion.locator("svg")).toHaveCSS("color", scheme.foreground);
+    await expect(searchRegion.locator("svg")).toHaveCSS("color", scheme.icon);
     const placeholderColor = await search.evaluate(
       (element) => getComputedStyle(element, "::placeholder").color,
     );
-    expect(placeholderColor).toBe(scheme.foreground);
+    expect(placeholderColor).toBe(scheme.placeholder);
     await expect(searchRegion).toHaveCSS("border-style", "none");
     await expect(searchRegion).toHaveCSS("outline-style", "none");
   }
@@ -132,4 +147,82 @@ test("search focus gains a system outline only in forced colors", async ({ page 
   await expect(searchRegion).toHaveCSS("outline-style", "solid");
   await expect(searchRegion).toHaveCSS("outline-width", "2px");
   await expect(searchRegion).toHaveCSS("outline-offset", "4px");
+});
+
+test("platform controls reuse the subtle hover border for focus", async ({
+  page,
+}) => {
+  await page.goto("/en/api-creator-studio");
+
+  const method = page.getByRole("button", { name: "HTTP method" });
+  await method.hover();
+  await page.waitForTimeout(200);
+  const hoverShadow = await method.evaluate(
+    (element) => getComputedStyle(element).boxShadow,
+  );
+  expect(hoverShadow).toMatch(/1px inset/);
+
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  const routeSurface = page.getByRole("group", {
+    name: "API endpoint path",
+  });
+  await routeInput.focus();
+  await expect(routeSurface).toHaveCSS("box-shadow", hoverShadow);
+
+  await method.focus();
+  await expect(method).toHaveCSS("box-shadow", hoverShadow);
+  await expect(method).toHaveCSS("outline-style", "none");
+
+  const navigationTrigger = page.getByRole("button", {
+    name: "Open primary navigation",
+  });
+  await navigationTrigger.focus();
+  await expect(navigationTrigger).toHaveCSS("outline-width", "1px");
+  await expect(navigationTrigger).toHaveCSS("outline-offset", "-1px");
+});
+
+test("sticky navigation stays above page select popovers", async ({ page }) => {
+  await page.goto("/en/api-creator-studio");
+
+  const navigation = page.getByRole("navigation", {
+    name: "Primary navigation",
+  });
+  const method = page.getByRole("button", { name: "HTTP method" });
+  const methodRoot = method.locator("..");
+
+  await expect(methodRoot).toHaveCSS("z-index", "auto");
+  await method.click();
+  await expect(methodRoot).toHaveCSS("z-index", "10");
+  await expect(navigation).toHaveCSS("z-index", "20");
+
+  const [navigationBox, methodBox] = await Promise.all([
+    navigation.boundingBox(),
+    method.boundingBox(),
+  ]);
+  expect(navigationBox).not.toBeNull();
+  expect(methodBox).not.toBeNull();
+  if (!navigationBox || !methodBox) {
+    throw new Error("Navigation and select must have measurable geometry.");
+  }
+
+  await page.evaluate(
+    (scrollDistance) => window.scrollBy(0, scrollDistance),
+    methodBox.y - navigationBox.y,
+  );
+
+  const overlappingMethodBox = await method.boundingBox();
+  expect(overlappingMethodBox).not.toBeNull();
+  if (!overlappingMethodBox) {
+    throw new Error("The select must remain measurable after scrolling.");
+  }
+
+  const navigationOwnsOverlap = await page.evaluate(({ x, y }) => (
+    document.elementFromPoint(x, y)?.closest("nav") !== null
+  ), {
+    x: overlappingMethodBox.x + overlappingMethodBox.width / 2,
+    y: navigationBox.y + navigationBox.height / 2,
+  });
+  expect(navigationOwnsOverlap).toBe(true);
 });

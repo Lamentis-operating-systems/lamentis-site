@@ -1,13 +1,44 @@
 .form {
   display: grid;
+  min-width: 0;
+  container-type: inline-size;
   align-content: start;
-  gap: var(--space-8);
+  gap: var(--space-6);
+}
+
+.form > .overlayRouteRow {
+  width: calc(100% + var(--space-3));
+}
+
+.section,
+.propertiesSection {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
 }
 
 .fieldGroup {
   display: grid;
   min-width: 0;
   gap: var(--space-2);
+}
+
+.sectionHeader {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.responseTypeControls {
+  display: grid;
+  min-width: 0;
+}
+
+.responseTypeControls[data-has-template="true"] {
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(var(--response-property-field-min-width), 0.65fr);
+  gap: var(--space-3);
 }
 
 .label,
@@ -18,24 +49,15 @@
   line-height: var(--line-compact);
 }
 
-.control {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--control-height);
-  border: var(--control-border-width) solid var(--color-border);
-  border-radius: var(--radius-medium);
-  padding-inline: var(--space-3);
-  outline: none;
-  background: var(--color-field-menu-background);
-  color: var(--color-text);
-  font-size: var(--text-body);
-  line-height: var(--line-body);
+.sectionTitle {
+  margin: 0;
 }
 
-.control:focus-visible {
-  border-color: var(--color-text-muted);
-  outline: var(--focus-ring-width) solid var(--color-focus);
-  outline-offset: var(--focus-ring-offset);
+.sectionDescription {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--line-body);
 }
 
 .propertiesHeader {
@@ -43,6 +65,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+}
+
+.propertiesHeader .sectionHeader {
+  flex: 1 1 auto;
 }
 
 .addProperty {
@@ -89,9 +115,8 @@
   min-width: 0;
   margin: 0;
   border: 0;
-  border-radius: var(--radius-large);
-  padding: var(--space-4);
-  background: var(--color-field-menu-background);
+  padding: 0;
+  background: transparent;
 }
 
 .propertyGrid {
@@ -99,31 +124,43 @@
   min-width: 0;
   grid-template-columns:
     minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.55fr)
-    minmax(var(--response-property-field-min-width), 0.55fr)
+    minmax(
+      calc(
+        var(--response-property-field-min-width)
+        + var(--response-property-field-min-width)
+      ),
+      1.25fr
+    )
     auto
     var(--control-height);
-  align-items: end;
+  align-items: center;
   gap: var(--space-3);
 }
 
-.checkbox {
-  display: inline-flex;
-  min-height: var(--control-height);
+.typeExpression {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--text-caption);
-  line-height: var(--line-compact);
-  white-space: nowrap;
+  gap: var(--space-3);
 }
 
-.checkbox input {
-  width: var(--space-4);
-  height: var(--space-4);
-  margin: 0;
-  accent-color: var(--color-text);
+.typeExpression[data-is-array="true"] {
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    minmax(0, 1fr);
+}
+
+.arrayConnector {
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-compact);
+}
+
+.checkboxField {
+  white-space: nowrap;
 }
 
 .removeProperty {
@@ -148,20 +185,25 @@
 }
 
 @media (width <= 40rem) {
+  .responseTypeControls[data-has-template="true"] {
+    grid-template-columns: 1fr;
+  }
+
   .propertyGrid {
     grid-template-columns: 1fr var(--control-height);
   }
 
-  .fieldGroup {
+  .propertyNameField,
+  .typeExpression {
     grid-column: 1 / -1;
   }
 
-  .checkbox {
+  .checkboxField {
     grid-column: 1;
   }
 
   .removeProperty {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 3;
   }
 }

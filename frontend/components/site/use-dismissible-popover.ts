@@ -7,14 +7,34 @@ import {
   useState,
 } from "react";
 
+type DismissiblePopoverPhase = "closed" | "closing" | "open";
+
+const closeAnimationFallbackMs = 250;
+
 export function useDismissiblePopover() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [phase, setPhase] =
+    useState<DismissiblePopoverPhase>("closed");
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const isOpen = phase === "open";
 
   const closePopover = useCallback((restoreFocus = false) => {
-    setIsOpen(false);
+    setPhase((currentPhase) => (
+      currentPhase === "open" ? "closing" : currentPhase
+    ));
     if (restoreFocus) triggerRef.current?.focus();
+  }, []);
+
+  const completeClose = useCallback(() => {
+    setPhase((currentPhase) => (
+      currentPhase === "closing" ? "closed" : currentPhase
+    ));
+  }, []);
+
+  const togglePopover = useCallback(() => {
+    setPhase((currentPhase) => (
+      currentPhase === "open" ? "closing" : "open"
+    ));
   }, []);
 
   useEffect(() => {
@@ -39,11 +59,24 @@ export function useDismissiblePopover() {
     };
   }, [closePopover, isOpen]);
 
+  useEffect(() => {
+    if (phase !== "closing") return undefined;
+
+    const fallback = window.setTimeout(
+      completeClose,
+      closeAnimationFallbackMs,
+    );
+    return () => window.clearTimeout(fallback);
+  }, [completeClose, phase]);
+
   return {
     closePopover,
+    completeClose,
     isOpen,
+    isPresent: phase !== "closed",
+    phase,
     rootRef,
-    togglePopover: () => setIsOpen((open) => !open),
+    togglePopover,
     triggerRef,
   };
 }

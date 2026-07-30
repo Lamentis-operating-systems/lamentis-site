@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { InputSurface } from "./form/input-surface";
 import layoutStyles from "./layout/site-layout.module.css";
 import styles from "./search-page.module.css";
 
@@ -24,15 +25,14 @@ export function SearchSurface({
       <div className={styles.content}>
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.formArea}>
-          <div
-            className={`${styles.search} ${
-              withMethod ? styles.searchWithMethod : ""
-            }`}
+          <InputSurface
+            className={styles.searchSurface}
             role={role}
             aria-label={label}
+            withLeadingControl={withMethod}
           >
             {children}
-          </div>
+          </InputSurface>
           {contentAfter}
         </div>
       </div>

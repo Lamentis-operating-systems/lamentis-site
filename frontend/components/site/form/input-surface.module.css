@@ -1,0 +1,61 @@
+.surface {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height-large);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--color-field-background);
+  box-shadow: var(--shadow-control-border-transparent);
+  color: var(--color-text-muted);
+  transition-property: box-shadow;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.surface:hover {
+  box-shadow: var(--shadow-control-border);
+}
+
+.surface:focus-within {
+  box-shadow: var(--shadow-control-focus);
+}
+
+.surfaceNested {
+  background: var(--color-field-menu-background);
+}
+
+.surfaceWithLeadingControl {
+  padding-inline: var(--space-1);
+}
+
+.surface svg {
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+  flex: 0 0 auto;
+}
+
+.surface input::placeholder {
+  color: var(--color-field-placeholder);
+  opacity: 1;
+}
+
+@media (forced-colors: active) {
+  .surface:focus-within {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: var(--focus-ring-offset);
+  }
+}
+
+@container (inline-size < 12rem) {
+  .surfaceWithLeadingControl {
+    flex-wrap: wrap;
+    padding-block: var(--space-1);
+  }
+
+  .surfaceWithLeadingControl > * {
+    flex: 1 1 100%;
+  }
+}

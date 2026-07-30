@@ -30,18 +30,24 @@ export type SearchContent = {
 
 export type ResponseSchemaEditorContent = {
   addPropertyLabel: string;
+  arrayConnectorLabel: string;
   arrayItemTypeLabel: string;
   duplicatePropertyError: string;
   identifierHint: string;
+  newResponseTypeLabel: string;
   optionalLabel: string;
+  propertiesDescription: string;
   propertiesLabel: string;
   propertyNameLabel: string;
   propertyNamePlaceholder: string;
   propertyTypeLabel: string;
   removePropertyLabel: string;
   responseTypeConflictError: string;
+  responseTypeDescription: string;
   responseTypeLabel: string;
   responseTypePlaceholder: string;
+  responseTypeTemplateLabel: string;
+  routeLabel: string;
   saveLabel: string;
   typeOptions: Record<ApiResponseFieldType, string>;
 };
@@ -140,7 +146,7 @@ export const contentByLocale = {
     apiCreatorStudio: {
       actionLabel: "Add API route",
       closeEditRouteOverlayLabel: "Close Edit this route",
-      closeResponseOverlayLabel: "Close Add response",
+      closeResponseOverlayLabel: "Close the response editor",
       copyRouteErrorLabel: "The route could not be copied.",
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
@@ -154,10 +160,14 @@ export const contentByLocale = {
       pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
         addPropertyLabel: "Add property",
+        arrayConnectorLabel: "of",
         arrayItemTypeLabel: "Array item type",
         duplicatePropertyError: "Property names must be unique.",
         identifierHint: "Use a valid TypeScript identifier.",
+        newResponseTypeLabel: "New",
         optionalLabel: "Optional",
+        propertiesDescription:
+          "Define the fields returned in this response.",
         propertiesLabel: "Response properties",
         propertyNameLabel: "Property name",
         propertyNamePlaceholder: "propertyName",
@@ -165,8 +175,12 @@ export const contentByLocale = {
         removePropertyLabel: "Remove property",
         responseTypeConflictError:
           "This response type already uses a different schema.",
+        responseTypeDescription:
+          "Create a response type or use an existing one as an editable template.",
         responseTypeLabel: "Response type",
-        responseTypePlaceholder: "UserResponse",
+        responseTypePlaceholder: "Name your response type",
+        responseTypeTemplateLabel: "Response type template",
+        routeLabel: "Route",
         saveLabel: "Save",
         typeOptions: {
           string: "string",
@@ -178,7 +192,7 @@ export const contentByLocale = {
           unknown: "unknown",
         },
       },
-      responseOverlayTitle: "Add response",
+      responseOverlayTitle: "Add a data structure to this route",
       routeActionsLabel: "Route actions",
       routeListLabel: "API routes",
       saveRouteLabel: "Save",
@@ -257,7 +271,8 @@ export const contentByLocale = {
     apiCreatorStudio: {
       actionLabel: "API-Route hinzufügen",
       closeEditRouteOverlayLabel: "Route bearbeiten schließen",
-      closeResponseOverlayLabel: "Antwort hinzufügen schließen",
+      closeResponseOverlayLabel:
+        "Datenstruktur für diese Route schließen",
       copyRouteErrorLabel: "Die Route konnte nicht kopiert werden.",
       copyRouteLabel: "Kopieren",
       deleteRouteLabel: "Löschen",
@@ -273,10 +288,14 @@ export const contentByLocale = {
         "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
         addPropertyLabel: "Eigenschaft hinzufügen",
+        arrayConnectorLabel: "aus",
         arrayItemTypeLabel: "Array-Elementtyp",
         duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
         identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
+        newResponseTypeLabel: "Neu",
         optionalLabel: "Optionales Feld",
+        propertiesDescription:
+          "Definiere die Felder, die in dieser Antwort zurückgegeben werden.",
         propertiesLabel: "Antwort-Eigenschaften",
         propertyNameLabel: "Eigenschaftsname",
         propertyNamePlaceholder: "eigenschaftName",
@@ -284,8 +303,12 @@ export const contentByLocale = {
         removePropertyLabel: "Eigenschaft entfernen",
         responseTypeConflictError:
           "Dieser Antworttyp verwendet bereits ein anderes Schema.",
+        responseTypeDescription:
+          "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
         responseTypeLabel: "Antworttyp",
-        responseTypePlaceholder: "BenutzerAntwort",
+        responseTypePlaceholder: "Benenne deinen Antworttyp",
+        responseTypeTemplateLabel: "Antworttyp-Vorlage",
+        routeLabel: "Route",
         saveLabel: "Speichern",
         typeOptions: {
           string: "string",
@@ -297,7 +320,8 @@ export const contentByLocale = {
           unknown: "unknown",
         },
       },
-      responseOverlayTitle: "Antwort hinzufügen",
+      responseOverlayTitle:
+        "Datenstruktur zu dieser Route hinzufügen",
       routeActionsLabel: "Routenaktionen",
       routeListLabel: "API-Routen",
       saveRouteLabel: "Speichern",

@@ -197,19 +197,14 @@ export function NavigationMenu({ activeRouteId, content }: NavigationMenuProps) 
                 {item.label}
               </Link>
             ))}
-            <NavigationActionItem
-              action={action}
-              activeRouteId={activeRouteId}
-              className={
-                action.kind === "api-contract-download"
-                  ? `${styles.mobileLink} ${styles.mobileAction} ${
-                      styles.mobileDownloadAction
-                    }`
-                  : `${styles.mobileLink} ${styles.mobileAction}`
-              }
-              onDownload={closeMobileMenu}
-              onNavigate={handleMobileNavigation}
-            />
+            {action.kind !== "api-contract-download" ? (
+              <NavigationActionItem
+                action={action}
+                activeRouteId={activeRouteId}
+                className={`${styles.mobileLink} ${styles.mobileAction}`}
+                onNavigate={handleMobileNavigation}
+              />
+            ) : null}
           </div>
         </dialog>
       </div>

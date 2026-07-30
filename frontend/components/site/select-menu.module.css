@@ -1,6 +1,5 @@
 .root {
   position: relative;
-  z-index: var(--layer-popover);
   width: fit-content;
   max-width: 100%;
   min-width: 0;
@@ -8,7 +7,7 @@
 }
 
 .root[data-open="true"] {
-  z-index: calc(var(--layer-popover) + 1);
+  z-index: var(--layer-popover);
 }
 
 .trigger {
@@ -19,7 +18,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   border: 0;
-  border-radius: var(--radius-full);
+  border-radius: var(--control-radius);
   padding-inline: var(--space-4);
   background: var(--color-field-menu-background);
   box-shadow: var(--shadow-control-border-transparent);
@@ -34,12 +33,24 @@
   transition-timing-function: var(--motion-easing);
 }
 
+.root[data-height="large"] .trigger {
+  min-height: var(--control-height-large);
+}
+
+.root[data-rounded="true"] .trigger {
+  border-radius: var(--radius-full);
+}
+
 .root[data-width="method"] .trigger {
   width: 100%;
 }
 
 .root[data-width="method"] {
   width: min(100%, var(--control-http-method-width));
+}
+
+.root[data-width="field"] {
+  width: 100%;
 }
 
 .trigger:hover:not(:disabled) {
@@ -74,11 +85,51 @@
 .root[data-placement="bottom"] .menu {
   inset-block-start: calc(100% + var(--space-2));
   inset-inline-start: 0;
+  transform-origin: top center;
 }
 
 .root[data-placement="top"] .menu {
+  --options-menu-shift: var(--space-1);
+
   inset-block-end: calc(100% + var(--space-2));
   inset-inline: 0;
+  transform-origin: bottom center;
+}
+
+.root .menu[data-dialog-layer="true"] {
+  position: fixed;
+  z-index: var(--layer-dialog);
+  inset: auto;
+  inset-inline-start: var(--dialog-popover-inline-start);
+  width: var(--dialog-popover-width);
+  min-width: 0;
+  max-width: calc(100vw - var(--space-4));
+  margin: 0;
+  overflow-y: auto;
+}
+
+.menu[data-dialog-layer="true"][data-placement="top"] {
+  inset-block-end:
+    calc(100dvh - var(--dialog-popover-anchor-top) + var(--space-2));
+  max-height:
+    max(
+      var(--control-height),
+      calc(var(--dialog-popover-anchor-top) - var(--space-4))
+    );
+}
+
+.menu[data-dialog-layer="true"][data-placement="bottom"] {
+  inset-block-start:
+    calc(var(--dialog-popover-anchor-bottom) + var(--space-2));
+  max-height:
+    max(
+      var(--control-height),
+      calc(
+        100dvh
+        - var(--dialog-popover-anchor-bottom)
+        - var(--space-4)
+      )
+    );
 }
 
 .option {

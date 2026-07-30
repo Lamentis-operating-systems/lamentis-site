@@ -1,0 +1,143 @@
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { CheckboxWithLabel } from "@/components/site/form/checkbox-with-label";
+import { TextInput } from "@/components/site/form/text-input";
+import { SelectMenu } from "@/components/site/select-menu";
+
+describe("shared form controls", () => {
+  it("forwards native text-input semantics through the shared surface", () => {
+    render(
+      <TextInput
+        aria-label="Response type"
+        name="responseType"
+        placeholder="UserResponse"
+        required
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Response type" });
+    expect(input).toHaveAttribute("name", "responseType");
+    expect(input).toHaveAttribute("placeholder", "UserResponse");
+    expect(input).toBeRequired();
+  });
+
+  it("keeps the checkbox and its visible label as one native control", () => {
+    render(
+      <CheckboxWithLabel
+        defaultChecked
+        label="Optional"
+        name="optional"
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Optional" });
+    expect(checkbox).toBeChecked();
+    fireEvent.click(screen.getByText("Optional"));
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it("promotes dialog selects to the native popover layer", async () => {
+    const showPopoverDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "showPopover",
+    );
+    const hidePopoverDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "hidePopover",
+    );
+    const nativeMatches = Element.prototype.matches;
+    const showPopover = vi.fn(function show(this: HTMLElement) {
+      this.dataset.testPopoverOpen = "true";
+    });
+    const hidePopover = vi.fn(function hide(this: HTMLElement) {
+      delete this.dataset.testPopoverOpen;
+    });
+    Object.defineProperty(HTMLElement.prototype, "showPopover", {
+      configurable: true,
+      value: showPopover,
+    });
+    Object.defineProperty(HTMLElement.prototype, "hidePopover", {
+      configurable: true,
+      value: hidePopover,
+    });
+    const matches = vi.spyOn(Element.prototype, "matches").mockImplementation(
+      function matchesPopover(this: Element, selector: string) {
+        if (selector === ":popover-open") {
+          return (
+            this instanceof HTMLElement
+            && this.dataset.testPopoverOpen === "true"
+          );
+        }
+        return nativeMatches.call(this, selector);
+      },
+    );
+
+    try {
+      const view = render(
+        <dialog open>
+          <SelectMenu
+            height="large"
+            label="Property type"
+            menuPlacement="top"
+            options={[
+              {
+                id: "string",
+                kind: "action",
+                label: "string",
+                onSelect: vi.fn(),
+              },
+            ]}
+            rounded
+            selectedId="string"
+            width="field"
+          />
+        </dialog>,
+      );
+
+      fireEvent.click(screen.getByRole("button", {
+        name: "Property type",
+      }));
+      await waitFor(() => expect(showPopover).toHaveBeenCalledTimes(1));
+      const menu = document.querySelector(
+        'ul[aria-label="Property type"]',
+      );
+      expect(menu).toBeInTheDocument();
+      expect(menu).toHaveAttribute("popover", "manual");
+      expect(menu).toHaveAttribute("data-dialog-layer", "true");
+      expect(screen.getByRole("button", {
+        name: "Property type",
+      }).parentElement).toHaveAttribute("data-height", "large");
+      expect(screen.getByRole("button", {
+        name: "Property type",
+      }).parentElement).toHaveAttribute("data-rounded", "true");
+
+      view.unmount();
+      expect(hidePopover).toHaveBeenCalledTimes(1);
+    } finally {
+      matches.mockRestore();
+      if (showPopoverDescriptor) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "showPopover",
+          showPopoverDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "showPopover");
+      }
+      if (hidePopoverDescriptor) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "hidePopover",
+          hidePopoverDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "hidePopover");
+      }
+    }
+  });
+});

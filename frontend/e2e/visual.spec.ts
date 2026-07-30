@@ -96,7 +96,7 @@ for (const colorScheme of colorSchemes) {
     await routeInput.fill("accounts/{accountid}");
     await routeInput.press("Enter");
     const responseDialog = page.getByRole("dialog", {
-      name: "Add response",
+      name: "Add a data structure to this route",
     });
     await expect(responseDialog).toBeVisible();
     await settlePage(page);

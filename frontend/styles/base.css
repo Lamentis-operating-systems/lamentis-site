@@ -49,8 +49,8 @@ select {
 
 a:focus-visible,
 button:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-focus);
-  outline-offset: var(--focus-ring-offset);
+  outline: var(--control-border-width) solid var(--color-border);
+  outline-offset: calc(-1 * var(--control-border-width));
 }
 
 button:hover:not(:disabled) {

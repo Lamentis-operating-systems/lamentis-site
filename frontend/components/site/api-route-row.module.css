@@ -1,0 +1,28 @@
+.row {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height);
+  grid-template-columns:
+    var(--control-http-method-width)
+    minmax(0, 1fr)
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-1);
+  padding-block: var(--space-1);
+}
+
+.method {
+  min-width: 0;
+}
+
+@container (inline-size < 12rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) var(--control-height);
+  }
+
+  .method {
+    grid-column: 1 / -1;
+  }
+}

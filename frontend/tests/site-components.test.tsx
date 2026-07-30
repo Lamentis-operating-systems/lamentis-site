@@ -9,6 +9,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ApiCreatorStudio } from "@/components/site/api-creator-studio";
+import { ResponseSchemaEditor } from "@/components/site/response-schema-editor";
 import { EmptyPage } from "@/components/site/empty-page";
 import { LocaleSwitcher } from "@/components/site/footer/locale-switcher";
 import { SiteFooter } from "@/components/site/footer/site-footer";
@@ -668,7 +669,12 @@ describe("search page", () => {
     fireEvent.click(postOption);
     expect(trigger).toHaveTextContent("POST");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(menu).toHaveAttribute("data-state", "closing");
+    expect(menu).toHaveAttribute("aria-hidden", "true");
+    expect(menu).toHaveAttribute("inert");
     expect(screen.queryByRole("list", { name: "HTTP method" })).not.toBeInTheDocument();
+    fireEvent.animationEnd(menu);
+    await waitFor(() => expect(menu).not.toBeInTheDocument());
 
     const action = screen.getByRole("button", { name: "Add API route" });
     const input = screen.getByRole("textbox", {
@@ -702,7 +708,7 @@ describe("search page", () => {
     fireEvent.click(action);
 
     const responseDialog = await screen.findByRole("dialog", {
-      name: "Add response",
+      name: "Add a data structure to this route",
     });
     const responsePanel = responseDialog.querySelector("section");
     expect(responseDialog).toHaveAttribute("data-placement", "bottom-right");
@@ -712,11 +718,50 @@ describe("search page", () => {
     expect(responsePanel?.style.getPropertyValue("--overlay-height")).toBe(
       "var(--overlay-size-large)",
     );
-    expect(responseDialog.querySelector("header")).toHaveTextContent(
-      "Add response",
-    );
-    expect(responseDialog.querySelector("footer")).toHaveTextContent("Save");
     expect(responseDialog).toHaveFocus();
+    expect(responseDialog.querySelector("header")).toHaveTextContent(
+      "Add a data structure to this route",
+    );
+    const routeContext = within(responseDialog).getByRole("group", {
+      name: "Route: POST /users/{uuid}/posts",
+    });
+    const routeMethod = within(routeContext).getByRole("button", {
+      name: "HTTP method /users/{uuid}/posts",
+    });
+    expect(routeMethod).toHaveTextContent("POST");
+    expect(within(routeContext).getByRole("button", {
+      name: "Route actions /users/{uuid}/posts",
+    })).toBeInTheDocument();
+    fireEvent.click(routeMethod);
+    fireEvent.click(
+      within(within(responseDialog).getByRole("list", {
+        name: "HTTP method /users/{uuid}/posts",
+      })).getByRole("button", { name: "PATCH" }),
+    );
+    expect(routeMethod).toHaveTextContent("PATCH");
+    expect(within(responseDialog).getByText(
+      "Create a response type or use an existing one as an editable template.",
+    )).toBeInTheDocument();
+    expect(within(responseDialog).getByRole("textbox", {
+      name: "Response type",
+    })).toHaveAccessibleDescription(
+      "Create a response type or use an existing one as an editable template.",
+    );
+    expect(within(responseDialog).getByRole("heading", {
+      level: 3,
+      name: "Response type",
+    })).toBeInTheDocument();
+    expect(within(responseDialog).getByRole("heading", {
+      level: 3,
+      name: "Response properties",
+    })).toBeInTheDocument();
+    expect(within(responseDialog).getByText(
+      "Define the fields returned in this response.",
+    )).toBeInTheDocument();
+    expect(within(responseDialog).getByRole("textbox", {
+      name: "Response type",
+    })).toHaveAttribute("placeholder", "Name your response type");
+    expect(responseDialog.querySelector("footer")).toHaveTextContent("Save");
 
     const saveResponse = within(responseDialog).getByRole("button", {
       name: "Save",
@@ -740,15 +785,76 @@ describe("search page", () => {
     );
     await waitFor(() => expect(saveResponse).toBeEnabled());
 
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "Property type" }),
-      { target: { value: "array" } },
+    const propertyType = screen.getByRole("button", {
+      name: "Property type",
+    });
+    const responseTypeInput = screen.getByRole("textbox", {
+      name: "Response type",
+    });
+    const propertyNameInput = screen.getByRole("textbox", {
+      name: "Property name",
+    });
+    expect(within(responseDialog).queryByText(
+      "Property name",
+    )).not.toBeInTheDocument();
+    expect(within(responseDialog).queryByText(
+      "Property type",
+    )).not.toBeInTheDocument();
+    expect(propertyType.parentElement).toHaveAttribute(
+      "data-height",
+      "large",
     );
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "Array item type" }),
-      { target: { value: "object" } },
+    expect(propertyType.parentElement).toHaveAttribute(
+      "data-rounded",
+      "true",
     );
-    fireEvent.click(screen.getByRole("checkbox", { name: "Optional" }));
+    expect(propertyNameInput.parentElement?.className).toBe(
+      responseTypeInput.parentElement?.className,
+    );
+    fireEvent.click(propertyType);
+    const propertyTypeMenu = screen.getByRole("list", {
+      name: "Property type",
+    });
+    expect(propertyType).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(propertyTypeMenu).getByRole("button", { name: "string" })
+        .querySelector("svg"),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(propertyTypeMenu).getByRole("button", { name: "array" }),
+    );
+    expect(propertyType).toHaveTextContent("array");
+    expect(propertyTypeMenu).toHaveAttribute("data-state", "closing");
+    expect(
+      within(responseDialog).queryByText("Array item type"),
+    ).not.toBeInTheDocument();
+    expect(within(responseDialog).getByText("of")).toBeInTheDocument();
+
+    const arrayItemType = screen.getByRole("button", {
+      name: "Array item type",
+    });
+    fireEvent.click(arrayItemType);
+    fireEvent.click(
+      within(screen.getByRole("list", { name: "Array item type" }))
+        .getByRole("button", { name: "object" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+    const propertyNameInputs = screen.getAllByRole("textbox", {
+      name: "Property name",
+    });
+    fireEvent.change(propertyNameInputs[1], {
+      target: { value: "status" },
+    });
+    expect(
+      responseDialog.querySelectorAll('[data-is-array="true"]'),
+    ).toHaveLength(2);
+    expect(
+      within(responseDialog).queryByText("Array item type"),
+    ).not.toBeInTheDocument();
+    expect(within(responseDialog).getAllByText("of")).toHaveLength(1);
+    fireEvent.click(
+      screen.getAllByRole("checkbox", { name: "Optional" })[0],
+    );
     fireEvent.keyDown(
       screen.getByRole("textbox", { name: "Response type" }),
       { key: "Enter" },
@@ -756,7 +862,9 @@ describe("search page", () => {
     expect(responseDialog).toHaveAttribute("data-state", "closing");
     await waitFor(() => {
       expect(
-        screen.queryByRole("dialog", { name: "Add response" }),
+        screen.queryByRole("dialog", {
+          name: "Add a data structure to this route",
+        }),
       ).not.toBeInTheDocument();
     });
 
@@ -764,7 +872,7 @@ describe("search page", () => {
     expect(screen.getByRole("list", { name: "API routes" })).toContainElement(
       route,
     );
-    expect(route).toHaveTextContent("POST");
+    expect(route).toHaveTextContent("PATCH");
     expect(route).toHaveTextContent("/users/{uuid}/posts");
     expect(route).toHaveTextContent("Response type: UserResponse");
     expect(screen.queryByText("Method")).not.toBeInTheDocument();
@@ -774,7 +882,7 @@ describe("search page", () => {
         window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
       )).toMatchObject([
         {
-          method: "POST",
+          method: "PATCH",
           path: "/users/{uuid}/posts",
           response: { typeName: "UserResponse" },
         },
@@ -784,7 +892,7 @@ describe("search page", () => {
     const savedMethod = screen.getByRole("button", {
       name: "HTTP method /users/{uuid}/posts",
     });
-    expect(savedMethod).toHaveTextContent("POST");
+    expect(savedMethod).toHaveTextContent("PATCH");
     fireEvent.click(savedMethod);
     const savedMethodMenu = screen.getByRole("list", {
       name: "HTTP method /users/{uuid}/posts",
@@ -914,7 +1022,7 @@ describe("search page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add API route" }));
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Add response",
+      name: "Add a data structure to this route",
     });
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
@@ -971,93 +1079,146 @@ describe("search page", () => {
     });
   });
 
-  it("prevents incompatible response schemas while allowing canonical reuse", async () => {
-    window.localStorage.setItem(
-      apiRoutesStorage.key,
-      JSON.stringify([
-        {
-          id: 7,
-          method: "GET",
-          path: "/users",
-          response: {
-            fields: [
-              { name: "id", optional: false, type: "string" },
-            ],
-            typeName: "UserResponse",
-          },
-        },
-      ]),
+  it("prefills reusable response types and requires a new name for schema edits", async () => {
+    const onSave = vi.fn(() => true);
+    const existingResponseSchemas = [
+      {
+        fields: [
+          { name: "id", optional: false, type: "string" as const },
+        ],
+        typeName: "UserResponse",
+      },
+      {
+        fields: [
+          { name: "id", optional: false, type: "string" as const },
+        ],
+        typeName: "UserResponse",
+      },
+      {
+        fields: [
+          { name: "value", optional: false, type: "string" as const },
+        ],
+        typeName: "ConflictingResponse",
+      },
+      {
+        fields: [
+          { name: "value", optional: false, type: "number" as const },
+        ],
+        typeName: "ConflictingResponse",
+      },
+    ];
+
+    render(
+      <>
+        <ResponseSchemaEditor
+          content={apiCreatorStudioProps.responseEditor}
+          existingResponseSchemas={existingResponseSchemas}
+          formId="response-prefill-form"
+          onCopyRoute={vi.fn()}
+          onDeleteRoute={vi.fn()}
+          onEditRoute={vi.fn()}
+          onRouteMethodChange={vi.fn()}
+          onSave={onSave}
+          route={{
+            id: 11,
+            method: "GET",
+            path: "/accounts",
+          }}
+          routeContent={{
+            copyLabel: apiCreatorStudioProps.copyRouteLabel,
+            deleteLabel: apiCreatorStudioProps.deleteRouteLabel,
+            editLabel: apiCreatorStudioProps.editRouteLabel,
+            methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+            responseTypeLabel:
+              apiCreatorStudioProps.responseEditor.responseTypeLabel,
+            routeActionsLabel: apiCreatorStudioProps.routeActionsLabel,
+            routeLabel: apiCreatorStudioProps.responseEditor.routeLabel,
+          }}
+        />
+        <button type="submit" form="response-prefill-form">
+          Save response
+        </button>
+      </>,
     );
-    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
-    const routeInput = screen.getByRole("textbox", {
-      name: "API endpoint path",
-    });
-    fireEvent.change(routeInput, { target: { value: "accounts" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add API route" }));
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "Add response",
-    });
-    const save = within(dialog).getByRole("button", { name: "Save" });
-    const responseType = within(dialog).getByRole("textbox", {
+    const form = document.querySelector<HTMLFormElement>(
+      "#response-prefill-form",
+    );
+    if (!form) throw new Error("The response form must be rendered.");
+    const responseType = screen.getByRole("textbox", {
       name: "Response type",
     });
-    fireEvent.change(responseType, {
-      target: { value: "UserResponse" },
+    const responseTypeTemplate = screen.getByRole("button", {
+      name: "Response type template",
     });
-
-    await waitFor(() => {
-      expect(save).toBeDisabled();
-      expect(responseType).toHaveAttribute("aria-invalid", "true");
-      expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "This response type already uses a different schema.",
-      );
+    expect(responseTypeTemplate).toHaveTextContent(
+      "New",
+    );
+    fireEvent.click(responseTypeTemplate);
+    const responseTypeTemplateMenu = screen.getByRole("list", {
+      name: "Response type template",
     });
-
+    expect(within(responseTypeTemplateMenu).getAllByRole("button", {
+      name: "UserResponse",
+    })).toHaveLength(1);
+    expect(within(responseTypeTemplateMenu).queryByRole("button", {
+      name: "ConflictingResponse",
+    })).not.toBeInTheDocument();
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Add property" }),
+      within(responseTypeTemplateMenu).getByRole("button", {
+        name: "UserResponse",
+      }),
     );
-    fireEvent.change(
-      within(dialog).getByRole("textbox", { name: "Property name" }),
-      { target: { value: "id" } },
-    );
+
     await waitFor(() => {
-      expect(save).toBeEnabled();
-      expect(responseType).not.toHaveAttribute("aria-invalid");
-      expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+      expect(responseType).toHaveValue("UserResponse");
+      expect(screen.getByRole("textbox", {
+        name: "Property name",
+      })).toHaveValue("id");
+      expect(form).toBeValid();
+    });
+    fireEvent.submit(form);
+    expect(onSave).toHaveBeenLastCalledWith({
+      fields: [
+        {
+          name: "id",
+          optional: false,
+          type: "string",
+        },
+      ],
+      typeName: "UserResponse",
     });
 
-    fireEvent.change(
-      within(dialog).getByRole("combobox", { name: "Property type" }),
-      { target: { value: "number" } },
+    const propertyType = screen.getByRole("button", {
+      name: "Property type",
+    });
+    fireEvent.click(propertyType);
+    fireEvent.click(
+      within(screen.getByRole("list", { name: "Property type" }))
+        .getByRole("button", { name: "number" }),
     );
     await waitFor(() => {
-      expect(save).toBeDisabled();
-      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      expect(form).toBeInvalid();
+      expect(screen.getByRole("alert")).toHaveTextContent(
         "This response type already uses a different schema.",
       );
     });
 
-    fireEvent.change(
-      within(dialog).getByRole("combobox", { name: "Property type" }),
-      { target: { value: "string" } },
-    );
-    await waitFor(() => expect(save).toBeEnabled());
-    fireEvent.click(save);
-
+    fireEvent.change(responseType, {
+      target: { value: "AccountResponse" },
+    });
     await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Add response" }),
-      ).not.toBeInTheDocument();
-      const routes = JSON.parse(
-        window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
-      ) as Array<{ response?: { typeName?: string } }>;
-      expect(routes).toHaveLength(2);
-      expect(routes.map((route) => route.response?.typeName)).toEqual([
-        "UserResponse",
-        "UserResponse",
-      ]);
+      expect(form).toBeValid();
+      expect(responseType).not.toHaveAttribute("aria-invalid");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    fireEvent.submit(form);
+    expect(onSave).toHaveBeenLastCalledWith({
+      fields: [
+        { name: "id", optional: false, type: "number" },
+      ],
+      typeName: "AccountResponse",
     });
   });
 
@@ -1071,7 +1232,7 @@ describe("search page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add API route" }));
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Add response",
+      name: "Add a data structure to this route",
     });
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
@@ -1222,12 +1383,12 @@ describe("search page", () => {
         "Routes are available in this tab",
       );
       const dialog = await screen.findByRole("dialog", {
-        name: "Add response",
+        name: "Add a data structure to this route",
       });
       fireEvent(dialog, new Event("cancel", { cancelable: true }));
       await waitFor(() => {
         expect(screen.queryByRole("dialog", {
-          name: "Add response",
+          name: "Add a data structure to this route",
         })).not.toBeInTheDocument();
       });
 
@@ -1299,12 +1460,12 @@ describe("search page", () => {
     fireEvent.click(addRoute);
 
     const firstDialog = await screen.findByRole("dialog", {
-      name: "Add response",
+      name: "Add a data structure to this route",
     });
     fireEvent(firstDialog, new Event("cancel", { cancelable: true }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", {
-        name: "Add response",
+        name: "Add a data structure to this route",
       })).not.toBeInTheDocument();
     });
 
@@ -1335,12 +1496,12 @@ describe("search page", () => {
     fireEvent.click(addRoute);
 
     const secondDialog = await screen.findByRole("dialog", {
-      name: "Add response",
+      name: "Add a data structure to this route",
     });
     fireEvent(secondDialog, new Event("cancel", { cancelable: true }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", {
-        name: "Add response",
+        name: "Add a data structure to this route",
       })).not.toBeInTheDocument();
     });
 
@@ -1500,7 +1661,7 @@ describe("site navigation", () => {
     }
   });
 
-  it("downloads from the mobile studio action and closes the menu", async () => {
+  it("keeps the studio download out of the mobile menu", async () => {
     browserDownloadState.downloadTextFile.mockClear();
     navigationState.pathname = "/en/api-creator-studio";
     render(<SiteNavigation content={getNavigationContent("en")} />);
@@ -1513,16 +1674,11 @@ describe("site navigation", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Primary navigation",
     });
-    fireEvent.click(await within(dialog).findByRole("button", {
+    expect(within(dialog).queryByRole("button", {
       name: "Download",
-    }));
-
-    await waitFor(() => {
-      expect(browserDownloadState.downloadTextFile).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(trigger).toHaveAttribute("aria-expanded", "false");
-    });
+    })).not.toBeInTheDocument();
+    expect(browserDownloadState.downloadTextFile).not.toHaveBeenCalled();
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
   });
 
   it("reports a failed API-contract download without claiming success", async () => {

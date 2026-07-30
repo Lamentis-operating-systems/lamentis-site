@@ -55,10 +55,123 @@ test("adds and persists a route while restoring focus after Escape", {
   await routeInput.press("Enter");
 
   const responseDialog = page.getByRole("dialog", {
-    name: "Add response",
+    name: "Add a data structure to this route",
   });
   await expect(responseDialog).toBeVisible();
   await expect(responseDialog).toBeFocused();
+  await expect(responseDialog.getByText(
+    "Create a response type or use an existing one as an editable template.",
+  )).toBeVisible();
+  await expect(responseDialog.getByText(
+    "Define the fields returned in this response.",
+  )).toBeVisible();
+
+  const closeOverlay = responseDialog.getByRole("button", {
+    name: "Close the response editor",
+  });
+  const routeActions = responseDialog.getByRole("button", {
+    name: "Route actions /orders/{orderid}",
+  });
+  const [closeBox, routeActionsBox] = await Promise.all([
+    closeOverlay.boundingBox(),
+    routeActions.boundingBox(),
+  ]);
+  expect(closeBox).not.toBeNull();
+  expect(routeActionsBox).not.toBeNull();
+  if (!closeBox || !routeActionsBox) {
+    throw new Error("Overlay controls must have measurable geometry.");
+  }
+  expect(routeActionsBox.x + routeActionsBox.width).toBe(
+    closeBox.x + closeBox.width,
+  );
+
+  await responseDialog.getByRole("button", {
+    name: "Add property",
+  }).click();
+  await expect(responseDialog.getByText(
+    "Property name",
+    { exact: true },
+  )).toHaveCount(0);
+  await expect(responseDialog.getByText(
+    "Property type",
+    { exact: true },
+  )).toHaveCount(0);
+  const propertyType = responseDialog.getByRole("button", {
+    name: "Property type",
+  });
+  await propertyType.click();
+  const propertyTypeMenu = responseDialog.getByRole("list", {
+    name: "Property type",
+  });
+  await expect(propertyTypeMenu).toBeVisible();
+  expect(await propertyTypeMenu.evaluate(
+    (element) => element.matches(":popover-open"),
+  )).toBe(true);
+
+  const firstPropertyType = propertyTypeMenu.getByRole("button", {
+    name: "string",
+  });
+  const [propertyMenuBox, firstPropertyTypeBox] = await Promise.all([
+    propertyTypeMenu.boundingBox(),
+    firstPropertyType.boundingBox(),
+  ]);
+  expect(propertyMenuBox).not.toBeNull();
+  expect(firstPropertyTypeBox).not.toBeNull();
+  if (!propertyMenuBox || !firstPropertyTypeBox) {
+    throw new Error("Property type options must have measurable geometry.");
+  }
+  expect(propertyMenuBox.y).toBeGreaterThanOrEqual(0);
+  expect(propertyMenuBox.y + propertyMenuBox.height).toBeLessThanOrEqual(
+    page.viewportSize()?.height ?? Number.POSITIVE_INFINITY,
+  );
+  const firstOptionOwnsItsCenter = await page.evaluate(({ x, y, menuId }) => (
+    document.elementFromPoint(x, y)?.closest(`#${CSS.escape(menuId)}`) !== null
+  ), {
+    menuId: await propertyTypeMenu.getAttribute("id") ?? "",
+    x: firstPropertyTypeBox.x + firstPropertyTypeBox.width / 2,
+    y: firstPropertyTypeBox.y + firstPropertyTypeBox.height / 2,
+  });
+  expect(firstOptionOwnsItsCenter).toBe(true);
+  await propertyTypeMenu.getByRole("button", { name: "array" }).click();
+  await expect(propertyTypeMenu).toBeHidden();
+  await expect(propertyType).toContainText("array");
+  await expect(responseDialog.getByText("of", { exact: true })).toBeVisible();
+  await expect(responseDialog.getByRole("button", {
+    name: "Array item type",
+  })).toContainText("string");
+
+  const overlayRoute = responseDialog.getByRole("group", {
+    name: "Route: GET /orders/{orderid}",
+  });
+  const overlayMethod = overlayRoute.getByRole("button", {
+    name: "HTTP method /orders/{orderid}",
+  });
+  await overlayMethod.click();
+  await responseDialog.getByRole("list", {
+    name: "HTTP method /orders/{orderid}",
+  }).getByRole("button", { name: "PATCH" }).click();
+  await expect(responseDialog.getByRole("group", {
+    name: "Route: PATCH /orders/{orderid}",
+  })).toBeVisible();
+
+  const overlayActions = responseDialog.getByRole("button", {
+    name: "Route actions /orders/{orderid}",
+  });
+  await overlayActions.click();
+  const overlayActionsMenu = responseDialog.getByRole("list", {
+    name: "Route actions /orders/{orderid}",
+  });
+  await expect(overlayActionsMenu.getByRole("button", {
+    name: "Edit /orders/{orderid}",
+  })).toBeVisible();
+  await expect(overlayActionsMenu.getByRole("button", {
+    name: "Copy /orders/{orderid}",
+  })).toBeVisible();
+  await expect(overlayActionsMenu.getByRole("button", {
+    name: "Delete /orders/{orderid}",
+  })).toBeVisible();
+  await overlayActions.click();
+  await expect(overlayActions).toHaveAttribute("aria-expanded", "false");
 
   await page.keyboard.press("Escape");
   await expect(responseDialog).not.toBeVisible();
@@ -66,7 +179,7 @@ test("adds and persists a route while restoring focus after Escape", {
 
   const routeList = page.getByRole("list", { name: "API routes" });
   const route = routeList.getByRole("listitem");
-  await expect(route).toContainText("GET");
+  await expect(route).toContainText("PATCH");
   await expect(route).toContainText("/orders/{orderid}");
 
   await expect.poll(
@@ -81,7 +194,7 @@ test("adds and persists a route while restoring focus after Escape", {
     ),
   ).toEqual([
     {
-      method: "GET",
+      method: "PATCH",
       path: "/orders/{orderid}",
     },
   ]);
@@ -90,7 +203,7 @@ test("adds and persists a route while restoring focus after Escape", {
   const persistedRoute = page
     .getByRole("list", { name: "API routes" })
     .getByRole("listitem");
-  await expect(persistedRoute).toContainText("GET");
+  await expect(persistedRoute).toContainText("PATCH");
   await expect(persistedRoute).toContainText("/orders/{orderid}");
 });
 
@@ -186,32 +299,41 @@ test("prevents incompatible response-type reuse before persistence", async ({
   await routeInput.press("Enter");
 
   const responseDialog = page.getByRole("dialog", {
-    name: "Add response",
+    name: "Add a data structure to this route",
   });
   const save = responseDialog.getByRole("button", { name: "Save" });
   const responseType = responseDialog.getByRole("textbox", {
     name: "Response type",
   });
-  await responseType.fill("UserResponse");
-
-  await expect(save).toBeDisabled();
-  await expect(responseType).toHaveAttribute("aria-invalid", "true");
-  await expect(responseDialog.getByRole("alert")).toHaveText(
-    "This response type already uses a different schema.",
+  const responseTypeTemplate = responseDialog.getByRole("button", {
+    name: "Response type template",
+  });
+  await expect(responseTypeTemplate).toContainText(
+    "New",
   );
-
-  await responseDialog.getByRole("button", {
-    name: "Add property",
-  }).click();
-  await responseDialog.getByRole("textbox", {
+  await responseTypeTemplate.click();
+  await responseDialog.getByRole("list", {
+    name: "Response type template",
+  }).getByRole("button", { name: "UserResponse" }).click();
+  await expect(responseType).toHaveValue("UserResponse");
+  await expect(responseDialog.getByRole("textbox", {
     name: "Property name",
-  }).fill("id");
+  })).toHaveValue("id");
   await expect(save).toBeEnabled();
 
-  const propertyType = responseDialog.getByRole("combobox", {
+  const propertyType = responseDialog.getByRole("button", {
     name: "Property type",
   });
-  await propertyType.selectOption("number");
+  await propertyType.click();
+  const propertyTypeMenu = responseDialog.getByRole("list", {
+    name: "Property type",
+  });
+  await expect(propertyType).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    propertyTypeMenu.getByRole("button", { name: "string" }).locator("svg"),
+  ).toBeVisible();
+  await propertyTypeMenu.getByRole("button", { name: "number" }).click();
+  await expect(propertyType).toContainText("number");
   await expect(save).toBeDisabled();
   await expect(responseDialog.getByRole("alert")).toHaveText(
     "This response type already uses a different schema.",
@@ -228,7 +350,7 @@ test("prevents incompatible response-type reuse before persistence", async ({
     ),
   ).toBeUndefined();
 
-  await propertyType.selectOption("string");
+  await responseType.fill("AccountResponse");
   await expect(save).toBeEnabled();
   await save.click();
   await expect(responseDialog).not.toBeVisible();
@@ -242,7 +364,7 @@ test("prevents incompatible response-type reuse before persistence", async ({
       },
       apiRoutesStorage.key,
     ),
-  ).toEqual(["UserResponse", "UserResponse"]);
+  ).toEqual(["UserResponse", "AccountResponse"]);
 });
 
 test("downloads the persisted contracts with the stable file contract", {
@@ -348,13 +470,13 @@ test("unmounts the studio overlay when navigation leaves the route", async ({
     name: "API endpoint path",
   }).press("Enter");
   await expect(page.getByRole("dialog", {
-    name: "Add response",
+    name: "Add a data structure to this route",
   })).toBeVisible();
 
   await page.goBack();
   await expect(page).toHaveURL(/\/en$/);
   await expect(page.getByRole("dialog", {
-    name: "Add response",
+    name: "Add a data structure to this route",
   })).toHaveCount(0);
   await expect(page.getByRole("main", { name: "Home" })).toBeVisible();
 });

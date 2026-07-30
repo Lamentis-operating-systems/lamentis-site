@@ -164,6 +164,7 @@ describe("site route authority", () => {
         .filter((path) => english[path] === german[path])
         .sort(),
     ).toEqual([
+      "apiCreatorStudio.responseEditor.routeLabel",
       "apiCreatorStudio.responseEditor.typeOptions.array",
       "apiCreatorStudio.responseEditor.typeOptions.boolean",
       "apiCreatorStudio.responseEditor.typeOptions.null",

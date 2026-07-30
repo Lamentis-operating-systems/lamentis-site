@@ -1,7 +1,7 @@
 import type { SearchContent } from "@/domain/site/content";
+import textInputStyles from "./form/text-input.module.css";
 import { SearchIcon } from "./icons/search-icon";
 import { SearchSurface } from "./search-surface";
-import styles from "./search-page.module.css";
 
 export function SearchPage({
   heading,
@@ -12,7 +12,7 @@ export function SearchPage({
     <SearchSurface heading={heading} label={label} role="search">
       <SearchIcon />
       <input
-        className={styles.input}
+        className={textInputStyles.input}
         type="search"
         name="query"
         aria-label={label}
