@@ -155,8 +155,8 @@ function draftSchemaToApiResponseSchema(
       name: field.name.trim(),
       ...(requiresObjectSchema(field) && field.objectSchema
         ? {
-            objectSchema: draftSchemaToApiResponseSchema(
-              field.objectSchema.selectedTemplateTypeName
+          objectSchema: draftSchemaToApiResponseSchema(
+              field.objectSchema.typeName
                 || deriveObjectTypeName(
                   typeName,
                   [...objectPath, field.name.trim()],
@@ -299,7 +299,7 @@ function detachSelectedObjectTemplatesAtPath(
         ...field.objectSchema,
         fields: nestedResult.fields,
         ...(shouldDetach
-          ? { selectedTemplateTypeName: "", typeName: "" }
+          ? { selectedTemplateTypeName: "" }
           : {}),
       },
     };
@@ -343,7 +343,6 @@ function clearConflictingObjectTypeNames(
         ? {
             ...objectSchema,
             selectedTemplateTypeName: "",
-            typeName: "",
           }
         : objectSchema,
     };
@@ -471,6 +470,10 @@ export function ResponseSchemaEditor({
       draftSchema,
     )
   );
+  const hasResponseSchemaConflict = (
+    hasResponseTypeConflict
+    || error === content.responseTypeConflictError
+  );
   const visibleValidationError = duplicatePropertyNameIds.size > 0
     ? content.duplicatePropertyError
     : (
@@ -478,8 +481,13 @@ export function ResponseSchemaEditor({
           hasInvalidTypeName
           || invalidPropertyNameIds.size > 0
           || invalidObjectTypeFieldIds.size > 0
+          || hasResponseSchemaConflict
         )
-          ? content.identifierHint
+          ? (
+              hasResponseSchemaConflict
+                ? content.responseTypeConflictError
+                : content.identifierHint
+            )
           : error
   );
 
@@ -503,7 +511,7 @@ export function ResponseSchemaEditor({
       responseTypeInput.setCustomValidity(
         hasInvalidTypeName
           ? content.identifierHint
-          : hasResponseTypeConflict
+          : hasResponseSchemaConflict
             ? content.responseTypeConflictError
             : !isDraftSchemaValid
               ? content.incompleteSchemaError
@@ -542,7 +550,7 @@ export function ResponseSchemaEditor({
     content.responseTypeConflictError,
     duplicatePropertyNameIds,
     hasInvalidTypeName,
-    hasResponseTypeConflict,
+    hasResponseSchemaConflict,
     isDraftSchemaValid,
     invalidObjectTypeFieldIds,
     invalidPropertyNameIds,
@@ -610,7 +618,7 @@ export function ResponseSchemaEditor({
       detachedResult.fields,
       allExistingResponseSchemas,
     );
-    const mustRenameResponseType = (
+    const mustDetachResponseTypeTemplate = (
       selectedTemplateTypeName.length > 0
       || hasDraftSchemaTypeNameConflict(
         typeName,
@@ -620,12 +628,14 @@ export function ResponseSchemaEditor({
     );
 
     setFields(conflictResult.fields);
-    setError("");
-    if (mustRenameResponseType) {
+    setError(
+      mustDetachResponseTypeTemplate
+      || conflictResult.clearedFieldId !== null
+        ? content.responseTypeConflictError
+        : "",
+    );
+    if (mustDetachResponseTypeTemplate) {
       setSelectedTemplateTypeName("");
-      setTypeName("");
-      responseTypeInputRef.current?.focus();
-      return;
     }
 
     const objectFieldId = (
@@ -1164,12 +1174,12 @@ export function ResponseSchemaEditor({
                 value={typeName}
                 aria-labelledby={responseTypeHeadingId}
                 aria-invalid={
-                  hasInvalidTypeName || hasResponseTypeConflict
+                  hasInvalidTypeName || hasResponseSchemaConflict
                     ? true
                     : undefined
                 }
                 aria-describedby={
-                  hasInvalidTypeName || hasResponseTypeConflict
+                  hasInvalidTypeName || hasResponseSchemaConflict
                     ? `${responseTypeDescriptionId} ${validationErrorId}`
                     : responseTypeDescriptionId
                 }

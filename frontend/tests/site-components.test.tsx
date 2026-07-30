@@ -1261,12 +1261,14 @@ describe("search page", () => {
     );
     await waitFor(() => {
       expect(form).toBeInvalid();
-      expect(responseType).toHaveValue("");
-      expect(responseType).toHaveFocus();
+      expect(responseType).toHaveValue("UserResponse");
+      expect(responseType).toHaveAttribute("aria-invalid", "true");
       expect(responseTypeTemplate).toHaveTextContent(
         "New",
       );
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "This response type already uses a different schema.",
+      );
     });
 
     fireEvent.change(responseType, {
@@ -1365,12 +1367,13 @@ describe("search page", () => {
     });
     await waitFor(() => {
       expect(form).toBeInvalid();
-      expect(objectType).toHaveValue("");
-      expect(objectType).toHaveFocus();
+      expect(objectType).toHaveValue("UserResponse");
       expect(objectTypeTemplate).toHaveTextContent(
         "New",
       );
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "This response type already uses a different schema.",
+      );
     });
 
     fireEvent.change(objectType, {

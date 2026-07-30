@@ -71,21 +71,14 @@ test("adds and persists a route while restoring focus after Escape", {
   const closeOverlay = responseDialog.getByRole("button", {
     name: "Close the response editor",
   });
-  const routeActions = responseDialog.getByRole("button", {
-    name: "Route actions /orders/{orderid}",
-  });
-  const [closeBox, routeActionsBox] = await Promise.all([
-    closeOverlay.boundingBox(),
-    routeActions.boundingBox(),
-  ]);
+  const closeBox = await closeOverlay.boundingBox();
   expect(closeBox).not.toBeNull();
-  expect(routeActionsBox).not.toBeNull();
-  if (!closeBox || !routeActionsBox) {
-    throw new Error("Overlay controls must have measurable geometry.");
+  if (!closeBox) {
+    throw new Error("The response overlay close control must be measurable.");
   }
-  expect(routeActionsBox.x + routeActionsBox.width).toBe(
-    closeBox.x + closeBox.width,
-  );
+  await expect(responseDialog.getByRole("button", {
+    name: "Route actions /orders/{orderid}",
+  })).toHaveCount(0);
 
   await responseDialog.getByRole("button", {
     name: "Add property",
