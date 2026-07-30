@@ -834,65 +834,8 @@ export function ResponseSchemaEditor({
                 </>
               )}
               actions={(
-                  <IconButton
-                    type="button"
-                    className={styles.removeProperty}
-                    aria-label={`${content.removePropertyLabel} ${index + 1}`}
-                    onClick={() => removeProperty(schemaPath, field.id)}
-                  >
-                    <CloseIcon />
-                  </IconButton>
-              )}
-            >
-              {objectSchemaRequired && field.objectSchema ? (
-                <>
-                  <div className={styles.objectEditorHeader}>
-                    {reusableResponseSchemas.length > 0 ? (
-                      <div className={styles.objectTemplateControl}>
-                        <SelectMenu
-                          height="large"
-                          label={content.objectTypeTemplateLabel}
-                          menuPlacement="top"
-                          options={[
-                            {
-                              id: "",
-                              kind: "action",
-                              label: content.newResponseTypeLabel,
-                              onSelect: () => {
-                                updateProperty(
-                                  schemaPath,
-                                  field.id,
-                                  {
-                                    objectSchema:
-                                      createDraftObjectSchema(),
-                                  },
-                                );
-                              },
-                            },
-                            ...reusableResponseSchemas.map((schema) => ({
-                              id: schema.typeName,
-                              kind: "action" as const,
-                              label: schema.typeName,
-                              onSelect: () => {
-                                updateProperty(
-                                  schemaPath,
-                                  field.id,
-                                  {
-                                    objectSchema:
-                                      createDraftObjectSchema(schema),
-                                  },
-                                );
-                              },
-                            })),
-                          ]}
-                          rounded
-                          selectedId={
-                            field.objectSchema.selectedTemplateTypeName
-                          }
-                          width="field"
-                        />
-                      </div>
-                    ) : null}
+                <div className={styles.propertyActions}>
+                  {objectSchemaRequired && field.objectSchema ? (
                     <IconButton
                       type="button"
                       className={styles.addProperty}
@@ -901,7 +844,66 @@ export function ResponseSchemaEditor({
                     >
                       <PlusIcon />
                     </IconButton>
-                  </div>
+                  ) : null}
+                  <IconButton
+                    type="button"
+                    className={styles.removeProperty}
+                    aria-label={`${content.removePropertyLabel} ${index + 1}`}
+                    onClick={() => removeProperty(schemaPath, field.id)}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </div>
+              )}
+            >
+              {objectSchemaRequired && field.objectSchema ? (
+                <>
+                  {reusableResponseSchemas.length > 0 ? (
+                    <div className={styles.objectTemplateControl}>
+                      <SelectMenu
+                        height="large"
+                        label={content.objectTypeTemplateLabel}
+                        menuPlacement="top"
+                        options={[
+                          {
+                            id: "",
+                            kind: "action",
+                            label: content.newResponseTypeLabel,
+                            onSelect: () => {
+                              updateProperty(
+                                schemaPath,
+                                field.id,
+                                {
+                                  objectSchema:
+                                    createDraftObjectSchema(),
+                                },
+                              );
+                            },
+                          },
+                          ...reusableResponseSchemas.map((schema) => ({
+                            id: schema.typeName,
+                            kind: "action" as const,
+                            label: schema.typeName,
+                            onSelect: () => {
+                              updateProperty(
+                                schemaPath,
+                                field.id,
+                                {
+                                  objectSchema:
+                                    createDraftObjectSchema(schema),
+                                },
+                              );
+                            },
+                          })),
+                        ]}
+                        rounded
+                        selectedId={
+                          field.objectSchema.selectedTemplateTypeName
+                        }
+                        width="field"
+                      />
+                    </div>
+                  ) : null}
                   {field.objectSchema.fields.length > 0 ? (
                     <div
                       className={styles.objectProperties}

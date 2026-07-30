@@ -1353,6 +1353,12 @@ describe("search page", () => {
       objectToggle.getAttribute("aria-controls") ?? "",
     );
     expect(objectPanel).not.toBeNull();
+    expect(within(objectToggle.parentElement!).getByRole("button", {
+      name: "Add property",
+    })).toBeInTheDocument();
+    expect(within(objectPanel!).queryByRole("button", {
+      name: "Add property",
+    })).not.toBeInTheDocument();
     const nestedPropertyName = within(objectPanel!).getByRole("textbox", {
       name: "Property name",
     });

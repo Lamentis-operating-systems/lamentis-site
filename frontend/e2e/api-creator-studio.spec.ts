@@ -402,7 +402,14 @@ test("derives object names from properties and can prefill an existing model", a
   });
   const objectPanelId = await objectToggle.getAttribute("aria-controls");
   const objectPanel = dialog.locator(`[id="${objectPanelId}"]`);
+  const objectPropertyRow = objectToggle.locator("..");
   await expect(objectToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(objectPropertyRow.getByRole("button", {
+    name: "Add property",
+  })).toHaveCount(1);
+  await expect(objectPanel.getByRole("button", {
+    name: "Add property",
+  })).toHaveCount(0);
   await expect(dialog.getByRole("textbox", {
     name: "Object type",
   })).toHaveCount(0);

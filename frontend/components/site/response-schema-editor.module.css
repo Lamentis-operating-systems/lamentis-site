@@ -116,7 +116,11 @@
     minmax(0, 1fr)
     var(--response-property-field-min-width)
     var(--control-height)
-    var(--control-height);
+    calc(
+      var(--control-height)
+      + var(--control-height)
+      + var(--space-3)
+    );
   align-items: center;
   gap: var(--space-3);
 }
@@ -132,7 +136,11 @@
       1.25fr
     )
     var(--control-height)
-    var(--control-height);
+    calc(
+      var(--control-height)
+      + var(--control-height)
+      + var(--space-3)
+    );
 }
 
 .typeExpression {
@@ -164,9 +172,8 @@
   gap: var(--space-3);
 }
 
-.objectEditorHeader {
+.propertyActions {
   display: flex;
-  min-width: 0;
   align-items: center;
   gap: var(--space-3);
 }
@@ -248,7 +255,11 @@
     grid-template-columns:
       1fr
       var(--control-height)
-      var(--control-height);
+      calc(
+        var(--control-height)
+        + var(--control-height)
+        + var(--space-3)
+      );
   }
 
   .propertyNameField,
@@ -261,7 +272,7 @@
     grid-row: 3;
   }
 
-  .removeProperty {
+  .propertyActions {
     grid-column: 3;
     grid-row: 3;
   }
