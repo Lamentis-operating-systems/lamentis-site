@@ -158,35 +158,10 @@
 }
 
 .objectDefinition {
-  position: relative;
   display: grid;
   min-width: 0;
-  margin: var(--space-3) 0 0 var(--space-4);
-  padding-inline-start: var(--space-5);
+  margin: var(--space-3) 0 0;
   gap: var(--space-3);
-}
-
-.objectDefinition::before {
-  position: absolute;
-  inset-block-start: calc(-1 * var(--space-5));
-  inset-inline-start: 0;
-  width: var(--space-5);
-  height:
-    calc(
-      var(--space-5)
-      + var(--control-height-large) / 2
-    );
-  border-block-end:
-    var(--connector-line-width)
-    solid
-    var(--color-border);
-  border-end-start-radius: var(--radius-medium);
-  border-inline-start:
-    var(--connector-line-width)
-    solid
-    var(--color-border);
-  content: "";
-  pointer-events: none;
 }
 
 .objectEditorHeader {
@@ -196,17 +171,9 @@
   gap: var(--space-3);
 }
 
-.objectTypeControls {
-  display: grid;
+.objectTemplateControl {
   min-width: 0;
   flex: 1 1 auto;
-}
-
-.objectTypeControls[data-has-template="true"] {
-  grid-template-columns:
-    minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.65fr);
-  gap: var(--space-3);
 }
 
 .objectProperties {
@@ -275,14 +242,6 @@
 @media (width <= 40rem) {
   .responseTypeControls[data-has-template="true"] {
     grid-template-columns: 1fr;
-  }
-
-  .objectTypeControls[data-has-template="true"] {
-    grid-template-columns: 1fr;
-  }
-
-  .objectDefinition {
-    margin-inline-start: var(--space-2);
   }
 
   .propertyGrid {

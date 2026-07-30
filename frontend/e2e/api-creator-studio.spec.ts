@@ -347,7 +347,7 @@ test("prevents incompatible response-type reuse before persistence", async ({
   ).toEqual(["UserResponse", "AccountResponse"]);
 });
 
-test("requires a named object schema and can prefill an existing model", async ({
+test("derives object names from properties and can prefill an existing model", async ({
   page,
 }) => {
   await seedRoutes(page, [
@@ -394,9 +394,6 @@ test("requires a named object schema and can prefill an existing model", async (
     name: "Property type",
   }).getByRole("button", { name: "object" }).click();
 
-  const objectType = dialog.getByRole("textbox", {
-    name: "Object type",
-  });
   const objectTemplate = dialog.getByRole("button", {
     name: "Object type template",
   });
@@ -406,19 +403,19 @@ test("requires a named object schema and can prefill an existing model", async (
   const objectPanelId = await objectToggle.getAttribute("aria-controls");
   const objectPanel = dialog.locator(`[id="${objectPanelId}"]`);
   await expect(objectToggle).toHaveAttribute("aria-expanded", "true");
-  await expect(objectType).toHaveAttribute(
-    "placeholder",
-    "Name the object type",
-  );
-  await expect(objectType).toBeFocused();
+  await expect(dialog.getByRole("textbox", {
+    name: "Object type",
+  })).toHaveCount(0);
+  await expect.poll(() => objectPanel.evaluate(
+    (element) => getComputedStyle(element, "::before").content,
+  )).toBe("none");
   await expect(objectTemplate).toContainText("New");
-  await expect(save).toBeDisabled();
+  await expect(save).toBeEnabled();
 
   await objectTemplate.click();
   await dialog.getByRole("list", {
     name: "Object type template",
   }).getByRole("button", { name: "AddressResponse" }).click();
-  await expect(objectType).toHaveValue("AddressResponse");
   await expect(objectPanel.getByRole("textbox", {
     name: "Property name",
   })).toHaveValue("city");
@@ -431,13 +428,8 @@ test("requires a named object schema and can prefill an existing model", async (
   await objectPanel.getByRole("textbox", {
     name: "Property name",
   }).fill("displayName");
-  await expect(save).toBeDisabled();
-  await expect(dialog.getByRole("alert")).toHaveText(
-    "This response type already uses a different schema.",
-  );
-
-  await objectType.fill("Profile");
   await expect(save).toBeEnabled();
+  await expect(objectTemplate).toContainText("New");
   await objectToggle.click();
   await expect(objectToggle).toHaveAttribute("aria-expanded", "false");
   await expect(dialog.getByRole("textbox", {
@@ -470,7 +462,7 @@ test("requires a named object schema and can prefill an existing model", async (
               type: "string",
             },
           ],
-          typeName: "Profile",
+          typeName: "UserResponseProfile",
         },
         optional: false,
         type: "object",
@@ -482,8 +474,8 @@ test("requires a named object schema and can prefill an existing model", async (
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download" }).click();
   const skill = await readDownload(await downloadPromise);
-  expect(skill).toContain("profile: Profile;");
-  expect(skill).toContain("export interface Profile {");
+  expect(skill).toContain("profile: UserResponseProfile;");
+  expect(skill).toContain("export interface UserResponseProfile {");
   expect(skill).toContain("displayName: string;");
   expect(skill).not.toContain("{ [key: string]: unknown }");
 });

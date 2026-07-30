@@ -1307,9 +1307,6 @@ describe("search page", () => {
         .getByRole("button", { name: "object" }),
     );
 
-    const objectType = screen.getByRole("textbox", {
-      name: "Object type",
-    });
     const objectTypeTemplate = screen.getByRole("button", {
       name: "Object type template",
     });
@@ -1317,12 +1314,10 @@ describe("search page", () => {
       name: "Object definition: profile",
     });
     expect(objectToggle).toHaveAttribute("aria-expanded", "true");
-    expect(objectType).toHaveAttribute(
-      "placeholder",
-      "Name the object type",
-    );
-    expect(objectType).toHaveFocus();
-    await waitFor(() => expect(form).toBeInvalid());
+    expect(screen.queryByRole("textbox", {
+      name: "Object type",
+    })).not.toBeInTheDocument();
+    await waitFor(() => expect(form).toBeValid());
     fireEvent.click(objectTypeTemplate);
     fireEvent.click(
       within(screen.getByRole("list", { name: "Object type template" }))
@@ -1330,7 +1325,6 @@ describe("search page", () => {
     );
 
     await waitFor(() => {
-      expect(objectType).toHaveValue("UserResponse");
       expect(form).toBeValid();
     });
     fireEvent.submit(form);
@@ -1343,7 +1337,7 @@ describe("search page", () => {
             fields: [
               { name: "id", optional: false, type: "string" },
             ],
-            typeName: "UserResponse",
+            typeName: "AccountResponseProfile",
           },
           optional: false,
           type: "object",
@@ -1366,29 +1360,17 @@ describe("search page", () => {
       target: { value: "displayName" },
     });
     await waitFor(() => {
-      expect(form).toBeInvalid();
-      expect(objectType).toHaveValue("UserResponse");
+      expect(form).toBeValid();
       expect(objectTypeTemplate).toHaveTextContent(
         "New",
       );
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "This response type already uses a different schema.",
-      );
     });
-
-    fireEvent.change(objectType, {
-      target: { value: "AccountProfile" },
-    });
-    await waitFor(() => expect(form).toBeValid());
 
     fireEvent.click(objectToggle);
     expect(objectToggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("textbox", {
       name: "Response type",
     })).toHaveValue("AccountResponse");
-    fireEvent.click(objectToggle);
-    expect(objectToggle).toHaveAttribute("aria-expanded", "true");
-    expect(objectType).toBeVisible();
   });
 
   it("rechecks response-schema compatibility against concurrent storage changes", async () => {

@@ -37,8 +37,6 @@ export type ResponseSchemaEditorContent = {
   incompleteSchemaError: string;
   newResponseTypeLabel: string;
   objectDefinitionLabel: string;
-  objectTypeLabel: string;
-  objectTypePlaceholder: string;
   objectTypeTemplateLabel: string;
   optionalLabel: string;
   propertiesDescription: string;
@@ -178,8 +176,6 @@ export const contentByLocale = {
           "Complete every object type and property before saving.",
         newResponseTypeLabel: "New",
         objectDefinitionLabel: "Object definition",
-        objectTypeLabel: "Object type",
-        objectTypePlaceholder: "Name the object type",
         objectTypeTemplateLabel: "Object type template",
         optionalLabel: "Optional",
         propertiesDescription:
@@ -315,8 +311,6 @@ export const contentByLocale = {
           "Vervollständige jeden Objekttyp und jede Eigenschaft vor dem Speichern.",
         newResponseTypeLabel: "Neu",
         objectDefinitionLabel: "Objektdefinition",
-        objectTypeLabel: "Objekttyp",
-        objectTypePlaceholder: "Benenne den Objekttyp",
         objectTypeTemplateLabel: "Objekttyp-Vorlage",
         optionalLabel: "Optionales Feld",
         propertiesDescription:
