@@ -20,6 +20,38 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
+  dependency-audit:
+    name: Audit dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup npm
+        run: npm install --global npm@11.6.4
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit
+
+      - name: Audit production dependency risk
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit complete dependency risk
+        if: ${{ always() }}
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
   verify:
     name: Verify repository
     runs-on: ubuntu-latest
@@ -27,62 +59,112 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package.json
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup npm
+        run: npm install --global npm@11.6.4
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install --no-audit
+        run: npm ci --no-audit
 
-      - name: Audit production dependency risk
+      - name: Run frontend verification
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm run verify
 
-      - name: Run NAOME repository gates when harness is available
-        run: |
-          if [[ ! -f .naome/bin/naome.js || ! -f .naome/bin/check-harness-health.js ]]; then
-            echo "Skipping NAOME gates: local harness files are not present in this checkout."
-            exit 0
-          fi
+  browser:
+    name: Verify browser behavior on canonical visual platform
+    runs-on: macos-14
+    timeout-minutes: 30
 
-          node .naome/bin/check-harness-health.js
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-          if [[ -f .naome/bin/check-task-state.js && -f .naome/task-state.json ]]; then
-            node .naome/bin/check-task-state.js
-          else
-            echo "Skipping NAOME task-state validation: local task-state is not present in this checkout."
-          fi
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-          node .naome/bin/naome.js quality check --changed
-          node .naome/bin/naome.js semantic check --changed
-          node .naome/bin/naome.js arch validate --changed-only
+      - name: Setup npm
+        run: npm install --global npm@11.6.4
 
-      - name: Run frontend lint
+      - name: Install frontend dependencies
         working-directory: frontend
-        run: npm run lint
+        run: npm ci --no-audit
 
-      - name: Run frontend unit tests
+      - name: Install Playwright browsers
         working-directory: frontend
-        run: npm run test
+        run: npx playwright install chromium firefox webkit
 
-      - name: Build frontend
+      - name: Build production application
+        id: production-build
         working-directory: frontend
         run: npm run build
+
+      - name: Run Chromium browser tests
+        working-directory: frontend
+        run: npm run test:e2e:run
+        env:
+          PLAYWRIGHT_HTML_REPORT: ./playwright-report/chromium
+          PLAYWRIGHT_OUTPUT_DIR: ./test-results/chromium
+
+      - name: Run Firefox and WebKit smoke tests
+        if: ${{ !cancelled() && steps.production-build.outcome == 'success' }}
+        working-directory: frontend
+        run: npm run test:e2e:cross-browser:run
+        env:
+          PLAYWRIGHT_HTML_REPORT: ./playwright-report/cross-browser
+          PLAYWRIGHT_OUTPUT_DIR: ./test-results/cross-browser
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-failure-${{ github.run_attempt }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  whitespace:
+    name: Check whitespace
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Check whitespace errors
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             git diff --check "origin/${GITHUB_BASE_REF}...HEAD"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            before_sha="${{ github.event.before }}"
+            zero_sha="0000000000000000000000000000000000000000"
+            if [[ "$before_sha" == "$zero_sha" ]] \
+              || ! git cat-file -e "${before_sha}^{commit}" 2>/dev/null; then
+              empty_tree="$(git hash-object -t tree /dev/null)"
+              git diff --check "$empty_tree" "$GITHUB_SHA"
+            else
+              git diff --check "${before_sha}...${GITHUB_SHA}"
+            fi
           elif git rev-parse HEAD^ >/dev/null 2>&1; then
-            git diff-tree --check --no-commit-id --pretty=on -r HEAD
+            git diff --check "HEAD^...HEAD"
           else
-            git diff --check HEAD
+            empty_tree="$(git hash-object -t tree /dev/null)"
+            git diff --check "$empty_tree" HEAD
           fi

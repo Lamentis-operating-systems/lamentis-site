@@ -1,9 +1,34 @@
-# Vercel local auth/config
-.vercel
-.vercel-temp
-# NAOME generated artifacts
-.naome/architecture-graph.json
-frontend/package-lock.json
+# Dependencies and package-manager state
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
 
-# local env & IDE
+# Generated frontend output
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Local configuration and logs
+**/.vercel/
+.vercel-temp/
+frontend/.env*
+frontend/*.pem
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# OS and editor files
 .DS_Store
+**/.DS_Store

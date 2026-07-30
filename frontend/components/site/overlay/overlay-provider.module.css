@@ -1,0 +1,174 @@
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding:
+    max(var(--responsive-overlay-gap), env(safe-area-inset-top))
+    max(var(--responsive-overlay-gap), env(safe-area-inset-right))
+    max(var(--responsive-overlay-gap), env(safe-area-inset-bottom))
+    max(var(--responsive-overlay-gap), env(safe-area-inset-left));
+  overflow: hidden;
+  background: transparent;
+  color: var(--color-text);
+}
+
+.dialog[open] {
+  display: flex;
+}
+
+.dialog:focus {
+  outline: none;
+}
+
+.dialog::backdrop {
+  background: transparent;
+}
+
+.dialog[data-placement="bottom-right"] {
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.panel {
+  display: grid;
+  width: var(--overlay-width);
+  max-width: 100%;
+  height: var(--overlay-height);
+  max-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border-radius: var(--radius-extra-large);
+  background: var(--color-field-background);
+  box-shadow: var(--shadow-overlay);
+  transform-origin: bottom right;
+  will-change: opacity, transform;
+}
+
+.dialog[data-state="open"] .panel {
+  animation-name: overlay-pop-in;
+  animation-duration: var(--motion-normal);
+  animation-timing-function: var(--motion-easing);
+  animation-fill-mode: both;
+}
+
+.dialog[data-state="closing"] .panel {
+  pointer-events: none;
+  animation-name: overlay-pop-out;
+  animation-duration: var(--motion-normal);
+  animation-timing-function: var(--motion-easing);
+  animation-fill-mode: both;
+}
+
+.header {
+  display: flex;
+  min-width: 0;
+  min-height: var(--control-height-large);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+}
+
+.title {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-lead);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-compact);
+  overflow-wrap: anywhere;
+}
+
+.closeButton {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition-property: background-color, color, transform;
+}
+
+.closeButton:hover {
+  background: var(--color-field-focus-background);
+  color: var(--color-text);
+  transform: var(--transform-button-hover);
+}
+
+.body {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-text-secondary) transparent;
+}
+
+.body::-webkit-scrollbar,
+.body::-webkit-scrollbar-track,
+.body::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.footer {
+  display: flex;
+  min-width: 0;
+  min-height: var(--control-height-large);
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.secondaryAction {
+  background: transparent;
+  box-shadow: var(--shadow-control-border);
+  color: var(--color-text-secondary);
+}
+
+.secondaryAction:hover:not(:disabled) {
+  background: var(--color-field-menu-background);
+  filter: none;
+}
+
+.actionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (forced-colors: active) {
+  .panel {
+    border: var(--control-border-width) solid CanvasText;
+  }
+}
+
+@keyframes overlay-pop-in {
+  from {
+    opacity: 0;
+    transform:
+      translate(var(--space-6), var(--space-6))
+      scale(var(--scale-overlay-collapsed));
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes overlay-pop-out {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform:
+      translate(var(--space-6), var(--space-6))
+      scale(var(--scale-overlay-collapsed));
+  }
+}

@@ -1,0 +1,184 @@
+.page {
+  display: grid;
+  place-items: center;
+  padding: var(--space-16) var(--layout-gutter);
+}
+
+.content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  justify-items: center;
+  gap: var(--space-8);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-heading-section);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-compact);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.formArea {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  justify-items: center;
+  gap: var(--space-8);
+}
+
+.search {
+  display: flex;
+  width: min(100%, var(--layout-form-wide));
+  min-height: var(--control-height-large);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--color-field-background);
+  color: var(--color-text-muted);
+  transition-property: background-color, color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.search:focus-within {
+  background: var(--color-field-focus-background);
+  color: var(--color-field-focus-foreground);
+}
+
+.searchWithMethod {
+  padding-inline: var(--space-1);
+}
+
+.search svg {
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+  flex: 0 0 auto;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-body);
+}
+
+.input::placeholder {
+  color: var(--color-field-placeholder);
+  opacity: 1;
+  transition-property: color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.search:focus-within .input::placeholder {
+  color: var(--color-field-focus-foreground);
+}
+
+.routeTable {
+  display: grid;
+  width: min(100%, var(--layout-form-wide));
+  gap: var(--space-2);
+}
+
+.routeItem {
+  display: grid;
+  min-width: 0;
+  min-height: var(--control-height);
+  grid-template-columns:
+    var(--control-http-method-width)
+    minmax(0, 1fr)
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-1);
+  padding-block: var(--space-1);
+}
+
+.routeList {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.routeMethod {
+  min-width: 0;
+}
+
+.routePath {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--text-body);
+  line-height: var(--line-body);
+  overflow-wrap: anywhere;
+}
+
+.routePrefix {
+  flex: 0 0 auto;
+}
+
+.routeSegments {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.routeSeparator {
+  flex: 0 0 auto;
+}
+
+.routeParameter {
+  color: var(--color-text-muted);
+}
+
+.persistenceWarning {
+  width: min(100%, var(--layout-form-wide));
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--line-body);
+}
+
+@media (forced-colors: active) {
+  .search:focus-within {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: var(--focus-ring-offset);
+  }
+}
+
+@container (inline-size < 12rem) {
+  .searchWithMethod {
+    flex-wrap: wrap;
+    padding-block: var(--space-1);
+  }
+
+  .searchWithMethod > * {
+    flex: 1 1 100%;
+  }
+
+  .routeItem {
+    grid-template-columns: minmax(0, 1fr) var(--control-height);
+  }
+
+  .routeMethod {
+    grid-column: 1 / -1;
+  }
+}

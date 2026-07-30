@@ -1,0 +1,180 @@
+:root {
+  color-scheme: light;
+
+  --font-interface: var(--font-inter), -apple-system, "BlinkMacSystemFont",
+    "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-display: 900;
+  --text-caption: 0.8125rem;
+  --text-label: 0.875rem;
+  --text-body: 1rem;
+  --text-lead: 1.25rem;
+  --text-heading-section: 1.5rem;
+  --text-display-page: 4.5rem;
+  --text-navigation-mobile: 3.625rem;
+  --line-compact: 1.2;
+  --line-body: 1.5;
+  --line-display: 1;
+  --line-navigation-mobile: 1.02;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  --radius-small: 0.5rem;
+  --radius-medium: 0.75rem;
+  --radius-large: 1rem;
+  --radius-extra-large: 1.5rem;
+  --radius-full: 9999px;
+
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --layer-header: 10;
+  --layer-popover: 20;
+  --layer-dialog: 30;
+
+  --layout-wide: 90rem;
+  --layout-reading: 42.5rem;
+  --layout-form-wide: 48rem;
+  --layout-gutter: var(--space-16);
+  --layout-viewport-height: 100dvh;
+  --layout-dialog-content-height: calc(100dvh - var(--header-height));
+  --header-height: 4.5rem;
+  --control-height: 2.75rem;
+  --control-height-large: 3.25rem;
+  --control-http-method-width: 7.75rem;
+  --control-route-actions-menu-width: 10rem;
+  --overlay-default-width: 32rem;
+  --overlay-default-height: 36rem;
+  --overlay-size-large: 40rem;
+  --response-property-field-min-width: 8rem;
+  --brand-mark-size: 1.75rem;
+  --icon-size-control: var(--space-5);
+
+  --responsive-navigation-gap: var(--space-8);
+  --responsive-navigation-mobile-gap: var(--space-2);
+  --responsive-dialog-padding: var(--space-24);
+  --responsive-overlay-gap: var(--space-6);
+  --responsive-footer-padding: var(--space-24);
+  --responsive-footer-gap: var(--space-20);
+  --responsive-footer-bottom-gap: var(--space-24);
+
+  --focus-ring-width: 2px;
+  --focus-ring-offset: var(--space-1);
+  --control-border-width: 1px;
+  --shadow-control-border:
+    inset 0 0 0 var(--control-border-width) var(--color-border);
+  --shadow-control-border-transparent:
+    inset 0 0 0 var(--control-border-width) transparent;
+  --shadow-control-focus:
+    inset 0 0 0 var(--focus-ring-width) var(--color-focus);
+  --shadow-popover:
+    0 var(--space-3) var(--space-8) var(--color-shadow);
+  --shadow-overlay:
+    0 0 var(--space-8) var(--color-shadow);
+  --effect-hover-brightness: brightness(0.92);
+  --opacity-control-disabled: 0.45;
+  --opacity-option-muted: 0.76;
+  --scale-overlay-collapsed: 0.94;
+  --transform-button-hover: scale(0.98);
+  --transform-chevron-open: rotate(180deg);
+
+  --color-background: rgb(254 254 254);
+  --color-surface: rgb(247 247 247);
+  --color-field-background: rgb(247 247 247);
+  --color-field-menu-background: rgb(250 250 250);
+  --color-field-focus-background: rgb(238 238 238);
+  --color-field-placeholder: rgb(102 102 102);
+  --color-field-focus-foreground: rgb(51 51 51);
+  --color-popover: rgb(254 254 254);
+  --color-route-action-background: var(--color-inverse-background);
+  --color-route-action-foreground: var(--color-inverse-text);
+  --color-text: rgb(0 0 0);
+  --color-text-secondary: rgb(51 51 51);
+  --color-text-muted: rgb(102 102 102);
+  --color-danger: rgb(190 30 45);
+  --color-border: rgb(0 0 0 / 12%);
+  --color-focus: var(--color-text);
+  --color-inverse-background: rgb(0 0 0);
+  --color-inverse-text: rgb(255 255 255);
+  --color-shadow: rgb(0 0 0 / 16%);
+  --logo-filter: invert(1);
+
+  --gradient-platform-sunset: linear-gradient(
+    to bottom right,
+    rgb(249 115 22) 0%,
+    rgb(217 70 239) 52%,
+    rgb(124 58 237) 100%
+  );
+  --gradient-platform-aurora: linear-gradient(
+    to bottom right,
+    rgb(20 184 166) 0%,
+    rgb(14 165 233) 46%,
+    rgb(139 92 246) 100%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-background: rgb(0 0 0);
+    --color-surface: rgb(14 14 14);
+    --color-field-background: rgb(33 33 33);
+    --color-field-menu-background: rgb(24 24 24);
+    --color-field-focus-background: rgb(46 46 46);
+    --color-field-placeholder: rgb(175 175 175);
+    --color-field-focus-foreground: rgb(255 255 255 / 80%);
+    --color-popover: rgb(14 14 14);
+    --color-text: rgb(255 255 255);
+    --color-text-secondary: rgb(255 255 255 / 80%);
+    --color-text-muted: rgb(255 255 255 / 60%);
+    --color-danger: rgb(255 105 115);
+    --color-border: rgb(255 255 255 / 14%);
+    --color-inverse-background: rgb(255 255 255);
+    --color-inverse-text: rgb(0 0 0);
+    --color-shadow: rgb(0 0 0 / 36%);
+    --logo-filter: none;
+  }
+}
+
+@media (width <= 64rem) {
+  :root {
+    --text-display-page: 3rem;
+    --text-navigation-mobile: 3rem;
+    --layout-gutter: var(--space-8);
+    --responsive-navigation-gap: var(--space-5);
+    --responsive-dialog-padding: var(--space-16);
+    --responsive-overlay-gap: var(--space-5);
+    --responsive-footer-padding: var(--space-20);
+    --responsive-footer-gap: var(--space-12);
+    --responsive-footer-bottom-gap: var(--space-20);
+  }
+}
+
+@media (width <= 40rem) {
+  :root {
+    --text-display-page: 2rem;
+    --text-navigation-mobile: 2rem;
+    --layout-gutter: var(--space-4);
+    --responsive-navigation-gap: var(--space-2);
+    --responsive-dialog-padding: var(--space-12);
+    --responsive-overlay-gap: var(--space-4);
+    --responsive-footer-padding: var(--space-16);
+    --responsive-footer-gap: var(--space-8);
+    --responsive-footer-bottom-gap: var(--space-16);
+  }
+}

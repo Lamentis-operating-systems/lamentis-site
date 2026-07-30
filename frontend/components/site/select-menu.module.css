@@ -1,0 +1,99 @@
+.root {
+  position: relative;
+  z-index: var(--layer-popover);
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.root[data-open="true"] {
+  z-index: calc(var(--layer-popover) + 1);
+}
+
+.trigger {
+  display: flex;
+  width: 100%;
+  min-height: var(--control-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  padding-inline: var(--space-4);
+  background: var(--color-field-menu-background);
+  box-shadow: var(--shadow-control-border-transparent);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-compact);
+  transition-property: box-shadow, color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.root[data-width="method"] .trigger {
+  width: 100%;
+}
+
+.root[data-width="method"] {
+  width: min(100%, var(--control-http-method-width));
+}
+
+.trigger:hover:not(:disabled) {
+  box-shadow: var(--shadow-control-border);
+  transform: none;
+}
+
+.trigger[aria-expanded="true"] {
+  box-shadow: var(--shadow-control-border);
+}
+
+.root .trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-control-focus);
+}
+
+.trigger svg {
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  transition-property: transform;
+  transition-duration: var(--motion-normal);
+  transition-timing-function: var(--motion-easing);
+}
+
+.menu {
+  position: absolute;
+  min-width: 100%;
+}
+
+.root[data-placement="bottom"] .menu {
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-start: 0;
+}
+
+.root[data-placement="top"] .menu {
+  inset-block-end: calc(100% + var(--space-2));
+  inset-inline: 0;
+}
+
+.option {
+  justify-content: space-between;
+  text-decoration: none;
+}
+
+.option:hover:not(:disabled) {
+  transform: none;
+}
+
+.option svg {
+  color: var(--color-text-secondary);
+}
+
+.trigger[aria-expanded="true"] svg {
+  transform: var(--transform-chevron-open);
+}

@@ -1,0 +1,37 @@
+.root {
+  position: relative;
+  z-index: var(--layer-popover);
+  display: grid;
+  place-items: center;
+}
+
+.root[data-open="true"] {
+  z-index: calc(var(--layer-popover) + 1);
+}
+
+.trigger {
+  border: var(--control-border-width) solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  transition-property: background-color, border-color, color, transform;
+}
+
+.trigger:hover {
+  background: var(--color-field-focus-background);
+  color: var(--color-text);
+  transform: var(--transform-button-hover);
+}
+
+.trigger[aria-expanded="true"] {
+  border-color: var(--color-border);
+  background: var(--color-field-menu-background);
+  color: var(--color-text);
+}
+
+.menu {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  width: var(--control-route-actions-menu-width);
+}

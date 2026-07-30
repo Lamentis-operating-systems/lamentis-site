@@ -1,198 +1,549 @@
-export const supportedLocales = ["en", "de"] as const;
+import {
+  defaultLocale,
+  footerRouteIds,
+  isLocalizedRouteId,
+  localeCatalog,
+  navigationRouteIds,
+  primaryNavigationRouteIds,
+  routePath,
+  siteConfig,
+  siteRoutes,
+  type ExternalLink,
+  type FooterSectionId,
+  type InternalLink,
+  type Locale,
+  type RouteRef,
+  type SiteRouteId,
+} from "./routes";
+import type { ApiResponseFieldType } from "./api-response-schema";
 
-export type Locale = (typeof supportedLocales)[number];
+export type RouteCopy = {
+  title: string;
+  description: string;
+};
 
-export type FooterSectionLink = {
+export type SearchContent = {
+  heading: string;
   label: string;
-  href?: string;
-  disabled?: boolean;
-  action?: boolean;
-  external?: boolean;
-  product?: "naome" | "nox" | "noma";
-  productName?: string;
-  productSuffix?: string;
-  icon?: "github" | "linkedin" | "about";
-  iconSrc?: string;
+  placeholder: string;
+};
+
+export type ResponseSchemaEditorContent = {
+  addPropertyLabel: string;
+  arrayItemTypeLabel: string;
+  duplicatePropertyError: string;
+  identifierHint: string;
+  optionalLabel: string;
+  propertiesLabel: string;
+  propertyNameLabel: string;
+  propertyNamePlaceholder: string;
+  propertyTypeLabel: string;
+  removePropertyLabel: string;
+  responseTypeConflictError: string;
+  responseTypeLabel: string;
+  responseTypePlaceholder: string;
+  saveLabel: string;
+  typeOptions: Record<ApiResponseFieldType, string>;
+};
+
+export type ApiCreatorStudioContent = SearchContent & {
+  actionLabel: string;
+  closeEditRouteOverlayLabel: string;
+  closeResponseOverlayLabel: string;
+  copyRouteErrorLabel: string;
+  copyRouteLabel: string;
+  deleteRouteLabel: string;
+  duplicatePathError: string;
+  editRouteLabel: string;
+  editRouteTitle: string;
+  invalidPathError: string;
+  methodSelectorLabel: string;
+  pathPrefixHint: string;
+  responseEditor: ResponseSchemaEditorContent;
+  responseOverlayTitle: string;
+  routeActionsLabel: string;
+  routeListLabel: string;
+  saveRouteLabel: string;
+  storageErrorLabel: string;
+};
+
+type LocalizedSiteContent = {
+  siteDescription: string;
+  routes: Record<SiteRouteId, RouteCopy>;
+  search: SearchContent;
+  apiCreatorStudio: ApiCreatorStudioContent;
+  placeholderStatus: string;
+  navigation: {
+    ariaLabel: string;
+    closeMenuLabel: string;
+    downloadApiContractsLabel: string;
+    downloadApiContractsErrorLabel: string;
+    homeLabel: string;
+    openMenuLabel: string;
+  };
+  footer: {
+    sections: Record<FooterSectionId, { title: string }>;
+    githubLabel: string;
+    languageLabel: string;
+    copyright: string;
+    productionCredit: string;
+  };
+  notFound: {
+    title: string;
+    description: string;
+    homeLabel: string;
+  };
+};
+
+export const contentByLocale = {
+  en: {
+    siteDescription: "Lamentis is a platform for discovering and sharing sites.",
+    routes: {
+      home: {
+        title: "Home",
+        description: "Lamentis is a platform for discovering and sharing sites.",
+      },
+      today: {
+        title: "Today",
+        description: "Discover today's sites on Lamentis.",
+      },
+      trending: {
+        title: "Trending",
+        description: "Discover trending sites on Lamentis.",
+      },
+      search: {
+        title: "Search",
+        description: "Search for sites on Lamentis.",
+      },
+      apiCreatorStudio: {
+        title: "API Creator Studio",
+        description: "Create and manage APIs in the Lamentis API Creator Studio.",
+      },
+      addSite: {
+        title: "Add site",
+        description: "Add a site to Lamentis.",
+      },
+      legalNotice: {
+        title: "Legal Notice",
+        description: "The legal notice is being prepared.",
+      },
+      about: {
+        title: "About Me",
+        description: "This page is being prepared.",
+      },
+    },
+    search: {
+      heading: "Search sites",
+      label: "Search sites",
+      placeholder: "Search",
+    },
+    apiCreatorStudio: {
+      actionLabel: "Add API route",
+      closeEditRouteOverlayLabel: "Close Edit this route",
+      closeResponseOverlayLabel: "Close Add response",
+      copyRouteErrorLabel: "The route could not be copied.",
+      copyRouteLabel: "Copy",
+      deleteRouteLabel: "Delete",
+      duplicatePathError: "This HTTP method and path already exist.",
+      editRouteLabel: "Edit",
+      editRouteTitle: "Edit this route",
+      heading: "Create API Contracts",
+      invalidPathError:
+        "Use lowercase letters and numbers in path segments. Wrap parameter names in braces and start them with a letter.",
+      methodSelectorLabel: "HTTP method",
+      pathPrefixHint: "A leading slash is added automatically.",
+      responseEditor: {
+        addPropertyLabel: "Add property",
+        arrayItemTypeLabel: "Array item type",
+        duplicatePropertyError: "Property names must be unique.",
+        identifierHint: "Use a valid TypeScript identifier.",
+        optionalLabel: "Optional",
+        propertiesLabel: "Response properties",
+        propertyNameLabel: "Property name",
+        propertyNamePlaceholder: "propertyName",
+        propertyTypeLabel: "Property type",
+        removePropertyLabel: "Remove property",
+        responseTypeConflictError:
+          "This response type already uses a different schema.",
+        responseTypeLabel: "Response type",
+        responseTypePlaceholder: "UserResponse",
+        saveLabel: "Save",
+        typeOptions: {
+          string: "string",
+          number: "number",
+          boolean: "boolean",
+          object: "object",
+          array: "array",
+          null: "null",
+          unknown: "unknown",
+        },
+      },
+      responseOverlayTitle: "Add response",
+      routeActionsLabel: "Route actions",
+      routeListLabel: "API routes",
+      saveRouteLabel: "Save",
+      storageErrorLabel:
+        "Routes are available in this tab but could not be read from or saved to local storage. Download them before reloading.",
+      label: "API endpoint path",
+      placeholder: "type path here...",
+    },
+    placeholderStatus: "In preparation",
+    navigation: {
+      ariaLabel: "Primary navigation",
+      closeMenuLabel: "Close primary navigation",
+      downloadApiContractsLabel: "Download",
+      downloadApiContractsErrorLabel: "Download failed",
+      homeLabel: "Lamentis home",
+      openMenuLabel: "Open primary navigation",
+    },
+    footer: {
+      sections: {
+        platform: { title: "Platform" },
+        legal: { title: "Legal" },
+        links: { title: "Links" },
+      },
+      githubLabel: "GitHub",
+      languageLabel: "Language",
+      copyright: "© 2026 Lamentis.",
+      productionCredit: "A production by Elias Papavlassopoulos.",
+    },
+    notFound: {
+      title: "Page not found",
+      description: "The requested page does not exist.",
+      homeLabel: "Back to Lamentis",
+    },
+  },
+  de: {
+    siteDescription: "Lamentis ist eine Plattform zum Entdecken und Teilen von Websites.",
+    routes: {
+      home: {
+        title: "Startseite",
+        description: "Lamentis ist eine Plattform zum Entdecken und Teilen von Websites.",
+      },
+      today: {
+        title: "Heute",
+        description: "Entdecke die heutigen Websites auf Lamentis.",
+      },
+      trending: {
+        title: "Im Trend",
+        description: "Entdecke aktuell beliebte Websites auf Lamentis.",
+      },
+      search: {
+        title: "Suche",
+        description: "Websites auf Lamentis durchsuchen.",
+      },
+      apiCreatorStudio: {
+        title: "API Creator Studio",
+        description: "APIs im Lamentis API Creator Studio erstellen und verwalten.",
+      },
+      addSite: {
+        title: "Website hinzufügen",
+        description: "Eine Website zu Lamentis hinzufügen.",
+      },
+      legalNotice: {
+        title: "Impressum",
+        description: "Das Impressum wird vorbereitet.",
+      },
+      about: {
+        title: "Über mich",
+        description: "Diese Seite wird vorbereitet.",
+      },
+    },
+    search: {
+      heading: "Websites durchsuchen",
+      label: "Websites durchsuchen",
+      placeholder: "Suchen",
+    },
+    apiCreatorStudio: {
+      actionLabel: "API-Route hinzufügen",
+      closeEditRouteOverlayLabel: "Route bearbeiten schließen",
+      closeResponseOverlayLabel: "Antwort hinzufügen schließen",
+      copyRouteErrorLabel: "Die Route konnte nicht kopiert werden.",
+      copyRouteLabel: "Kopieren",
+      deleteRouteLabel: "Löschen",
+      duplicatePathError:
+        "Diese HTTP-Methode und dieser Pfad sind bereits vorhanden.",
+      editRouteLabel: "Bearbeiten",
+      editRouteTitle: "Diese Route bearbeiten",
+      heading: "API-Verträge erstellen",
+      invalidPathError:
+        "Verwende Kleinbuchstaben und Zahlen in Pfadsegmenten. Setze Parameternamen in geschweifte Klammern und beginne sie mit einem Buchstaben.",
+      methodSelectorLabel: "HTTP-Methode",
+      pathPrefixHint:
+        "Ein führender Schrägstrich wird automatisch ergänzt.",
+      responseEditor: {
+        addPropertyLabel: "Eigenschaft hinzufügen",
+        arrayItemTypeLabel: "Array-Elementtyp",
+        duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
+        identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
+        optionalLabel: "Optionales Feld",
+        propertiesLabel: "Antwort-Eigenschaften",
+        propertyNameLabel: "Eigenschaftsname",
+        propertyNamePlaceholder: "eigenschaftName",
+        propertyTypeLabel: "Eigenschaftstyp",
+        removePropertyLabel: "Eigenschaft entfernen",
+        responseTypeConflictError:
+          "Dieser Antworttyp verwendet bereits ein anderes Schema.",
+        responseTypeLabel: "Antworttyp",
+        responseTypePlaceholder: "BenutzerAntwort",
+        saveLabel: "Speichern",
+        typeOptions: {
+          string: "string",
+          number: "number",
+          boolean: "boolean",
+          object: "object",
+          array: "array",
+          null: "null",
+          unknown: "unknown",
+        },
+      },
+      responseOverlayTitle: "Antwort hinzufügen",
+      routeActionsLabel: "Routenaktionen",
+      routeListLabel: "API-Routen",
+      saveRouteLabel: "Speichern",
+      storageErrorLabel:
+        "Die Routen sind in diesem Tab verfügbar, konnten aber nicht aus dem lokalen Speicher gelesen oder dort gespeichert werden. Lade sie vor dem Neuladen herunter.",
+      label: "API-Endpunktpfad",
+      placeholder: "pfad hier eingeben...",
+    },
+    placeholderStatus: "In Vorbereitung",
+    navigation: {
+      ariaLabel: "Hauptnavigation",
+      closeMenuLabel: "Hauptnavigation schließen",
+      downloadApiContractsLabel: "Herunterladen",
+      downloadApiContractsErrorLabel: "Download fehlgeschlagen",
+      homeLabel: "Lamentis-Startseite",
+      openMenuLabel: "Hauptnavigation öffnen",
+    },
+    footer: {
+      sections: {
+        platform: { title: "Plattform" },
+        legal: { title: "Rechtliches" },
+        links: { title: "Links" },
+      },
+      githubLabel: "GitHub",
+      languageLabel: "Sprache",
+      copyright: "© 2026 Lamentis.",
+      productionCredit: "Eine Produktion von Elias Papavlassopoulos.",
+    },
+    notFound: {
+      title: "Seite nicht gefunden",
+      description: "Die angeforderte Seite existiert nicht.",
+      homeLabel: "Zurück zu Lamentis",
+    },
+  },
+} as const satisfies Record<Locale, LocalizedSiteContent>;
+
+type NavigationItem = InternalLink & {
+  label: string;
+  href: string;
+};
+
+type NavigationDownloadAction = {
+  errorLabel: string;
+  id: "navigation-download-api-contracts";
+  kind: "api-contract-download";
+  label: string;
+};
+
+export type NavigationAction =
+  | NavigationItem
+  | NavigationDownloadAction;
+
+export type NavigationContent = {
+  action: NavigationItem;
+  actionOverrides: Partial<Record<SiteRouteId, NavigationAction>>;
+  ariaLabel: string;
+  closeMenuLabel: string;
+  homeHref: string;
+  homeLabel: string;
+  items: NavigationItem[];
+  locale: Locale;
+  openMenuLabel: string;
+};
+
+export type FooterLink = (
+  | (InternalLink & { href: string })
+  | ExternalLink
+) & {
+  label: string;
+  icon?: "github" | "profile";
 };
 
 export type FooterSection = {
+  id: FooterSectionId;
   title: string;
-  links: FooterSectionLink[];
+  links: FooterLink[];
 };
 
-export type FooterCopy = {
-  brand: string;
-  platform: FooterSection;
-  account: FooterSection;
-  legal: FooterSection;
-  social: FooterSection;
-  languageLabel: string;
-  languageOptions: { code: Locale; label: string }[];
+export type FooterContent = {
+  sections: FooterSection[];
   copyright: string;
   productionCredit: string;
 };
 
-export type HomepageCopy = {
-  metaTitle: string;
-  metaDescription: string;
-  statusLabel: string;
-  footer: FooterCopy;
+export type LocaleSwitcherModel = {
+  label: string;
+  locale: Locale;
+  options: readonly { code: Locale; label: string }[];
 };
 
-const languageOptions = [{ code: "en", label: "English" }, { code: "de", label: "Deutsch" }] satisfies FooterCopy["languageOptions"];
+export type SiteChromeModel = {
+  navigation: NavigationContent;
+  footer: FooterContent;
+  localeSwitcher: LocaleSwitcherModel | null;
+};
 
-const platformLinks = [
-  { product: "naome", productName: "Naome", productSuffix: "ASOS" },
-  { product: "noma", productName: "Noma", productSuffix: "Tasks" },
-  { product: "nox", productName: "Nox", productSuffix: "- Social Events" },
-] as const;
-
-export const externalProfileUrls = {
-  github: "https://github.com/Lamentis-O",
-  linkedin: "https://www.linkedin.com/in/elias-pvls",
-} as const;
-
-const sharedExternalLinks: FooterSectionLink[] = [
-  {
-    label: "GitHub",
-    href: externalProfileUrls.github,
-    external: true,
-    icon: "github",
-  },
-  {
-    label: "LinkedIn",
-    href: externalProfileUrls.linkedin,
-    external: true,
-    icon: "linkedin",
-  },
-];
-
-function localizedPlatformLinks(locale: Locale): FooterSectionLink[] {
-  return platformLinks.map(({ product, productName, productSuffix }) => ({
-    product,
-    productName,
-    productSuffix,
-    label: `${productName} ${productSuffix}`,
-    href: `/${locale}/${product}`,
-  }));
+export function getRouteCopy(
+  locale: Locale,
+  routeId: SiteRouteId,
+): RouteCopy {
+  return contentByLocale[locale].routes[routeId];
 }
 
-function socialLinks(locale: Locale, aboutLabel: string): FooterSectionLink[] {
-  return [
-    {
-      label: aboutLabel,
-      href: `/${locale}/about/elias-papavlassopoulos`,
-      icon: "about",
-      iconSrc: "/assets/images/elias-portrait.JPG",
-    },
-    ...sharedExternalLinks,
-  ];
+function routeRefForLocale(
+  routeId: SiteRouteId,
+  locale: Locale,
+): RouteRef {
+  return isLocalizedRouteId(routeId)
+    ? { scope: "localized", locale, routeId }
+    : { scope: "global", routeId };
 }
 
-type LocalizedCopy = readonly [
-  metaTitle: string,
-  metaDescription: string,
-  statusLabel: string,
-  platformTitle: string,
-  accountTitle: string,
-  accountLinks: FooterSectionLink[],
-  legalTitle: string,
-  legalLinks: FooterSectionLink[],
-  aboutLabel: string,
-  languageLabel: string,
-  copyright: string,
-  productionCredit: string,
-];
-
-const localizedCopy = {
-  en: [
-    "Projects by Elias Papavlassopoulos",
-    "Lamentis landing page: plan, coordinate, and host private and public events with your social circle.",
-    "Coming soon",
-    "Platform",
-    "Account",
-    [{ label: "Log in", disabled: true }, { label: "Sign up", disabled: true }, { label: "Safety", disabled: true }, { label: "View roadmap", disabled: true }],
-    "Legal",
-    [{ label: "Privacy Policy", disabled: true }, { label: "Terms of Service", disabled: true }, { label: "Legal Notice", href: "/en/legal-notice" }],
-    "About Me",
-    "Language",
-    "© 2026 Lamentis.",
-    "An Elias Papavlassopoulos production.",
-  ],
-  de: [
-    "Projekte von Elias Papavlassopoulos",
-    "Lamentis-Startseite: Plane, koordiniere und organisiere private und öffentliche Events.",
-    "Demnächst",
-    "Plattform",
-    "Konto",
-    [{ label: "Einloggen", disabled: true }, { label: "Registrieren", disabled: true }, { label: "Sicherheit", disabled: true }, { label: "Roadmap ansehen", disabled: true }],
-    "Rechtliches",
-    [{ label: "Datenschutzerklärung", disabled: true }, { label: "Nutzungsbedingungen", disabled: true }, { label: "Impressum", href: "/de/legal-notice" }],
-    "Über mich",
-    "Sprache",
-    "© 2026 Lamentis.",
-    "Eine Elias Papavlassopoulos Produktion.",
-  ],
-} satisfies Record<Locale, LocalizedCopy>;
-
-function footerCopy(locale: Locale, copy: LocalizedCopy): FooterCopy {
-  const [, , , platformTitle, accountTitle, accountLinks, legalTitle, legalLinks, aboutLabel, languageLabel, copyright, productionCredit] = copy;
-
+function createInternalLink(
+  locale: Locale,
+  routeId: SiteRouteId,
+  id: string,
+): InternalLink & { href: string } {
+  const ref = routeRefForLocale(routeId, locale);
   return {
-    brand: "Lamentis",
-    platform: { title: platformTitle, links: localizedPlatformLinks(locale) },
-    account: { title: accountTitle, links: accountLinks },
-    legal: { title: legalTitle, links: legalLinks },
-    social: { title: "Links", links: socialLinks(locale, aboutLabel) },
-    languageLabel,
-    languageOptions,
-    copyright,
-    productionCredit,
+    kind: "internal",
+    id,
+    ...ref,
+    href: routePath(ref),
   };
 }
 
-export const contentByLocale = Object.fromEntries(
-  supportedLocales.map((locale) => {
-    const copy = localizedCopy[locale];
-    const [metaTitle, metaDescription, statusLabel] = copy;
+export function getNavigationContent(locale: Locale): NavigationContent {
+  const content = contentByLocale[locale];
+  const homeRef = {
+    scope: "localized",
+    locale,
+    routeId: "home",
+  } as const;
+  const actionRouteIds = navigationRouteIds("action");
 
-    return [locale, {
-      metaTitle,
-      metaDescription,
-      statusLabel,
-      footer: footerCopy(locale, copy),
-    }];
-  }),
-) as Record<Locale, HomepageCopy>;
-
-export function isSupportedLocale(value: string | null | undefined): value is Locale {
-  if (!value) {
-    return false;
+  if (actionRouteIds.length !== 1 || !actionRouteIds[0]) {
+    throw new Error(
+      "The route catalog must define exactly one navigation action.",
+    );
   }
+  const actionRouteId = actionRouteIds[0];
 
-  return (supportedLocales as readonly string[]).includes(value);
+  return {
+    locale,
+    ariaLabel: content.navigation.ariaLabel,
+    closeMenuLabel: content.navigation.closeMenuLabel,
+    homeLabel: content.navigation.homeLabel,
+    homeHref: routePath(homeRef),
+    openMenuLabel: content.navigation.openMenuLabel,
+    items: primaryNavigationRouteIds.map((routeId) => ({
+      ...createInternalLink(locale, routeId, `navigation-${routeId}`),
+      label: getRouteCopy(locale, routeId).title,
+    })),
+    action: {
+      ...createInternalLink(locale, actionRouteId, "navigation-add-site"),
+      label: getRouteCopy(locale, actionRouteId).title,
+    },
+    actionOverrides: {
+      apiCreatorStudio: {
+        errorLabel: content.navigation.downloadApiContractsErrorLabel,
+        id: "navigation-download-api-contracts",
+        kind: "api-contract-download",
+        label: content.navigation.downloadApiContractsLabel,
+      },
+    },
+  };
 }
 
-export function resolveLocaleFromAcceptLanguage(
-  acceptLanguage: string | null,
-): Locale {
-  if (!acceptLanguage) {
-    return "en";
+export function getSearchContent(locale: Locale): SearchContent {
+  return contentByLocale[locale].search;
+}
+
+export function getApiCreatorStudioContent(
+  locale: Locale,
+): ApiCreatorStudioContent {
+  return contentByLocale[locale].apiCreatorStudio;
+}
+
+export function getFooterContent(locale: Locale): FooterContent {
+  const content = contentByLocale[locale];
+  const internalSections = Object.entries(content.footer.sections).map(
+    ([sectionId, section]) => {
+      const id = sectionId as FooterSectionId;
+      const links = footerRouteIds(id).map((routeId): FooterLink => {
+        const icon = siteRoutes[routeId].placement.footer?.icon;
+        return {
+          ...createInternalLink(locale, routeId, `footer-${routeId}`),
+          label: getRouteCopy(locale, routeId).title,
+          ...(icon ? { icon } : {}),
+        };
+      });
+
+      return { id, title: section.title, links };
+    },
+  );
+  const linksSection = internalSections.find((section) => section.id === "links");
+
+  if (!linksSection) {
+    throw new Error("The localized content must define the footer links section.");
   }
 
-  const requested = acceptLanguage
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .map((entry) => entry.split(";")[0]);
+  linksSection.links.push({
+    kind: "external",
+    id: "footer-github",
+    href: siteConfig.externalLinks.github,
+    newWindow: true,
+    label: content.footer.githubLabel,
+    icon: "github",
+  });
 
-  for (const raw of requested) {
-    if (raw.startsWith("de")) {
-      return "de";
-    }
-    if (raw.startsWith("en")) {
-      return "en";
-    }
-  }
+  return {
+    sections: internalSections,
+    copyright: content.footer.copyright,
+    productionCredit: content.footer.productionCredit,
+  };
+}
 
-  return "en";
+export function getLocaleSwitcherModel(locale: Locale): LocaleSwitcherModel {
+  return {
+    label: contentByLocale[locale].footer.languageLabel,
+    locale,
+    options: supportedLanguageOptions,
+  };
+}
+
+const supportedLanguageOptions = Object.freeze(
+  Object.entries(localeCatalog).map(([code, locale]) => ({
+    code: code as Locale,
+    label: locale.label,
+  })),
+);
+
+export function getSiteChromeModel(locale: Locale): SiteChromeModel {
+  return {
+    navigation: getNavigationContent(locale),
+    footer: getFooterContent(locale),
+    localeSwitcher: getLocaleSwitcherModel(locale),
+  };
+}
+
+export function getGlobalSiteChromeModel(
+  locale: Locale = defaultLocale,
+): SiteChromeModel {
+  return {
+    navigation: getNavigationContent(locale),
+    footer: getFooterContent(locale),
+    localeSwitcher: null,
+  };
 }

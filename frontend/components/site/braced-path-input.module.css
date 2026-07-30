@@ -1,0 +1,90 @@
+.control {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.path {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.prefix {
+  flex: 0 0 auto;
+  color: var(--color-text);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-body);
+}
+
+.field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.renderedValue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-body);
+  pointer-events: none;
+  white-space: pre;
+}
+
+.scrollingValue {
+  display: inline-flex;
+  flex: 0 0 auto;
+  word-spacing: var(--space-1);
+}
+
+.bracedSegment {
+  color: var(--color-text-muted);
+}
+
+.field .input {
+  position: relative;
+  color: transparent;
+  caret-color: var(--color-text);
+  word-spacing: var(--space-1);
+}
+
+.field .input::placeholder {
+  word-spacing: normal;
+}
+
+.action {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-route-action-background);
+  color: var(--color-route-action-foreground);
+  transition-property:
+    background-color,
+    box-shadow,
+    color,
+    filter,
+    transform;
+}
+
+.action:disabled {
+  background: transparent;
+  box-shadow: var(--shadow-control-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.action:hover:not(:disabled) {
+  filter: var(--effect-hover-brightness);
+  transform: var(--transform-button-hover);
+}

@@ -1,47 +1,26 @@
-import { type Metadata } from "next";
-import { notFound } from "next/navigation";
+import { EmptyPage } from "@/components/site/empty-page";
 import { JsonLd } from "@/components/site/json-ld";
-import { SiteHome } from "@/components/site/site-home";
+import { getRouteCopy } from "@/domain/site/content";
+import { structuredDataForRoute } from "@/domain/site/seo";
 import {
-  contentByLocale,
-  isSupportedLocale,
-  supportedLocales,
-} from "@/domain/site/content";
-import { homeMetadata, organizationJsonLd } from "@/domain/site/seo";
+  metadataForLocalizedRoute,
+  resolvePageLocale,
+  type LocalizedPageProps,
+} from "./_lib/locale-route";
 
-export function generateStaticParams() {
-  return supportedLocales.map((locale) => ({ locale }));
+export function generateMetadata({ params }: LocalizedPageProps) {
+  return metadataForLocalizedRoute(params, "home");
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-
-  if (!isSupportedLocale(locale)) {
-    notFound();
-  }
-
-  return homeMetadata(locale);
-}
-
-export default async function LocalizedHomePage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-
-  if (!isSupportedLocale(locale)) {
-    notFound();
-  }
+export default async function HomePage({ params }: LocalizedPageProps) {
+  const locale = await resolvePageLocale(params);
+  const ref = { scope: "localized", locale, routeId: "home" } as const;
+  const structuredData = structuredDataForRoute(ref);
 
   return (
     <>
-      <SiteHome copy={contentByLocale[locale]} />
-      <JsonLd data={organizationJsonLd(locale)} />
+      <EmptyPage label={getRouteCopy(locale, "home").title} />
+      {structuredData ? <JsonLd data={structuredData} /> : null}
     </>
   );
 }

@@ -1,0 +1,210 @@
+.navigation {
+  position: sticky;
+  z-index: var(--layer-header);
+  inset-block-start: 0;
+  width: 100%;
+  min-height: var(--header-height);
+  background: var(--color-background);
+}
+
+.inner {
+  display: grid;
+  min-height: var(--header-height);
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--responsive-navigation-gap);
+  padding-block: var(--space-3);
+}
+
+.brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-body);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brandLogo {
+  width: var(--brand-mark-size);
+  height: var(--brand-mark-size);
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: var(--logo-filter);
+}
+
+.desktopLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--responsive-navigation-gap);
+}
+
+.navigationLink {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-compact);
+  text-decoration: none;
+  white-space: nowrap;
+  transition-property: color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.navigationLink:hover,
+.navigationLink[aria-current="page"] {
+  color: var(--color-text);
+}
+
+.navigationAction {
+  justify-self: end;
+}
+
+.mobileAction svg {
+  display: block;
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+  flex: 0 0 auto;
+}
+
+.menuButton,
+.dialogCloseButton {
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  transition-property: background-color, transform;
+}
+
+.menuButton {
+  display: none;
+}
+
+.mobileDialog {
+  width: 100%;
+  max-width: none;
+  height: var(--layout-viewport-height);
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.mobileDialog::backdrop {
+  background: var(--color-background);
+}
+
+.mobileDialogHeader {
+  display: flex;
+  min-height: var(--header-height);
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--layout-gutter);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-body);
+}
+
+.dialogCloseButton {
+  display: inline-flex;
+}
+
+.menuButton:hover,
+.dialogCloseButton:hover {
+  background: var(--color-field-focus-background);
+  transform: var(--transform-button-hover);
+}
+
+.mobileDialogContent {
+  display: flex;
+  height: var(--layout-dialog-content-height);
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--responsive-dialog-padding) var(--layout-gutter)
+    calc(env(safe-area-inset-bottom) + var(--space-8));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mobileLink {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  color: var(--color-text);
+  font-size: var(--text-navigation-mobile);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-navigation-mobile);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition-property: color, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.mobileLink:hover {
+  color: var(--color-text-secondary);
+  transform: translateX(var(--space-1));
+}
+
+.mobileAction {
+  width: fit-content;
+  margin-top: auto;
+  gap: var(--space-3);
+}
+
+.mobileDownloadAction {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: start;
+}
+
+@media (width <= 64rem) {
+  .inner {
+    display: flex;
+  }
+
+  .brand {
+    margin-inline-end: auto;
+  }
+
+  .desktopLinks {
+    display: none;
+  }
+
+  .menuButton {
+    display: inline-flex;
+  }
+}
+
+@media (width <= 40rem) {
+  .inner,
+  .brand {
+    gap: var(--responsive-navigation-mobile-gap);
+  }
+
+  .navigationAction {
+    min-width: var(--control-height);
+    flex: 0 1 auto;
+    padding-inline: var(--space-3);
+    overflow: hidden;
+  }
+
+  .navigationAction span {
+    min-width: 0;
+    overflow: hidden;
+  }
+}
