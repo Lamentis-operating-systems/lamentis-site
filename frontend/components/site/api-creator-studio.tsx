@@ -32,6 +32,12 @@ import { useLocalStorageState } from "./use-local-storage-state";
 import styles from "./search-page.module.css";
 
 const studioOverlaySize = "var(--overlay-size-large)";
+const studioOverlayResize = {
+  maxHeight: 900,
+  maxWidth: 960,
+  minHeight: 320,
+  minWidth: 360,
+} as const;
 
 function copyRouteFallback(path: string) {
   const activeElement = document.activeElement;
@@ -197,6 +203,7 @@ export function ApiCreatorStudio({
       closeLabel: closeResponseOverlayLabel,
       height: studioOverlaySize,
       placement: "bottom-right",
+      resizable: studioOverlayResize,
       submitAction: {
         formId: responseFormId,
         icon: <CheckIcon />,
@@ -249,6 +256,7 @@ export function ApiCreatorStudio({
       closeLabel: closeEditRouteOverlayLabel,
       height: studioOverlaySize,
       placement: "bottom-right",
+      resizable: studioOverlayResize,
       submitAction: {
         icon: <CheckIcon />,
         label: saveRouteLabel,

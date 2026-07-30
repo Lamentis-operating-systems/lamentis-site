@@ -35,6 +35,7 @@
 }
 
 .panel {
+  position: relative;
   display: grid;
   width: var(--overlay-width);
   max-width: 100%;
@@ -47,6 +48,17 @@
   box-shadow: var(--shadow-overlay);
   transform-origin: bottom right;
   will-change: opacity, transform;
+}
+
+.panel[data-positioned="true"] {
+  position: fixed;
+  inset: auto;
+  inset-block-start: var(--overlay-top);
+  inset-inline-start: var(--overlay-left);
+  width: var(--overlay-width);
+  max-width: none;
+  height: var(--overlay-height);
+  max-height: none;
 }
 
 .dialog[data-state="open"] .panel {
@@ -137,6 +149,85 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.resizeHandle {
+  position: absolute;
+  z-index: var(--layer-popover);
+  display: none;
+  touch-action: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dialog[data-resizable="true"] .resizeHandle {
+    display: block;
+  }
+}
+
+.resizeNorth,
+.resizeSouth {
+  right: var(--space-3);
+  left: var(--space-3);
+  height: var(--space-2);
+}
+
+.resizeNorth {
+  top: 0;
+  cursor: ns-resize;
+}
+
+.resizeSouth {
+  bottom: 0;
+  cursor: ns-resize;
+}
+
+.resizeEast,
+.resizeWest {
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: var(--space-2);
+}
+
+.resizeEast {
+  right: 0;
+  cursor: ew-resize;
+}
+
+.resizeWest {
+  left: 0;
+  cursor: ew-resize;
+}
+
+.resizeNorthEast,
+.resizeNorthWest,
+.resizeSouthEast,
+.resizeSouthWest {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.resizeNorthEast {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.resizeNorthWest {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.resizeSouthEast {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.resizeSouthWest {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
 }
 
 @media (forced-colors: active) {
