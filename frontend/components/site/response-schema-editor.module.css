@@ -10,8 +10,7 @@
   width: 100%;
 }
 
-.section,
-.propertiesSection {
+.section {
   display: grid;
   min-width: 0;
   gap: var(--space-4);
@@ -32,13 +31,16 @@
 .responseTypeControls {
   display: grid;
   min-width: 0;
+  grid-template-columns: minmax(0, 1fr) var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .responseTypeControls[data-has-template="true"] {
   grid-template-columns:
     minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.65fr);
-  gap: var(--space-3);
+    minmax(var(--response-property-field-min-width), 0.65fr)
+    var(--control-height);
 }
 
 .label,
@@ -58,17 +60,6 @@
   color: var(--color-text-muted);
   font-size: var(--text-caption);
   line-height: var(--line-body);
-}
-
-.propertiesHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.propertiesHeader .sectionHeader {
-  flex: 1 1 auto;
 }
 
 .addProperty {
@@ -115,7 +106,6 @@
   grid-template-columns:
     minmax(0, 1fr)
     var(--response-property-field-min-width)
-    var(--control-height)
     calc(
       var(--control-height)
       + var(--control-height)
@@ -135,7 +125,6 @@
       ),
       1.25fr
     )
-    var(--control-height)
     calc(
       var(--control-height)
       + var(--control-height)
@@ -168,13 +157,13 @@
 .objectDefinition {
   display: grid;
   min-width: 0;
-  margin: var(--space-3) 0 0;
   gap: var(--space-3);
 }
 
 .propertyActions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-3);
 }
 
@@ -248,13 +237,22 @@
 
 @media (width <= 40rem) {
   .responseTypeControls[data-has-template="true"] {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) var(--control-height);
+  }
+
+  .responseTypeControls[data-has-template="true"] > div:nth-of-type(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .responseTypeControls[data-has-template="true"] > .addProperty {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .propertyGrid {
     grid-template-columns:
       1fr
-      var(--control-height)
       calc(
         var(--control-height)
         + var(--control-height)
@@ -267,13 +265,8 @@
     grid-column: 1 / -1;
   }
 
-  .propertyGrid > button[aria-expanded] {
-    grid-column: 2;
-    grid-row: 3;
-  }
-
   .propertyActions {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 3;
   }
 }

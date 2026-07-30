@@ -774,13 +774,12 @@ describe("search page", () => {
       level: 3,
       name: "Response type",
     })).toBeInTheDocument();
-    expect(within(responseDialog).getByRole("heading", {
-      level: 3,
+    expect(within(responseDialog).queryByRole("heading", {
       name: "Response properties",
-    })).toBeInTheDocument();
-    expect(within(responseDialog).getByText(
+    })).not.toBeInTheDocument();
+    expect(within(responseDialog).queryByText(
       "Define the fields returned in this response.",
-    )).toBeInTheDocument();
+    )).not.toBeInTheDocument();
     expect(within(responseDialog).getByRole("textbox", {
       name: "Response type",
     })).toHaveAttribute("placeholder", "Name your response type");
@@ -799,7 +798,10 @@ describe("search page", () => {
     );
     await waitFor(() => expect(saveResponse).toBeEnabled());
 
-    const addPropertyButton = screen.getByRole("button", {
+    const responseTypeRegion = within(responseDialog).getByRole("region", {
+      name: "Response type",
+    });
+    const addPropertyButton = within(responseTypeRegion).getByRole("button", {
       name: "Add property",
     });
     expect(addPropertyButton).toHaveTextContent("");
@@ -1019,9 +1021,9 @@ describe("search page", () => {
     expect(within(editDialog).getByText(
       "Update this response type or use an existing one as an editable template.",
     )).toBeInTheDocument();
-    expect(within(editDialog).getByText(
+    expect(within(editDialog).queryByText(
       "Update the fields returned in this response.",
-    )).toBeInTheDocument();
+    )).not.toBeInTheDocument();
     expect(within(editDialog).getByRole("button", {
       name: "HTTP method",
     })).toHaveTextContent("PATCH");
@@ -1310,10 +1312,9 @@ describe("search page", () => {
     const objectTypeTemplate = screen.getByRole("button", {
       name: "Object type template",
     });
-    const objectToggle = screen.getByRole("button", {
+    expect(screen.queryByRole("button", {
       name: "Object definition: profile",
-    });
-    expect(objectToggle).toHaveAttribute("aria-expanded", "true");
+    })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", {
       name: "Object type",
     })).not.toBeInTheDocument();
@@ -1349,17 +1350,16 @@ describe("search page", () => {
       path: "/accounts",
     });
 
-    const objectPanel = document.getElementById(
-      objectToggle.getAttribute("aria-controls") ?? "",
-    );
-    expect(objectPanel).not.toBeNull();
-    expect(within(objectToggle.parentElement!).getByRole("button", {
+    const objectPropertyRow = objectTypeTemplate.closest("li");
+    expect(objectPropertyRow).not.toBeNull();
+    expect(within(objectPropertyRow!).getByRole("button", {
       name: "Add property",
     })).toBeInTheDocument();
-    expect(within(objectPanel!).queryByRole("button", {
-      name: "Add property",
-    })).not.toBeInTheDocument();
-    const nestedPropertyName = within(objectPanel!).getByRole("textbox", {
+    const nestedProperties = objectPropertyRow?.querySelector<HTMLElement>(
+      '[data-nested-properties="true"]',
+    );
+    expect(nestedProperties).not.toBeNull();
+    const nestedPropertyName = within(nestedProperties!).getByRole("textbox", {
       name: "Property name",
     });
     fireEvent.change(nestedPropertyName, {
@@ -1372,8 +1372,7 @@ describe("search page", () => {
       );
     });
 
-    fireEvent.click(objectToggle);
-    expect(objectToggle).toHaveAttribute("aria-expanded", "false");
+    expect(nestedPropertyName).toBeInTheDocument();
     expect(screen.getByRole("textbox", {
       name: "Response type",
     })).toHaveValue("AccountResponse");

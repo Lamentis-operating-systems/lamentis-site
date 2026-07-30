@@ -34,7 +34,6 @@ import { CloseIcon } from "./icons/close-icon";
 import { OptionalIcon } from "./icons/optional-icon";
 import { PlusIcon } from "./icons/plus-icon";
 import { SelectMenu, type SelectMenuOption } from "./select-menu";
-import { ToggleList, ToggleListItem } from "./toggle-list";
 import { VisuallyHidden } from "./visually-hidden";
 import styles from "./response-schema-editor.module.css";
 
@@ -328,14 +327,11 @@ export function ResponseSchemaEditor({
   ));
   const [selectedTemplateTypeName, setSelectedTemplateTypeName] =
     useState("");
-  const [expandedObjectIds, setExpandedObjectIds] =
-    useState<Set<number>>(() => new Set());
   const [routeMethod, setRouteMethod] = useState(route.method);
   const [routePath, setRoutePath] = useState(route.path);
   const [error, setError] = useState("");
   const responseTypeHeadingId = useId();
   const responseTypeDescriptionId = useId();
-  const propertiesHeadingId = useId();
   const validationErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const responseTypeInputRef = useRef<HTMLInputElement>(null);
@@ -510,7 +506,6 @@ export function ResponseSchemaEditor({
   }
 
   function prefillResponseType(schema?: ApiResponseSchema) {
-    setExpandedObjectIds(new Set());
     setSelectedTemplateTypeName(schema?.typeName ?? "");
     setTypeName(schema?.typeName ?? "");
     setFields(createDraftFields(schema?.fields ?? []));
@@ -638,21 +633,6 @@ export function ResponseSchemaEditor({
     }
   }
 
-  function setObjectExpanded(
-    fieldId: number,
-    expanded: boolean,
-  ) {
-    setExpandedObjectIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      if (expanded) {
-        nextIds.add(fieldId);
-      } else {
-        nextIds.delete(fieldId);
-      }
-      return nextIds;
-    });
-  }
-
   function selectPropertyType(
     schemaPath: readonly number[],
     field: DraftField,
@@ -673,7 +653,6 @@ export function ResponseSchemaEditor({
         : undefined,
       type,
     });
-    setObjectExpanded(field.id, needsObjectSchema);
   }
 
   function selectArrayItemType(
@@ -689,7 +668,6 @@ export function ResponseSchemaEditor({
         ? (field.objectSchema ?? createDraftObjectSchema())
         : undefined,
     });
-    setObjectExpanded(field.id, needsObjectSchema);
   }
 
   function renderPropertyFields(
@@ -697,31 +675,33 @@ export function ResponseSchemaEditor({
     schemaPath: readonly number[],
   ) {
     return (
-      <ToggleList
+      <ul
         aria-label={content.propertiesLabel}
         className={styles.propertyList}
       >
         {schemaFields.map((field, index) => {
           const nestedSchemaPath = [...schemaPath, field.id];
           const objectSchemaRequired = requiresObjectSchema(field);
+          const hasObjectDefinitionContent = Boolean(
+            objectSchemaRequired
+            && field.objectSchema
+            && (
+              reusableResponseSchemas.length > 0
+              || field.objectSchema.fields.length > 0
+            )
+          );
 
           return (
-            <ToggleListItem
+            <li
               key={field.id}
               className={styles.propertyCard}
-              expanded={expandedObjectIds.has(field.id)}
-              headerClassName={[
-                styles.propertyGrid,
-                field.type === "array" ? styles.propertyGridArray : "",
-              ].filter(Boolean).join(" ")}
-              onExpandedChange={(expanded) => {
-                setObjectExpanded(field.id, expanded);
-              }}
-              panelClassName={styles.objectDefinition}
-              toggleLabel={`${content.objectDefinitionLabel}: ${
-                field.name || content.propertyNamePlaceholder
-              }`}
-              summary={(
+            >
+              <div
+                className={[
+                  styles.propertyGrid,
+                  field.type === "array" ? styles.propertyGridArray : "",
+                ].filter(Boolean).join(" ")}
+              >
                 <>
                   <VisuallyHidden>
                     {content.propertiesLabel} {index + 1}
@@ -832,8 +812,6 @@ export function ResponseSchemaEditor({
                   </div>
 
                 </>
-              )}
-              actions={(
                 <div className={styles.propertyActions}>
                   {objectSchemaRequired && field.objectSchema ? (
                     <IconButton
@@ -854,10 +832,9 @@ export function ResponseSchemaEditor({
                     <CloseIcon />
                   </IconButton>
                 </div>
-              )}
-            >
-              {objectSchemaRequired && field.objectSchema ? (
-                <>
+              </div>
+              {hasObjectDefinitionContent && field.objectSchema ? (
+                <div className={styles.objectDefinition}>
                   {reusableResponseSchemas.length > 0 ? (
                     <div className={styles.objectTemplateControl}>
                       <SelectMenu
@@ -915,12 +892,12 @@ export function ResponseSchemaEditor({
                       )}
                     </div>
                   ) : null}
-                </>
+                </div>
               ) : null}
-            </ToggleListItem>
+            </li>
           );
         })}
-      </ToggleList>
+      </ul>
     );
   }
 
@@ -1038,25 +1015,6 @@ export function ResponseSchemaEditor({
                   width="field"
                 />
               ) : null}
-            </div>
-          </section>
-
-          <section
-            className={styles.propertiesSection}
-            aria-labelledby={propertiesHeadingId}
-          >
-            <div className={styles.propertiesHeader}>
-              <div className={styles.sectionHeader}>
-                <h3
-                  id={propertiesHeadingId}
-                  className={styles.sectionTitle}
-                >
-                  {content.propertiesLabel}
-                </h3>
-                <p className={styles.sectionDescription}>
-                  {content.propertiesDescription}
-                </p>
-              </div>
               <IconButton
                 type="button"
                 className={styles.addProperty}
@@ -1066,9 +1024,9 @@ export function ResponseSchemaEditor({
                 <PlusIcon />
               </IconButton>
             </div>
+          </section>
 
-            {renderPropertyFields(fields, [])}
-      </section>
+      {renderPropertyFields(fields, [])}
 
       {visibleValidationError ? (
         <p
