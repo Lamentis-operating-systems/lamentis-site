@@ -1091,7 +1091,10 @@ export function ResponseSchemaEditor({
                       <PlusIcon />
                     </IconButton>
                   </div>
-                  <div className={styles.objectProperties}>
+                  <div
+                    className={styles.objectProperties}
+                    data-nested-properties="true"
+                  >
                     {renderPropertyFields(
                       field.objectSchema.fields,
                       nestedSchemaPath,

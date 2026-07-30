@@ -212,6 +212,11 @@
 .objectProperties {
   display: grid;
   min-width: 0;
+  border-inline-start:
+    var(--connector-line-width)
+    solid
+    var(--color-border);
+  padding-inline-start: var(--space-4);
   gap: var(--space-3);
 }
 

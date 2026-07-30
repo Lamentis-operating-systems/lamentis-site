@@ -422,6 +422,10 @@ test("requires a named object schema and can prefill an existing model", async (
   await expect(objectPanel.getByRole("textbox", {
     name: "Property name",
   })).toHaveValue("city");
+  const nestedProperties = objectPanel.locator("[data-nested-properties]");
+  await expect(nestedProperties).toHaveCount(1);
+  await expect(nestedProperties).toHaveCSS("border-inline-start-width", "2px");
+  await expect(nestedProperties).toHaveCSS("padding-inline-start", "16px");
   await expect(save).toBeEnabled();
 
   await objectPanel.getByRole("textbox", {
