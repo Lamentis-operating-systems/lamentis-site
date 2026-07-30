@@ -3,7 +3,7 @@
   min-width: 0;
   container-type: inline-size;
   align-content: start;
-  gap: var(--space-8);
+  gap: var(--space-6);
 }
 
 .form > .overlayRouteRow {
@@ -14,7 +14,7 @@
 .propertiesSection {
   display: grid;
   min-width: 0;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .fieldGroup {
@@ -111,21 +111,6 @@
   list-style: none;
 }
 
-.propertyColumnsHeader {
-  display: grid;
-  min-width: 0;
-  grid-template-columns:
-    minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.6fr)
-    auto
-    var(--control-height);
-  gap: var(--space-3);
-  color: var(--color-text);
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--line-compact);
-}
-
 .propertyCard {
   min-width: 0;
   margin: 0;
@@ -139,29 +124,42 @@
   min-width: 0;
   grid-template-columns:
     minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.6fr)
+    minmax(
+      calc(
+        var(--response-property-field-min-width)
+        + var(--response-property-field-min-width)
+      ),
+      1.25fr
+    )
     auto
     var(--control-height);
-  align-items: end;
+  align-items: center;
   gap: var(--space-3);
 }
 
-.propertyColumnsHeader[data-has-array="true"],
-.propertyGrid[data-has-array="true"] {
-  grid-template-columns:
-    minmax(0, 1fr)
-    minmax(var(--response-property-field-min-width), 0.55fr)
-    minmax(var(--response-property-field-min-width), 0.55fr)
-    auto
-    var(--control-height);
+.typeExpression {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
 }
 
-.arrayItemPlaceholder {
-  min-width: 0;
+.typeExpression[data-is-array="true"] {
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    minmax(0, 1fr);
+}
+
+.arrayConnector {
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-compact);
 }
 
 .checkboxField {
-  align-self: end;
   white-space: nowrap;
 }
 
@@ -191,12 +189,12 @@
     grid-template-columns: 1fr;
   }
 
-  .propertyGrid,
-  .propertyGrid[data-has-array="true"] {
+  .propertyGrid {
     grid-template-columns: 1fr var(--control-height);
   }
 
-  .fieldGroup {
+  .propertyNameField,
+  .typeExpression {
     grid-column: 1 / -1;
   }
 
@@ -206,6 +204,6 @@
 
   .removeProperty {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 3;
   }
 }

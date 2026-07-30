@@ -88,6 +88,14 @@ test("adds and persists a route while restoring focus after Escape", {
   await responseDialog.getByRole("button", {
     name: "Add property",
   }).click();
+  await expect(responseDialog.getByText(
+    "Property name",
+    { exact: true },
+  )).toHaveCount(0);
+  await expect(responseDialog.getByText(
+    "Property type",
+    { exact: true },
+  )).toHaveCount(0);
   const propertyType = responseDialog.getByRole("button", {
     name: "Property type",
   });
@@ -124,8 +132,13 @@ test("adds and persists a route while restoring focus after Escape", {
     y: firstPropertyTypeBox.y + firstPropertyTypeBox.height / 2,
   });
   expect(firstOptionOwnsItsCenter).toBe(true);
-  await propertyType.click();
+  await propertyTypeMenu.getByRole("button", { name: "array" }).click();
   await expect(propertyTypeMenu).toBeHidden();
+  await expect(propertyType).toContainText("array");
+  await expect(responseDialog.getByText("of", { exact: true })).toBeVisible();
+  await expect(responseDialog.getByRole("button", {
+    name: "Array item type",
+  })).toContainText("string");
 
   const overlayRoute = responseDialog.getByRole("group", {
     name: "Route: GET /orders/{orderid}",

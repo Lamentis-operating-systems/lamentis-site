@@ -161,7 +161,6 @@ export function ResponseSchemaEditor({
         .map(([name]) => name),
     );
   }, [fields]);
-  const hasArrayFields = fields.some((field) => field.type === "array");
   const hasResponseTypeConflict = (
     saveRejectedForConflict
     || (
@@ -413,20 +412,6 @@ export function ResponseSchemaEditor({
           </button>
         </div>
 
-        {fields.length > 0 ? (
-          <div
-            className={styles.propertyColumnsHeader}
-            aria-hidden="true"
-            data-has-array={hasArrayFields}
-          >
-            <span>{content.propertyNameLabel}</span>
-            <span>{content.propertyTypeLabel}</span>
-            {hasArrayFields ? (
-              <span>{content.arrayItemTypeLabel}</span>
-            ) : null}
-          </div>
-        ) : null}
-
         <ul className={styles.propertyList}>
           {fields.map((field, index) => (
             <li key={field.id}>
@@ -436,9 +421,11 @@ export function ResponseSchemaEditor({
                 </VisuallyHidden>
                 <div
                   className={styles.propertyGrid}
-                  data-has-array={hasArrayFields}
+                  data-is-array={field.type === "array"}
                 >
-                  <label className={styles.fieldGroup}>
+                  <label
+                    className={`${styles.fieldGroup} ${styles.propertyNameField}`}
+                  >
                     <TextInput
                       tone="nested"
                       name={`property-${field.id}-name`}
@@ -474,7 +461,10 @@ export function ResponseSchemaEditor({
                     />
                   </label>
 
-                  <div className={styles.fieldGroup}>
+                  <div
+                    className={styles.typeExpression}
+                    data-is-array={field.type === "array"}
+                  >
                     <SelectMenu
                       height="large"
                       label={content.propertyTypeLabel}
@@ -491,35 +481,35 @@ export function ResponseSchemaEditor({
                       selectedId={field.type}
                       width="field"
                     />
+                    {field.type === "array" ? (
+                      <>
+                        <span
+                          className={styles.arrayConnector}
+                          aria-hidden="true"
+                        >
+                          {content.arrayConnectorLabel}
+                        </span>
+                        <SelectMenu
+                          height="large"
+                          label={content.arrayItemTypeLabel}
+                          menuPlacement="top"
+                          options={apiResponseArrayItemTypes.map((type) => ({
+                            id: type,
+                            kind: "action",
+                            label: content.typeOptions[type],
+                            onSelect: () => {
+                              updateProperty(field.id, {
+                                arrayItemType: type,
+                              });
+                            },
+                          } satisfies SelectMenuOption))}
+                          rounded
+                          selectedId={field.arrayItemType}
+                          width="field"
+                        />
+                      </>
+                    ) : null}
                   </div>
-
-                  {field.type === "array" ? (
-                    <div className={styles.fieldGroup}>
-                      <SelectMenu
-                        height="large"
-                        label={content.arrayItemTypeLabel}
-                        menuPlacement="top"
-                        options={apiResponseArrayItemTypes.map((type) => ({
-                          id: type,
-                          kind: "action",
-                          label: content.typeOptions[type],
-                          onSelect: () => {
-                            updateProperty(field.id, {
-                              arrayItemType: type,
-                            });
-                          },
-                        } satisfies SelectMenuOption))}
-                        rounded
-                        selectedId={field.arrayItemType}
-                        width="field"
-                      />
-                    </div>
-                  ) : hasArrayFields ? (
-                    <span
-                      className={styles.arrayItemPlaceholder}
-                      aria-hidden="true"
-                    />
-                  ) : null}
 
                   <CheckboxWithLabel
                     className={styles.checkboxField}

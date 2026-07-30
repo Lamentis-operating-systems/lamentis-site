@@ -794,12 +794,12 @@ describe("search page", () => {
     const propertyNameInput = screen.getByRole("textbox", {
       name: "Property name",
     });
-    expect(within(responseDialog).getAllByText(
+    expect(within(responseDialog).queryByText(
       "Property name",
-    )).toHaveLength(1);
-    expect(within(responseDialog).getAllByText(
+    )).not.toBeInTheDocument();
+    expect(within(responseDialog).queryByText(
       "Property type",
-    )).toHaveLength(1);
+    )).not.toBeInTheDocument();
     expect(propertyType.parentElement).toHaveAttribute(
       "data-height",
       "large",
@@ -826,8 +826,9 @@ describe("search page", () => {
     expect(propertyType).toHaveTextContent("array");
     expect(propertyTypeMenu).toHaveAttribute("data-state", "closing");
     expect(
-      within(responseDialog).getAllByText("Array item type"),
-    ).toHaveLength(1);
+      within(responseDialog).queryByText("Array item type"),
+    ).not.toBeInTheDocument();
+    expect(within(responseDialog).getByText("of")).toBeInTheDocument();
 
     const arrayItemType = screen.getByRole("button", {
       name: "Array item type",
@@ -845,11 +846,12 @@ describe("search page", () => {
       target: { value: "status" },
     });
     expect(
-      responseDialog.querySelectorAll('[data-has-array="true"]'),
-    ).toHaveLength(3);
+      responseDialog.querySelectorAll('[data-is-array="true"]'),
+    ).toHaveLength(2);
     expect(
-      within(responseDialog).getAllByText("Array item type"),
-    ).toHaveLength(1);
+      within(responseDialog).queryByText("Array item type"),
+    ).not.toBeInTheDocument();
+    expect(within(responseDialog).getAllByText("of")).toHaveLength(1);
     fireEvent.click(
       screen.getAllByRole("checkbox", { name: "Optional" })[0],
     );

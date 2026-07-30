@@ -30,6 +30,7 @@ export type SearchContent = {
 
 export type ResponseSchemaEditorContent = {
   addPropertyLabel: string;
+  arrayConnectorLabel: string;
   arrayItemTypeLabel: string;
   duplicatePropertyError: string;
   identifierHint: string;
@@ -159,6 +160,7 @@ export const contentByLocale = {
       pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
         addPropertyLabel: "Add property",
+        arrayConnectorLabel: "of",
         arrayItemTypeLabel: "Array item type",
         duplicatePropertyError: "Property names must be unique.",
         identifierHint: "Use a valid TypeScript identifier.",
@@ -286,6 +288,7 @@ export const contentByLocale = {
         "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
         addPropertyLabel: "Eigenschaft hinzufügen",
+        arrayConnectorLabel: "aus",
         arrayItemTypeLabel: "Array-Elementtyp",
         duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
         identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
