@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type AnimationEvent } from "react";
 import { CopyIcon } from "./icons/copy-icon";
 import { DeleteIcon } from "./icons/delete-icon";
 import { EditIcon } from "./icons/edit-icon";
@@ -34,7 +34,10 @@ export function RouteActionsMenu({
   const menuId = useId();
   const {
     closePopover,
+    completeClose,
     isOpen,
+    isPresent,
+    phase,
     rootRef,
     togglePopover,
     triggerRef,
@@ -43,6 +46,12 @@ export function RouteActionsMenu({
   function runAction(action: () => void) {
     closePopover(true);
     action();
+  }
+
+  function completeAnimatedClose(event: AnimationEvent<HTMLUListElement>) {
+    if (event.target === event.currentTarget && phase === "closing") {
+      completeClose();
+    }
   }
 
   return (
@@ -63,11 +72,15 @@ export function RouteActionsMenu({
         <MoreIcon />
       </IconButton>
 
-      {isOpen ? (
+      {isPresent ? (
         <ul
           id={menuId}
           className={`${styles.menu} ${optionStyles.menu}`}
           aria-label={label}
+          aria-hidden={phase === "closing" ? true : undefined}
+          data-state={phase}
+          inert={phase === "closing"}
+          onAnimationEnd={completeAnimatedClose}
         >
           <li>
             <button

@@ -1,11 +1,30 @@
 .menu {
+  --options-menu-shift: calc(-1 * var(--space-1));
+
   margin: 0;
   border: var(--control-border-width) solid var(--color-border);
-  border-radius: var(--radius-medium);
+  border-radius: var(--control-radius);
   padding: var(--space-2) var(--space-3);
   background: var(--color-field-menu-background);
   box-shadow: var(--shadow-popover);
   list-style: none;
+  transform-origin: top center;
+  will-change: opacity, transform;
+}
+
+.menu[data-state="open"] {
+  animation-name: options-menu-appear;
+  animation-duration: var(--motion-normal);
+  animation-timing-function: var(--motion-easing);
+  animation-fill-mode: both;
+}
+
+.menu[data-state="closing"] {
+  pointer-events: none;
+  animation-name: options-menu-disappear;
+  animation-duration: var(--motion-fast);
+  animation-timing-function: var(--motion-easing);
+  animation-fill-mode: both;
 }
 
 .option {
@@ -52,4 +71,39 @@
 .danger {
   color: var(--color-danger);
   opacity: 1;
+}
+
+@keyframes options-menu-appear {
+  from {
+    opacity: 0;
+    transform:
+      translateY(var(--options-menu-shift))
+      scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes options-menu-disappear {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform:
+      translateY(var(--options-menu-shift))
+      scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu[data-state="open"],
+  .menu[data-state="closing"] {
+    animation-duration: var(--motion-reduced);
+  }
 }

@@ -79,8 +79,6 @@
 
 .menuButton,
 .dialogCloseButton {
-  border: 0;
-  background: transparent;
   color: var(--color-text);
   transition-property: background-color, transform;
 }
@@ -161,15 +159,6 @@
   width: fit-content;
   margin-top: auto;
   gap: var(--space-3);
-}
-
-.mobileDownloadAction {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: start;
 }
 
 @media (width <= 64rem) {

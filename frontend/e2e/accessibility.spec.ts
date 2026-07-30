@@ -55,7 +55,7 @@ test("the open response overlay has no WCAG A or AA violations", async ({
     name: "API endpoint path",
   }).press("Enter");
   await expect(page.getByRole("dialog", {
-    name: "Add response",
+    name: "Add a data structure to this route",
   })).toBeVisible();
 
   const result = await new AxeBuilder({ page })
@@ -88,7 +88,7 @@ test("route validation exposes its canonical prefix and error reasons", async ({
   await routeInput.fill("users");
   await routeInput.press("Enter");
   const responseDialog = page.getByRole("dialog", {
-    name: "Add response",
+    name: "Add a data structure to this route",
   });
   await expect(responseDialog).toBeVisible();
   await page.keyboard.press("Escape");

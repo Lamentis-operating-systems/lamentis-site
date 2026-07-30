@@ -1,0 +1,70 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-caption);
+  line-height: var(--line-compact);
+}
+
+.input {
+  position: absolute;
+  inset-inline-start: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  cursor: inherit;
+  opacity: 0;
+}
+
+.indicator {
+  display: grid;
+  width: var(--space-5);
+  height: var(--space-5);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-small);
+  background: var(--color-field-background);
+  box-shadow: var(--shadow-control-border);
+  color: transparent;
+  transition-property: background-color, box-shadow, color;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.indicator svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.input:checked + .indicator {
+  background: var(--color-inverse-background);
+  color: var(--color-inverse-text);
+}
+
+.input:focus-visible + .indicator {
+  box-shadow: var(--shadow-control-focus);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
+
+.root:has(.input:disabled) {
+  cursor: not-allowed;
+  opacity: var(--opacity-control-disabled);
+}
+
+.label {
+  min-width: 0;
+}
+
+@media (forced-colors: active) {
+  .indicator {
+    border: var(--control-border-width) solid CanvasText;
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useLocalStorageState } from "@/components/site/use-local-storage-state";
+import * as apiContractsSkillModule from "@/domain/site/api-contract-skill";
 import { apiRoutesStorage } from "@/domain/site/api-route-storage";
 import { downloadTextFile } from "@/domain/site/browser-download";
 import { DownloadIcon } from "../icons/download-icon";
@@ -14,14 +15,13 @@ type ApiContractsDownloadButtonProps = {
   onDownload?: () => void;
 };
 
-type ApiContractsSkillModule =
-  typeof import("@/domain/site/api-contract-skill");
+type ApiContractsSkillModule = typeof apiContractsSkillModule;
 
 type ApiContractsSkillModuleLoader =
   () => Promise<ApiContractsSkillModule>;
 
 const loadApiContractsSkillModule: ApiContractsSkillModuleLoader =
-  () => import("@/domain/site/api-contract-skill");
+  () => Promise.resolve(apiContractsSkillModule);
 
 export function ApiContractsDownloadButton({
   className,

@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useId } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type AnimationEvent,
+} from "react";
 import { CheckIcon } from "./icons/check-icon";
 import { ChevronIcon } from "./icons/chevron-icon";
 import optionStyles from "./options-menu.module.css";
@@ -30,41 +36,106 @@ export type SelectMenuOption =
   | SelectMenuLinkOption;
 
 type SelectMenuProps = {
+  height?: "default" | "large";
   label: string;
   menuPlacement?: "bottom" | "top";
   options: readonly SelectMenuOption[];
+  rounded?: boolean;
   selectedId: string;
-  width?: "content" | "method";
+  width?: "content" | "field" | "method";
 };
 
 export function SelectMenu({
+  height,
   label,
   menuPlacement = "bottom",
   options,
+  rounded,
   selectedId,
   width = "content",
 }: SelectMenuProps) {
   const menuId = useId();
+  const menuRef = useRef<HTMLUListElement>(null);
+  const [usesDialogLayer, setUsesDialogLayer] = useState(false);
   const selectedOption = options.find((option) => option.id === selectedId);
   const {
     closePopover,
+    completeClose,
     isOpen,
+    isPresent,
+    phase,
     rootRef,
     togglePopover,
     triggerRef,
   } = useDismissiblePopover();
+
+  useLayoutEffect(() => {
+    setUsesDialogLayer(Boolean(
+      rootRef.current?.closest("dialog")
+      && "showPopover" in HTMLElement.prototype
+    ));
+  }, [rootRef]);
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const trigger = triggerRef.current;
+    if (!isPresent || !usesDialogLayer || !menu || !trigger) {
+      return undefined;
+    }
+    const activeMenu = menu;
+    const anchorTrigger = trigger;
+
+    function positionMenu() {
+      const triggerBounds = anchorTrigger.getBoundingClientRect();
+      activeMenu.style.setProperty(
+        "--dialog-popover-anchor-top",
+        `${triggerBounds.top}px`,
+      );
+      activeMenu.style.setProperty(
+        "--dialog-popover-anchor-bottom",
+        `${triggerBounds.bottom}px`,
+      );
+      activeMenu.style.setProperty(
+        "--dialog-popover-inline-start",
+        `${triggerBounds.left}px`,
+      );
+      activeMenu.style.setProperty(
+        "--dialog-popover-width",
+        `${triggerBounds.width}px`,
+      );
+    }
+
+    positionMenu();
+    menu.showPopover();
+    window.addEventListener("resize", positionMenu);
+    document.addEventListener("scroll", positionMenu, true);
+
+    return () => {
+      window.removeEventListener("resize", positionMenu);
+      document.removeEventListener("scroll", positionMenu, true);
+      if (menu.matches(":popover-open")) menu.hidePopover();
+    };
+  }, [isPresent, triggerRef, usesDialogLayer]);
 
   function selectAction(option: SelectMenuActionOption) {
     option.onSelect();
     closePopover(true);
   }
 
+  function completeAnimatedClose(event: AnimationEvent<HTMLUListElement>) {
+    if (event.target === event.currentTarget && phase === "closing") {
+      completeClose();
+    }
+  }
+
   return (
     <div
       ref={rootRef}
       className={styles.root}
+      data-height={height}
       data-open={isOpen}
       data-placement={menuPlacement}
+      data-rounded={rounded ? true : undefined}
       data-width={width}
     >
       <button
@@ -80,11 +151,19 @@ export function SelectMenu({
         <ChevronIcon />
       </button>
 
-      {isOpen ? (
+      {isPresent ? (
         <ul
+          ref={menuRef}
           id={menuId}
           className={`${styles.menu} ${optionStyles.menu}`}
           aria-label={label}
+          aria-hidden={phase === "closing" ? true : undefined}
+          data-dialog-layer={usesDialogLayer ? true : undefined}
+          data-placement={menuPlacement}
+          data-state={phase}
+          inert={phase === "closing"}
+          popover={usesDialogLayer ? "manual" : undefined}
+          onAnimationEnd={completeAnimatedClose}
         >
           {options.map((option) => (
             <li key={option.id}>

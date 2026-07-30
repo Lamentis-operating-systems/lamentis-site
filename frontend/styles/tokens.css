@@ -41,10 +41,11 @@
 
   --motion-fast: 120ms;
   --motion-normal: 180ms;
+  --motion-reduced: 1ms;
   --motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --layer-header: 10;
-  --layer-popover: 20;
+  --layer-popover: 10;
+  --layer-header: 20;
   --layer-dialog: 30;
 
   --layout-wide: 90rem;
@@ -56,6 +57,7 @@
   --header-height: 4.5rem;
   --control-height: 2.75rem;
   --control-height-large: 3.25rem;
+  --control-radius: calc(var(--control-height) / 2);
   --control-http-method-width: 7.75rem;
   --control-route-actions-menu-width: 10rem;
   --overlay-default-width: 32rem;
@@ -80,8 +82,7 @@
     inset 0 0 0 var(--control-border-width) var(--color-border);
   --shadow-control-border-transparent:
     inset 0 0 0 var(--control-border-width) transparent;
-  --shadow-control-focus:
-    inset 0 0 0 var(--focus-ring-width) var(--color-focus);
+  --shadow-control-focus: var(--shadow-control-border);
   --shadow-popover:
     0 var(--space-3) var(--space-8) var(--color-shadow);
   --shadow-overlay:

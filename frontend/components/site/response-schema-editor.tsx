@@ -11,6 +11,7 @@ import {
 import {
   apiResponseArrayItemTypes,
   apiResponseFieldTypes,
+  areApiResponseSchemasEquivalent,
   hasIncompatibleApiResponseSchema,
   isValidTypeScriptTypeName,
   isValidApiResponseSchema,
@@ -19,18 +20,36 @@ import {
   type ApiResponseSchema,
   typeScriptIdentifierPattern,
 } from "@/domain/site/api-response-schema";
+import type {
+  ApiRouteContract,
+  HttpMethod,
+} from "@/domain/site/api-route";
 import type { ResponseSchemaEditorContent } from "@/domain/site/content";
+import {
+  ApiRouteRow,
+  type ApiRouteRowContent,
+} from "./api-route-row";
+import { CheckboxWithLabel } from "./form/checkbox-with-label";
+import { TextInput } from "./form/text-input";
 import { IconButton } from "./icon-button";
 import { CloseIcon } from "./icons/close-icon";
 import { PlusIcon } from "./icons/plus-icon";
+import { SelectMenu, type SelectMenuOption } from "./select-menu";
 import { VisuallyHidden } from "./visually-hidden";
 import styles from "./response-schema-editor.module.css";
 
 type ResponseSchemaEditorProps = {
   content: ResponseSchemaEditorContent;
+  disabledRouteMethods?: readonly HttpMethod[];
   existingResponseSchemas: readonly ApiResponseSchema[];
   formId: string;
+  onCopyRoute: () => void;
+  onDeleteRoute: () => void;
+  onEditRoute: () => void;
+  onRouteMethodChange: (method: HttpMethod) => void;
   onSave: (schema: ApiResponseSchema) => boolean;
+  route: ApiRouteContract;
+  routeContent: ApiRouteRowContent;
 };
 
 type DraftField = {
@@ -43,18 +62,61 @@ type DraftField = {
 
 export function ResponseSchemaEditor({
   content,
+  disabledRouteMethods = [],
   existingResponseSchemas,
   formId,
+  onCopyRoute,
+  onDeleteRoute,
+  onEditRoute,
+  onRouteMethodChange,
   onSave,
+  route,
+  routeContent,
 }: ResponseSchemaEditorProps) {
   const [typeName, setTypeName] = useState("");
   const [fields, setFields] = useState<DraftField[]>([]);
+  const [selectedTemplateTypeName, setSelectedTemplateTypeName] =
+    useState("");
+  const [routeMethod, setRouteMethod] = useState(route.method);
   const [error, setError] = useState("");
   const [saveRejectedForConflict, setSaveRejectedForConflict] =
     useState(false);
+  const responseTypeHeadingId = useId();
+  const responseTypeDescriptionId = useId();
+  const propertiesHeadingId = useId();
   const validationErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const nextFieldIdRef = useRef(0);
+  const reusableResponseSchemas = useMemo(() => {
+    const schemasByTypeName = new Map<string, ApiResponseSchema[]>();
+
+    for (const schema of existingResponseSchemas) {
+      const schemas = schemasByTypeName.get(schema.typeName) ?? [];
+      schemas.push(schema);
+      schemasByTypeName.set(schema.typeName, schemas);
+    }
+
+    return [...schemasByTypeName]
+      .flatMap(([, schemas]) => {
+        const sourceSchema = schemas[0];
+        if (
+          !sourceSchema
+          || schemas.some((schema) => (
+            !areApiResponseSchemasEquivalent(sourceSchema, schema)
+          ))
+        ) {
+          return [];
+        }
+        return [sourceSchema];
+      })
+      .sort((left, right) => (
+        left.typeName < right.typeName
+          ? -1
+          : left.typeName > right.typeName
+            ? 1
+            : 0
+      ));
+  }, [existingResponseSchemas]);
   const normalizedTypeName = typeName.trim();
   const draftSchema = useMemo<ApiResponseSchema>(() => ({
     fields: fields.map((field) => ({
@@ -99,6 +161,7 @@ export function ResponseSchemaEditor({
         .map(([name]) => name),
     );
   }, [fields]);
+  const hasArrayFields = fields.some((field) => field.type === "array");
   const hasResponseTypeConflict = (
     saveRejectedForConflict
     || (
@@ -163,6 +226,26 @@ export function ResponseSchemaEditor({
     setSaveRejectedForConflict(false);
   }
 
+  function prefillResponseType(schema?: ApiResponseSchema) {
+    setSelectedTemplateTypeName(schema?.typeName ?? "");
+    setTypeName(schema?.typeName ?? "");
+    setFields((schema?.fields ?? []).map((field) => {
+      const id = nextFieldIdRef.current;
+      nextFieldIdRef.current += 1;
+
+      return {
+        arrayItemType: field.type === "array"
+          ? (field.arrayItemType ?? "string")
+          : "string",
+        id,
+        name: field.name,
+        optional: field.optional,
+        type: field.type,
+      };
+    }));
+    clearValidationError();
+  }
+
   function addProperty() {
     const id = nextFieldIdRef.current;
     nextFieldIdRef.current += 1;
@@ -224,143 +307,223 @@ export function ResponseSchemaEditor({
       className={styles.form}
       onSubmit={submitResponse}
     >
-      <label className={styles.fieldGroup}>
-        <span className={styles.label}>{content.responseTypeLabel}</span>
-        <input
-          className={styles.control}
-          type="text"
-          name="responseType"
-          autoComplete="off"
-          spellCheck={false}
-          required
-          pattern={typeScriptIdentifierPattern.source}
-          title={content.identifierHint}
-          placeholder={content.responseTypePlaceholder}
-          value={typeName}
-          aria-invalid={
-            hasInvalidTypeName || hasResponseTypeConflict ? true : undefined
-          }
-          aria-describedby={
-            hasInvalidTypeName || hasResponseTypeConflict
-              ? validationErrorId
-              : undefined
-          }
-          onChange={(event) => {
-            setTypeName(event.currentTarget.value);
-            clearValidationError();
-          }}
-        />
-      </label>
+      <ApiRouteRow
+        className={styles.overlayRouteRow}
+        content={routeContent}
+        disabledMethods={disabledRouteMethods}
+        onCopy={onCopyRoute}
+        onDelete={onDeleteRoute}
+        onEdit={onEditRoute}
+        onMethodChange={(nextMethod) => {
+          setRouteMethod(nextMethod);
+          onRouteMethodChange(nextMethod);
+        }}
+        route={{ ...route, method: routeMethod }}
+      />
 
-      <div className={styles.propertiesHeader}>
-        <span className={styles.sectionTitle}>{content.propertiesLabel}</span>
-        <button
-          type="button"
-          className={styles.addProperty}
-          onClick={addProperty}
+      <section
+        className={styles.section}
+        aria-labelledby={responseTypeHeadingId}
+      >
+        <div className={styles.sectionHeader}>
+          <h3 id={responseTypeHeadingId} className={styles.sectionTitle}>
+            {content.responseTypeLabel}
+          </h3>
+          <p
+            id={responseTypeDescriptionId}
+            className={styles.sectionDescription}
+          >
+            {content.responseTypeDescription}
+          </p>
+        </div>
+        <div
+          className={styles.responseTypeControls}
+          data-has-template={reusableResponseSchemas.length > 0}
         >
-          <PlusIcon />
-          <span>{content.addPropertyLabel}</span>
-        </button>
-      </div>
+          <TextInput
+            tone="nested"
+            name="responseType"
+            autoComplete="off"
+            spellCheck={false}
+            required
+            pattern={typeScriptIdentifierPattern.source}
+            title={content.identifierHint}
+            placeholder={content.responseTypePlaceholder}
+            value={typeName}
+            aria-labelledby={responseTypeHeadingId}
+            aria-invalid={
+              hasInvalidTypeName || hasResponseTypeConflict ? true : undefined
+            }
+            aria-describedby={
+              hasInvalidTypeName || hasResponseTypeConflict
+                ? `${responseTypeDescriptionId} ${validationErrorId}`
+                : responseTypeDescriptionId
+            }
+            onChange={(event) => {
+              setTypeName(event.currentTarget.value);
+              clearValidationError();
+            }}
+          />
+          {reusableResponseSchemas.length > 0 ? (
+            <SelectMenu
+              height="large"
+              label={content.responseTypeTemplateLabel}
+              options={[
+                {
+                  id: "",
+                  kind: "action",
+                  label: content.newResponseTypeLabel,
+                  onSelect: () => prefillResponseType(),
+                },
+                ...reusableResponseSchemas.map((schema) => ({
+                  id: schema.typeName,
+                  kind: "action" as const,
+                  label: schema.typeName,
+                  onSelect: () => prefillResponseType(schema),
+                })),
+              ]}
+              rounded
+              selectedId={selectedTemplateTypeName}
+              width="field"
+            />
+          ) : null}
+        </div>
+      </section>
 
-      <ul className={styles.propertyList}>
-        {fields.map((field, index) => (
-          <li key={field.id}>
-            <fieldset className={styles.propertyCard}>
-              <VisuallyHidden as="legend">
-                {content.propertiesLabel} {index + 1}
-              </VisuallyHidden>
-              <div className={styles.propertyGrid}>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.label}>
-                    {content.propertyNameLabel}
-                  </span>
-                  <input
-                    className={styles.control}
-                    type="text"
-                    name={`property-${field.id}-name`}
-                    autoComplete="off"
-                    spellCheck={false}
-                    required
-                    aria-invalid={
-                      (
-                        duplicatePropertyNames.has(field.name.trim())
-                        || invalidPropertyNameIds.has(field.id)
-                      )
-                        ? true
-                        : undefined
-                    }
-                    aria-describedby={
-                      (
-                        duplicatePropertyNames.has(field.name.trim())
-                        || invalidPropertyNameIds.has(field.id)
-                      )
-                        ? validationErrorId
-                        : undefined
-                    }
-                    pattern={typeScriptIdentifierPattern.source}
-                    title={content.identifierHint}
-                    placeholder={content.propertyNamePlaceholder}
-                    value={field.name}
-                    onChange={(event) => {
-                      updateProperty(field.id, {
-                        name: event.currentTarget.value,
-                      });
-                    }}
-                  />
-                </label>
+      <section
+        className={styles.propertiesSection}
+        aria-labelledby={propertiesHeadingId}
+      >
+        <div className={styles.propertiesHeader}>
+          <div className={styles.sectionHeader}>
+            <h3 id={propertiesHeadingId} className={styles.sectionTitle}>
+              {content.propertiesLabel}
+            </h3>
+            <p className={styles.sectionDescription}>
+              {content.propertiesDescription}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={styles.addProperty}
+            onClick={addProperty}
+          >
+            <PlusIcon />
+            <span>{content.addPropertyLabel}</span>
+          </button>
+        </div>
 
-                <label className={styles.fieldGroup}>
-                  <span className={styles.label}>
-                    {content.propertyTypeLabel}
-                  </span>
-                  <select
-                    className={styles.control}
-                    name={`property-${field.id}-type`}
-                    value={field.type}
-                    onChange={(event) => {
-                      updateProperty(field.id, {
-                        type: event.currentTarget.value as ApiResponseFieldType,
-                      });
-                    }}
-                  >
-                    {apiResponseFieldTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {content.typeOptions[type]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+        {fields.length > 0 ? (
+          <div
+            className={styles.propertyColumnsHeader}
+            aria-hidden="true"
+            data-has-array={hasArrayFields}
+          >
+            <span>{content.propertyNameLabel}</span>
+            <span>{content.propertyTypeLabel}</span>
+            {hasArrayFields ? (
+              <span>{content.arrayItemTypeLabel}</span>
+            ) : null}
+          </div>
+        ) : null}
 
-                {field.type === "array" ? (
+        <ul className={styles.propertyList}>
+          {fields.map((field, index) => (
+            <li key={field.id}>
+              <fieldset className={styles.propertyCard}>
+                <VisuallyHidden as="legend">
+                  {content.propertiesLabel} {index + 1}
+                </VisuallyHidden>
+                <div
+                  className={styles.propertyGrid}
+                  data-has-array={hasArrayFields}
+                >
                   <label className={styles.fieldGroup}>
-                    <span className={styles.label}>
-                      {content.arrayItemTypeLabel}
-                    </span>
-                    <select
-                      className={styles.control}
-                      name={`property-${field.id}-array-item-type`}
-                      value={field.arrayItemType}
+                    <TextInput
+                      tone="nested"
+                      name={`property-${field.id}-name`}
+                      aria-label={content.propertyNameLabel}
+                      autoComplete="off"
+                      spellCheck={false}
+                      required
+                      aria-invalid={
+                        (
+                          duplicatePropertyNames.has(field.name.trim())
+                          || invalidPropertyNameIds.has(field.id)
+                        )
+                          ? true
+                          : undefined
+                      }
+                      aria-describedby={
+                        (
+                          duplicatePropertyNames.has(field.name.trim())
+                          || invalidPropertyNameIds.has(field.id)
+                        )
+                          ? validationErrorId
+                          : undefined
+                      }
+                      pattern={typeScriptIdentifierPattern.source}
+                      title={content.identifierHint}
+                      placeholder={content.propertyNamePlaceholder}
+                      value={field.name}
                       onChange={(event) => {
                         updateProperty(field.id, {
-                          arrayItemType: event.currentTarget
-                            .value as ApiResponseArrayItemType,
+                          name: event.currentTarget.value,
                         });
                       }}
-                    >
-                      {apiResponseArrayItemTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {content.typeOptions[type]}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
-                ) : <span aria-hidden="true" />}
 
-                <label className={styles.checkbox}>
-                  <input
-                    type="checkbox"
+                  <div className={styles.fieldGroup}>
+                    <SelectMenu
+                      height="large"
+                      label={content.propertyTypeLabel}
+                      menuPlacement="top"
+                      options={apiResponseFieldTypes.map((type) => ({
+                        id: type,
+                        kind: "action",
+                        label: content.typeOptions[type],
+                        onSelect: () => {
+                          updateProperty(field.id, { type });
+                        },
+                      } satisfies SelectMenuOption))}
+                      rounded
+                      selectedId={field.type}
+                      width="field"
+                    />
+                  </div>
+
+                  {field.type === "array" ? (
+                    <div className={styles.fieldGroup}>
+                      <SelectMenu
+                        height="large"
+                        label={content.arrayItemTypeLabel}
+                        menuPlacement="top"
+                        options={apiResponseArrayItemTypes.map((type) => ({
+                          id: type,
+                          kind: "action",
+                          label: content.typeOptions[type],
+                          onSelect: () => {
+                            updateProperty(field.id, {
+                              arrayItemType: type,
+                            });
+                          },
+                        } satisfies SelectMenuOption))}
+                        rounded
+                        selectedId={field.arrayItemType}
+                        width="field"
+                      />
+                    </div>
+                  ) : hasArrayFields ? (
+                    <span
+                      className={styles.arrayItemPlaceholder}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+
+                  <CheckboxWithLabel
+                    className={styles.checkboxField}
+                    label={content.optionalLabel}
                     name={`property-${field.id}-optional`}
                     checked={field.optional}
                     onChange={(event) => {
@@ -369,22 +532,21 @@ export function ResponseSchemaEditor({
                       });
                     }}
                   />
-                  <span>{content.optionalLabel}</span>
-                </label>
 
-                <IconButton
-                  type="button"
-                  className={styles.removeProperty}
-                  aria-label={`${content.removePropertyLabel} ${index + 1}`}
-                  onClick={() => removeProperty(field.id)}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </div>
-            </fieldset>
-          </li>
-        ))}
-      </ul>
+                  <IconButton
+                    type="button"
+                    className={styles.removeProperty}
+                    aria-label={`${content.removePropertyLabel} ${index + 1}`}
+                    onClick={() => removeProperty(field.id)}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </div>
+              </fieldset>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {visibleValidationError ? (
         <p

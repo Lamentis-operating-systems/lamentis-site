@@ -16,7 +16,6 @@ import {
 } from "@/domain/site/local-storage";
 
 const apiSkillModuleState = vi.hoisted(() => ({
-  evaluate: vi.fn(),
   generate: vi.fn(() => "# Generated API contracts"),
 }));
 const browserDownloadState = vi.hoisted(() => ({
@@ -24,7 +23,6 @@ const browserDownloadState = vi.hoisted(() => ({
 }));
 
 vi.mock("@/domain/site/api-contract-skill", () => {
-  apiSkillModuleState.evaluate();
   return {
     apiContractsAgentSkillFileName: "api-contracts-agent-skill.md",
     generateApiContractsAgentSkill: apiSkillModuleState.generate,
@@ -119,9 +117,8 @@ describe("useLocalStorageState hydration", () => {
 });
 
 describe("API-contract download loading", () => {
-  it("does not evaluate the generator module until the user requests a download", async () => {
+  it("does not generate or download until the user requests it", async () => {
     const onDownload = vi.fn();
-    expect(apiSkillModuleState.evaluate).not.toHaveBeenCalled();
 
     render(
       <ApiContractsDownloadButton
@@ -132,14 +129,12 @@ describe("API-contract download loading", () => {
       />,
     );
 
-    expect(apiSkillModuleState.evaluate).not.toHaveBeenCalled();
     expect(apiSkillModuleState.generate).not.toHaveBeenCalled();
     expect(browserDownloadState.downloadTextFile).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
 
     await waitFor(() => {
-      expect(apiSkillModuleState.evaluate).toHaveBeenCalledTimes(1);
       expect(apiSkillModuleState.generate).toHaveBeenCalledWith([]);
       expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
         contents: "# Generated API contracts",

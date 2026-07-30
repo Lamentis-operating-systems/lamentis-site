@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   useId,
   useLayoutEffect,
   useMemo,
@@ -18,52 +17,21 @@ import {
 import { parseApiRoutePath } from "@/domain/site/api-route-path";
 import { apiRoutesStorage } from "@/domain/site/api-route-storage";
 import type { ApiCreatorStudioContent } from "@/domain/site/content";
+import {
+  ApiRouteRow,
+  type ApiRouteRowContent,
+} from "./api-route-row";
 import { BracedPathInput } from "./braced-path-input";
+import textInputStyles from "./form/text-input.module.css";
 import { CheckIcon } from "./icons/check-icon";
 import { HttpMethodSelector } from "./http-method-selector";
 import { useOverlay } from "./overlay/overlay-provider";
 import { ResponseSchemaEditor } from "./response-schema-editor";
-import { RouteActionsMenu } from "./route-actions-menu";
 import { SearchSurface } from "./search-surface";
 import { useLocalStorageState } from "./use-local-storage-state";
-import { VisuallyHidden } from "./visually-hidden";
 import styles from "./search-page.module.css";
 
 const studioOverlaySize = "var(--overlay-size-large)";
-
-function RoutePath({ path }: { path: string }) {
-  const segments = parseApiRoutePath(path)?.segments ?? [];
-
-  return (
-    <span className={styles.routePath}>
-      <span className={styles.routePrefix}>/</span>
-      <span className={styles.routeSegments}>
-        {segments.map((segment, index) => (
-          <Fragment
-            key={`${
-              segment.kind === "literal" ? segment.value : segment.name
-            }-${index}`}
-          >
-            {index > 0 ? (
-              <span className={styles.routeSeparator}>/</span>
-            ) : null}
-            <span
-              className={
-                segment.kind === "parameter"
-                  ? styles.routeParameter
-                  : undefined
-              }
-            >
-              {segment.kind === "parameter"
-                ? `{${segment.name}}`
-                : segment.value}
-            </span>
-          </Fragment>
-        ))}
-      </span>
-    </span>
-  );
-}
 
 function copyRouteFallback(path: string) {
   const activeElement = document.activeElement;
@@ -138,6 +106,15 @@ export function ApiCreatorStudio({
 
     return index;
   }, [routes]);
+  const routeRowContent: ApiRouteRowContent = {
+    copyLabel: copyRouteLabel,
+    deleteLabel: deleteRouteLabel,
+    editLabel: editRouteLabel,
+    methodSelectorLabel,
+    responseTypeLabel: responseEditor.responseTypeLabel,
+    routeActionsLabel,
+    routeLabel: responseEditor.routeLabel,
+  };
 
   useLayoutEffect(() => {
     if (!focusRouteInputAfterMutation.current) return;
@@ -148,7 +125,9 @@ export function ApiCreatorStudio({
 
   function addRoute(path: string) {
     let createdRouteId: number | undefined;
+    let routesAtCreation = routes;
     setRoutes((currentRoutes) => {
+      routesAtCreation = currentRoutes;
       if (hasApiRouteIdentity(currentRoutes, { method, path })) {
         return currentRoutes;
       }
@@ -161,15 +140,32 @@ export function ApiCreatorStudio({
     });
     if (createdRouteId === undefined) return;
     const routeId = createdRouteId;
+    const createdRoute = { id: routeId, method, path };
+    const disabledMethods = httpMethods.filter((candidateMethod) => (
+      candidateMethod !== method
+      && routesAtCreation.some((route) => (
+        route.path === path && route.method === candidateMethod
+      ))
+    ));
 
     openOverlay({
       body: (
         <ResponseSchemaEditor
           content={responseEditor}
-          existingResponseSchemas={routes.flatMap((route) => (
+          disabledRouteMethods={disabledMethods}
+          existingResponseSchemas={routesAtCreation.flatMap((route) => (
             route.response ? [route.response] : []
           ))}
           formId={responseFormId}
+          onCopyRoute={() => copyRoute(path)}
+          onDeleteRoute={() => {
+            deleteRoute(routeId);
+            closeOverlay();
+          }}
+          onEditRoute={editRoute}
+          onRouteMethodChange={(nextMethod) => {
+            updateRouteMethod(routeId, nextMethod);
+          }}
           onSave={(response) => {
             let didSave = false;
             setRoutes((currentRoutes) => {
@@ -194,6 +190,8 @@ export function ApiCreatorStudio({
             closeOverlay();
             return true;
           }}
+          route={createdRoute}
+          routeContent={routeRowContent}
         />
       ),
       closeLabel: closeResponseOverlayLabel,
@@ -240,6 +238,12 @@ export function ApiCreatorStudio({
     ));
   }
 
+  function copyRoute(path: string) {
+    void writeRouteToClipboard(path).then((copied) => {
+      setCopyFailed(!copied);
+    });
+  }
+
   function editRoute() {
     openOverlay({
       closeLabel: closeEditRouteOverlayLabel,
@@ -278,38 +282,18 @@ export function ApiCreatorStudio({
               ));
 
               return (
-                <li key={route.id} className={styles.routeItem}>
-                  <div className={styles.routeMethod}>
-                    <HttpMethodSelector
-                      disabledMethods={disabledMethods}
-                      label={`${methodSelectorLabel} ${route.path}`}
-                      onChange={(nextMethod) => {
-                        updateRouteMethod(route.id, nextMethod);
-                      }}
-                      value={route.method}
-                    />
-                  </div>
-                  <RoutePath path={route.path} />
-                  <RouteActionsMenu
-                    copyLabel={copyRouteLabel}
-                    deleteLabel={deleteRouteLabel}
-                    editLabel={editRouteLabel}
-                    label={`${routeActionsLabel} ${route.path}`}
-                    onCopy={() => {
-                      void writeRouteToClipboard(route.path).then((copied) => {
-                        setCopyFailed(!copied);
-                      });
-                    }}
+                <li key={route.id}>
+                  <ApiRouteRow
+                    content={routeRowContent}
+                    disabledMethods={disabledMethods}
+                    onCopy={() => copyRoute(route.path)}
                     onDelete={() => deleteRoute(route.id)}
                     onEdit={editRoute}
-                    path={route.path}
+                    onMethodChange={(nextMethod) => {
+                      updateRouteMethod(route.id, nextMethod);
+                    }}
+                    route={route}
                   />
-                  {route.response ? (
-                    <VisuallyHidden>
-                      {responseEditor.responseTypeLabel}:{" "}
-                      {route.response.typeName}
-                    </VisuallyHidden>
-                  ) : null}
                 </li>
               );
             })}
@@ -340,7 +324,7 @@ export function ApiCreatorStudio({
       />
       <BracedPathInput
         actionLabel={actionLabel}
-        className={styles.input}
+        className={textInputStyles.input}
         getValidationReason={(path) => {
           if (!parseApiRoutePath(path)) return "syntax";
 
