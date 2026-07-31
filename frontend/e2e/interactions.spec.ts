@@ -199,7 +199,7 @@ test("control focus uses the system outline only in forced colors", async ({ pag
   await expect(navigationTrigger).toHaveCSS("box-shadow", "none");
 });
 
-test("shared controls use border-only interaction states", async ({
+test("shared controls use their intended interaction states", async ({
   page,
 }) => {
   await page.goto("/en/api-creator-studio");
@@ -255,13 +255,10 @@ test("shared controls use border-only interaction states", async ({
   const navigationTrigger = page.getByRole("button", {
     name: "Open primary navigation",
   });
-  const navigationBackground = await navigationTrigger.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
   await navigationTrigger.hover();
   await expect(navigationTrigger).toHaveCSS(
     "background-color",
-    navigationBackground,
+    "rgb(238, 238, 238)",
   );
   await expect.poll(
     () => navigationTrigger.evaluate(
@@ -272,7 +269,7 @@ test("shared controls use border-only interaction states", async ({
   await expect(navigationTrigger).toHaveCSS("outline-style", "none");
   await expect(navigationTrigger).toHaveCSS(
     "background-color",
-    navigationBackground,
+    "rgb(238, 238, 238)",
   );
   await expect.poll(
     () => navigationTrigger.evaluate(
@@ -313,7 +310,10 @@ test("shared controls use border-only interaction states", async ({
   await expect(routeActions).toHaveAttribute("aria-expanded", "true");
   await expect(routeActions).toHaveCSS("border-style", "none");
   await expect(routeActions).toHaveCSS("outline-style", "none");
-  await expect(routeActions).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(routeActions).toHaveCSS(
+    "background-color",
+    "rgb(238, 238, 238)",
+  );
   await expect.poll(
     () => routeActions.evaluate(
       (element) => getComputedStyle(element).boxShadow,

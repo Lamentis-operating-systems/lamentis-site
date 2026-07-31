@@ -1,6 +1,7 @@
 :where(.button) {
   --icon-button-background: transparent;
   --icon-button-foreground: inherit;
+  --icon-button-interaction-background: var(--color-field-focus-background);
 
   display: grid;
   width: var(--control-height);
@@ -15,7 +16,7 @@
   color: var(--icon-button-foreground);
   cursor: pointer;
   font: inherit;
-  transition-property: box-shadow, color;
+  transition-property: background-color, box-shadow, color;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--motion-easing);
 }
@@ -25,7 +26,7 @@
 .button:focus-visible:not(:disabled),
 .button[aria-expanded="true"],
 .button[aria-pressed="true"] {
-  background: var(--icon-button-background);
+  background: var(--icon-button-interaction-background);
   box-shadow: var(--shadow-control-border);
   color: var(--icon-button-foreground);
   filter: none;

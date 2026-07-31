@@ -67,6 +67,7 @@
 .action {
   --icon-button-background: var(--color-route-action-background);
   --icon-button-foreground: var(--color-route-action-foreground);
+  --icon-button-interaction-background: var(--color-route-action-background);
 
   border: 0;
   border-radius: var(--radius-full);
