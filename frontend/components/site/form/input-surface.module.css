@@ -14,19 +14,17 @@
   border-radius: var(--radius-full);
   background: var(--color-field-background);
   color: var(--color-text-muted);
-  transition-property: background-color, color;
+  transition-property: box-shadow;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--motion-easing);
 }
 
-.surface:focus-within {
-  --control-caret: var(--color-focus-foreground);
-  --control-foreground: var(--color-focus-foreground);
-  --control-muted-foreground: var(--color-focus-foreground);
-  --control-placeholder: var(--color-focus-foreground);
+.surface:has(input:hover) {
+  box-shadow: var(--shadow-control-border);
+}
 
-  background: var(--color-focus-background);
-  color: var(--color-focus-foreground);
+.surface:has(input:focus) {
+  box-shadow: var(--shadow-control-border);
 }
 
 .surfaceNested {
@@ -49,7 +47,8 @@
 }
 
 @media (forced-colors: active) {
-  .surface:focus-within {
+  .surface:has(input:focus) {
+    box-shadow: none;
     outline:
       var(--focus-ring-width)
       solid

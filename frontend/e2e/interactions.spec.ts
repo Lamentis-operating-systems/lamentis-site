@@ -136,19 +136,19 @@ test("search accepts text without submitting or changing the route", async ({ pa
   await expect(search).toHaveValue("Lamentis");
 });
 
-test("search focus uses a borderless shared surface highlight", async ({ page }) => {
+test("search focus uses the shared border without changing its surface", async ({ page }) => {
   const focusSchemes = [
     {
       colorScheme: "light",
-      background: "rgb(102, 102, 102)",
-      icon: "rgb(255, 255, 255)",
-      placeholder: "rgb(255, 255, 255)",
+      background: "rgb(247, 247, 247)",
+      icon: "rgb(102, 102, 102)",
+      placeholder: "rgb(102, 102, 102)",
     },
     {
       colorScheme: "dark",
-      background: "rgb(110, 110, 110)",
-      icon: "rgb(255, 255, 255)",
-      placeholder: "rgb(255, 255, 255)",
+      background: "rgb(33, 33, 33)",
+      icon: "rgba(255, 255, 255, 0.6)",
+      placeholder: "rgb(175, 175, 175)",
     },
   ] as const;
 
@@ -167,7 +167,11 @@ test("search focus uses a borderless shared surface highlight", async ({ page })
     expect(placeholderColor).toBe(scheme.placeholder);
     await expect(searchRegion).toHaveCSS("border-style", "none");
     await expect(searchRegion).toHaveCSS("outline-style", "none");
-    await expect(searchRegion).toHaveCSS("box-shadow", "none");
+    await expect.poll(
+      () => searchRegion.evaluate(
+        (element) => getComputedStyle(element).boxShadow,
+      ),
+    ).toMatch(/1px inset/);
   }
 });
 
@@ -185,14 +189,19 @@ test("search focus uses the system outline only in forced colors", async ({ page
   await expect(searchRegion).toHaveCSS("box-shadow", "none");
 });
 
-test("platform controls use borderless focus and open-state feedback", async ({
+test("shared fields use borders while other buttons keep focus fills", async ({
   page,
 }) => {
   await page.goto("/en/api-creator-studio");
 
   const method = page.getByRole("button", { name: "HTTP method GET" });
   await expect(method).toHaveCSS("border-style", "none");
-  await expect(method).toHaveCSS("box-shadow", "none");
+  await method.hover();
+  await expect.poll(
+    () => method.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
 
   const routeInput = page.getByRole("textbox", {
     name: "API endpoint path",
@@ -203,21 +212,34 @@ test("platform controls use borderless focus and open-state feedback", async ({
   await routeInput.focus();
   await expect(routeSurface).toHaveCSS("border-style", "none");
   await expect(routeSurface).toHaveCSS("outline-style", "none");
-  await expect(routeSurface).toHaveCSS("box-shadow", "none");
   await expect(routeSurface).toHaveCSS(
     "background-color",
-    "rgb(102, 102, 102)",
+    "rgb(247, 247, 247)",
   );
+  await expect.poll(
+    () => routeSurface.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
 
   await method.focus();
   await expect(method).toHaveCSS("outline-style", "none");
-  await expect(method).toHaveCSS("box-shadow", "none");
-  await expect(method).toHaveCSS("background-color", "rgb(102, 102, 102)");
-  await expect(method).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(method).toHaveCSS("background-color", "rgb(250, 250, 250)");
+  await expect(routeSurface).toHaveCSS("box-shadow", "none");
+  await expect.poll(
+    () => method.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
   await page.keyboard.press("Enter");
   await expect(method).toHaveAttribute("aria-expanded", "true");
   await expect(method).toHaveCSS("border-style", "none");
-  await expect(method).toHaveCSS("box-shadow", "none");
+  await expect(method).toHaveCSS("background-color", "rgb(250, 250, 250)");
+  await expect.poll(
+    () => method.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
   await page.keyboard.press("Escape");
 
   const navigationTrigger = page.getByRole("button", {
@@ -238,7 +260,7 @@ test("platform controls use borderless focus and open-state feedback", async ({
   await expect(download).toHaveCSS("background-color", "rgb(102, 102, 102)");
   await expect(download).toHaveCSS("color", "rgb(255, 255, 255)");
 
-  await routeInput.fill("borderless");
+  await routeInput.fill("bordered");
   await routeInput.press("Enter");
   const responseDialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
@@ -248,7 +270,7 @@ test("platform controls use borderless focus and open-state feedback", async ({
   await expect(responseDialog).not.toBeVisible();
 
   const routeActions = page.getByRole("button", {
-    name: "Route actions /borderless",
+    name: "Route actions /bordered",
   });
   await routeActions.click();
   await expect(routeActions).toHaveAttribute("aria-expanded", "true");

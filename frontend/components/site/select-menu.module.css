@@ -27,7 +27,7 @@
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-compact);
-  transition-property: background-color, color;
+  transition-property: box-shadow, color;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--motion-easing);
 }
@@ -53,12 +53,15 @@
 }
 
 .trigger:hover:not(:disabled) {
+  box-shadow: var(--shadow-control-border);
   color: var(--color-text);
   transform: none;
 }
 
+.trigger:focus-visible:not(:disabled),
 .trigger[aria-expanded="true"] {
-  background-color: var(--color-field-focus-background);
+  background-color: var(--color-field-menu-background);
+  box-shadow: var(--shadow-control-border);
   color: var(--color-text);
 }
 
