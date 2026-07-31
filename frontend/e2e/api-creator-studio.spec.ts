@@ -858,6 +858,18 @@ test("prefills a path contract and persists explicit parameters and behavior", a
     .toHaveValue("uuid");
   await expect(details.getByRole("textbox", { name: "Format 1" }))
     .toHaveValue("uuid");
+  const requiredBounds = await details.getByRole("checkbox", {
+    name: "Required",
+  }).boundingBox();
+  const removeBounds = await details.getByRole("button", {
+    name: "Remove parameter 1",
+  }).boundingBox();
+  expect(requiredBounds).not.toBeNull();
+  expect(removeBounds).not.toBeNull();
+  expect(Math.abs(
+    requiredBounds!.y + requiredBounds!.height / 2
+      - (removeBounds!.y + removeBounds!.height / 2),
+  )).toBeLessThan(2);
 
   await details.getByRole("button", { name: "Add parameter" }).click();
   await details.getByRole("textbox", { name: "Parameter name 2" }).fill("limit");

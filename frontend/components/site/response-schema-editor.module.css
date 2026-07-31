@@ -109,6 +109,10 @@
   gap: var(--space-3);
 }
 
+.parameterActions {
+  display: contents;
+}
+
 .responseMetadataRow {
   display: grid;
   min-width: 0;
@@ -428,6 +432,15 @@
 
   .contractWideField {
     grid-column: auto;
+  }
+
+  .parameterActions {
+    display: flex;
+    min-width: 0;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 }
 

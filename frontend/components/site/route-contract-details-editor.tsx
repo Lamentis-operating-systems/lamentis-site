@@ -345,21 +345,23 @@ export const RouteContractDetailsEditor = forwardRef<
                   description: event.currentTarget.value,
                 })}
               />
-              <CheckboxWithLabel
-                checked={pathParameter || parameter.required}
-                disabled={pathParameter}
-                label={content.requiredLabel}
-                onChange={(event) => updateParameter(parameter.id, {
-                  required: event.currentTarget.checked,
-                })}
-              />
-              <IconButton
-                aria-label={`${content.removeParameterLabel} ${position}`}
-                disabled={pathParameter}
-                onClick={() => removeParameter(parameter.id)}
-              >
-                <CloseIcon />
-              </IconButton>
+              <div className={styles.parameterActions}>
+                <CheckboxWithLabel
+                  checked={pathParameter || parameter.required}
+                  disabled={pathParameter}
+                  label={content.requiredLabel}
+                  onChange={(event) => updateParameter(parameter.id, {
+                    required: event.currentTarget.checked,
+                  })}
+                />
+                <IconButton
+                  aria-label={`${content.removeParameterLabel} ${position}`}
+                  disabled={pathParameter}
+                  onClick={() => removeParameter(parameter.id)}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </div>
             </div>
           );
         })}
