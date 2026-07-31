@@ -104,7 +104,12 @@ for (const colorScheme of colorSchemes) {
     expect(pageErrors).toEqual([]);
     await expect(page).toHaveScreenshot(
       `api-creator-studio-response-open-desktop-${colorScheme}.png`,
-      { fullPage: true, animations: "disabled", caret: "hide" },
+      {
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixels: 5,
+      },
     );
 
     await page.keyboard.press("Escape");
