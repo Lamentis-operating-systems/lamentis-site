@@ -650,6 +650,18 @@ test("renders object definitions inline without an empty state", async ({
       endCapRadius: "8px",
     },
   ]);
+  await addObjectProperty.click();
+  const nestedPropertyRows = nestedProperties.locator(":scope > ul > li");
+  await expect(nestedPropertyRows).toHaveCount(2);
+  const connectorGapGeometry = await Promise.all([
+    nestedPropertyRows.nth(0).evaluate((element) => (
+      getComputedStyle(element, "::after").insetBlockEnd
+    )),
+    nestedPropertyRows.nth(1).evaluate((element) => (
+      getComputedStyle(element, "::before").insetBlockStart
+    )),
+  ]);
+  expect(connectorGapGeometry).toEqual(["0px", "-12px"]);
   const objectRemove = dialog.getByRole("button", {
     name: "Remove property 1",
     exact: true,
