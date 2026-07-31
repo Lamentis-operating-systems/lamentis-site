@@ -782,6 +782,18 @@ describe("search page", () => {
     const responseDialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    const requestToggle = within(responseDialog).getByRole("button", {
+      name: "Request type: Expand",
+    });
+    const responseToggle = within(responseDialog).getByRole("button", {
+      name: "Response type: Expand",
+    });
+    expect(requestToggle).toHaveAttribute("aria-expanded", "false");
+    expect(responseToggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(responseDialog).queryByRole("textbox", {
+      name: "Response type",
+    })).not.toBeInTheDocument();
+    fireEvent.click(responseToggle);
     const responsePanel = responseDialog.querySelector("section");
     expect(responseDialog).toHaveAttribute("data-placement", "bottom-right");
     expect(responsePanel?.style.getPropertyValue("--overlay-width")).toBe(
@@ -790,11 +802,6 @@ describe("search page", () => {
     expect(responsePanel?.style.getPropertyValue("--overlay-height")).toBe(
       "var(--overlay-size-large)",
     );
-    await waitFor(() => {
-      expect(within(responseDialog).getByRole("textbox", {
-        name: "Response type",
-      })).toHaveFocus();
-    });
     expect(responseDialog.querySelector("header")).toHaveTextContent(
       "Add a data structure to this route",
     );
@@ -842,10 +849,9 @@ describe("search page", () => {
     })).toHaveAccessibleDescription(
       "Create a response type or use an existing one as an editable template.",
     );
-    expect(within(responseDialog).getByRole("heading", {
-      level: 3,
-      name: "Response type",
-    })).toBeInTheDocument();
+    expect(within(responseDialog).getByRole("button", {
+      name: "Response type: Collapse",
+    })).toHaveAttribute("aria-expanded", "true");
     expect(within(responseDialog).queryByRole("heading", {
       name: "Response properties",
     })).not.toBeInTheDocument();
@@ -1084,6 +1090,9 @@ describe("search page", () => {
     const editDialog = await screen.findByRole("dialog", {
       name: "Edit this route",
     });
+    fireEvent.click(within(editDialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     expect(editDialog.querySelector("header")).toHaveTextContent(
       "Edit this route",
     );
@@ -1106,11 +1115,6 @@ describe("search page", () => {
     expect(within(editDialog).getByRole("textbox", {
       name: "Response type",
     })).toHaveValue("UserResponse");
-    await waitFor(() => {
-      expect(within(editDialog).getByRole("textbox", {
-        name: "Response type",
-      })).toHaveFocus();
-    });
     expect(within(editDialog).getAllByRole("textbox", {
       name: /^Property name /,
     })).toHaveLength(2);
@@ -1162,6 +1166,9 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Response type" }),
@@ -1217,6 +1224,66 @@ describe("search page", () => {
     });
   });
 
+  it("authors request and paginated response contracts from collapsed sections", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="request-pagination-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{ id: 12, method: "POST", path: "/search" }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    const requestRegion = screen.getByRole("region", { name: "Request type" });
+    const responseRegion = screen.getByRole("region", { name: "Response type" });
+    fireEvent.click(within(requestRegion).getByRole("button", {
+      name: "Request type: Expand",
+    }));
+    fireEvent.change(within(requestRegion).getByRole("textbox", {
+      name: "Request type",
+    }), { target: { value: "SearchRequest" } });
+    fireEvent.click(within(requestRegion).getByRole("button", {
+      name: "Add property",
+    }));
+    fireEvent.change(within(requestRegion).getByRole("textbox", {
+      name: /^Property name /,
+    }), { target: { value: "query" } });
+
+    fireEvent.click(within(responseRegion).getByRole("button", {
+      name: "Response type: Expand",
+    }));
+    fireEvent.change(within(responseRegion).getByRole("textbox", {
+      name: "Response type",
+    }), { target: { value: "SearchResult" } });
+    const pagination = within(responseRegion).getByRole("button", {
+      name: "Paginated response",
+    });
+    expect(pagination).toHaveAttribute("data-variant", "transparent");
+    expect(pagination).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(pagination);
+    expect(pagination).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.submit(document.querySelector("#request-pagination-form")!);
+    expect(onSave).toHaveBeenCalledWith({
+      paginated: true,
+      request: {
+        fields: [{ name: "query", optional: false, type: "string" }],
+        typeName: "SearchRequest",
+      },
+      response: { fields: [], typeName: "SearchResult" },
+    }, { method: "POST", path: "/search" });
+  });
+
   it("prefills reusable response types and requires a new name for schema edits", async () => {
     const onSave = vi.fn(() => "saved" as const);
     const existingResponseSchemas = [
@@ -1250,7 +1317,7 @@ describe("search page", () => {
       <>
         <ResponseSchemaEditor
           content={apiCreatorStudioProps.responseEditor}
-          existingResponseSchemas={existingResponseSchemas}
+          existingSchemas={existingResponseSchemas}
           formId="response-prefill-form"
           getRouteValidationReason={() => null}
           onRouteMethodChange={vi.fn()}
@@ -1274,6 +1341,10 @@ describe("search page", () => {
         </button>
       </>,
     );
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Response type: Expand",
+    }));
 
     const form = document.querySelector<HTMLFormElement>(
       "#response-prefill-form",
@@ -1313,14 +1384,17 @@ describe("search page", () => {
     });
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      fields: [
-        {
-          name: "id",
-          optional: false,
-          type: "string",
-        },
-      ],
-      typeName: "UserResponse",
+      paginated: false,
+      response: {
+        fields: [
+          {
+            name: "id",
+            optional: false,
+            type: "string",
+          },
+        ],
+        typeName: "UserResponse",
+      },
     }, {
       method: "GET",
       path: "/accounts",
@@ -1357,10 +1431,13 @@ describe("search page", () => {
 
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      fields: [
-        { name: "id", optional: false, type: "number" },
-      ],
-      typeName: "AccountResponse",
+      paginated: false,
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "number" },
+        ],
+        typeName: "AccountResponse",
+      },
     }, {
       method: "GET",
       path: "/accounts",
@@ -1405,21 +1482,24 @@ describe("search page", () => {
     });
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      fields: [
-        { name: "id", optional: false, type: "number" },
-        {
-          name: "profile",
-          objectSchema: {
-            fields: [
-              { name: "id", optional: false, type: "string" },
-            ],
-            typeName: "AccountResponseProfile",
+      paginated: false,
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "number" },
+          {
+            name: "profile",
+            objectSchema: {
+              fields: [
+                { name: "id", optional: false, type: "string" },
+              ],
+              typeName: "AccountResponseProfile",
+            },
+            optional: false,
+            type: "object",
           },
-          optional: false,
-          type: "object",
-        },
-      ],
-      typeName: "AccountResponse",
+        ],
+        typeName: "AccountResponse",
+      },
     }, {
       method: "GET",
       path: "/accounts",
@@ -1465,6 +1545,9 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Response type" }),
@@ -1541,6 +1624,9 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Edit this route",
     });
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     const routeEditor = within(dialog).getByRole("group", {
       name: "API endpoint path",
     });

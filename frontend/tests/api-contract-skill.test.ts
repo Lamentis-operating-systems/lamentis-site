@@ -302,4 +302,26 @@ describe("API-contract agent skill", () => {
     );
     expect(skill).toContain("No response models are defined.");
   });
+
+  it("exports request models and a deterministic pagination wrapper", () => {
+    const skill = generateApiContractsAgentSkill([{
+      id: 0,
+      method: "POST",
+      path: "/users/search",
+      paginated: true,
+      request: {
+        fields: [{ name: "query", optional: false, type: "string" }],
+        typeName: "UserSearchRequest",
+      },
+      response: userResponse,
+    }]);
+
+    expect(skill).toContain("- Request model: `UserSearchRequest`");
+    expect(skill).toContain("- Response model: `UserResponsePage`");
+    expect(skill).toContain("items: UserResponse[];");
+    expect(skill).toContain("totalHits: number;");
+    expect(skill).toContain("page: number;");
+    expect(skill).toContain("totalPages: number;");
+    expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
+  });
 });

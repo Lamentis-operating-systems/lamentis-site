@@ -2,6 +2,7 @@ import {
   expect,
   test,
   type Download,
+  type Locator,
   type Page,
 } from "@playwright/test";
 import { Buffer } from "node:buffer";
@@ -43,6 +44,13 @@ async function readDownload(download: Download): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+async function expandResponseType(dialog: Locator) {
+  const toggle = dialog.getByRole("button", {
+    name: "Response type: Expand",
+  });
+  if (await toggle.count()) await toggle.click();
+}
+
 test("adds and persists a route while restoring focus after Escape", {
   tag: "@cross-browser-smoke",
 }, async ({ page }) => {
@@ -58,9 +66,13 @@ test("adds and persists a route while restoring focus after Escape", {
     name: "Add a data structure to this route",
   });
   await expect(responseDialog).toBeVisible();
-  await expect(responseDialog.getByRole("textbox", {
-    name: "Response type",
-  })).toBeFocused();
+  await expect(responseDialog.getByRole("button", {
+    name: "Request type: Expand",
+  })).toHaveAttribute("aria-expanded", "false");
+  await expect(responseDialog.getByRole("button", {
+    name: "Response type: Expand",
+  })).toHaveAttribute("aria-expanded", "false");
+  await expandResponseType(responseDialog);
   await expect(responseDialog.getByText(
     "Create a response type or use an existing one as an editable template.",
   )).toBeVisible();
@@ -220,6 +232,7 @@ test("keeps edit-route changes atomic until Save", async ({ page }) => {
   }).getByRole("button", { name: "Edit /users/{id}" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Edit this route" });
+  await expandResponseType(dialog);
   const routeEditor = dialog.getByRole("group", {
     name: "API endpoint path",
   });
@@ -348,6 +361,7 @@ test("prevents incompatible response-type reuse before persistence", async ({
   const responseDialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
+  await expandResponseType(responseDialog);
   const save = responseDialog.getByRole("button", { name: "Save" });
   const responseType = responseDialog.getByRole("textbox", {
     name: "Response type",
@@ -443,6 +457,7 @@ test("derives object names from properties and can prefill an existing model", a
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
+  await expandResponseType(dialog);
   const save = dialog.getByRole("button", { name: "Save" });
   await dialog.getByRole("textbox", {
     name: "Response type",
@@ -581,6 +596,7 @@ test("renders object definitions inline without an empty state", async ({
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
+  await expandResponseType(dialog);
   await dialog.getByRole("button", { name: "Add property" }).click();
   await dialog.getByRole("textbox", {
     name: "Property name 1",
@@ -612,7 +628,9 @@ test("renders object definitions inline without an empty state", async ({
   await expect(nestedProperties.getByRole("textbox", {
     name: "Property name 1.1",
   })).toBeVisible();
-  const rootProperties = dialog.locator('[data-root-properties="true"]');
+  const rootProperties = dialog.getByRole("region", {
+    name: "Response type",
+  }).locator('[data-root-properties="true"]');
   await expect(rootProperties).toHaveCount(1);
   await expect(rootProperties).toHaveCSS("padding-inline-start", "16px");
   const rootPropertyRow = rootProperties.locator(":scope > li");
@@ -713,6 +731,69 @@ test("downloads the persisted contracts with the stable file contract", {
   expect(contents).toContain("name: implement-api-contracts");
   expect(contents).toContain("### `GET /orders/{orderid}`");
   expect(contents).not.toContain("No API contracts are defined.");
+});
+
+test("persists request and paginated response sections and exports the wrapper", async ({
+  page,
+}) => {
+  await page.goto(studioPath);
+  await page.getByRole("textbox", { name: "API endpoint path" }).fill("search");
+  await page.getByRole("textbox", { name: "API endpoint path" }).press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  const requestToggle = dialog.getByRole("button", {
+    name: "Request type: Expand",
+  });
+  const responseToggle = dialog.getByRole("button", {
+    name: "Response type: Expand",
+  });
+  await expect(requestToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(responseToggle).toHaveAttribute("aria-expanded", "false");
+
+  await requestToggle.click();
+  const requestRegion = dialog.getByRole("region", { name: "Request type" });
+  await requestRegion.getByRole("textbox", { name: "Request type" })
+    .fill("SearchRequest");
+  await requestRegion.getByRole("button", { name: "Add property" }).click();
+  await requestRegion.getByRole("textbox", { name: "Property name 1" })
+    .fill("query");
+
+  await responseToggle.click();
+  const responseRegion = dialog.getByRole("region", { name: "Response type" });
+  await responseRegion.getByRole("textbox", { name: "Response type" })
+    .fill("SearchResult");
+  const pagination = responseRegion.getByRole("button", {
+    name: "Paginated response",
+  });
+  await expect(pagination).toHaveAttribute("data-variant", "transparent");
+  await pagination.click();
+  await expect(pagination).toHaveAttribute("aria-pressed", "true");
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  await expect.poll(() => page.evaluate((key) => JSON.parse(
+    window.localStorage.getItem(key) ?? "[]",
+  ), apiRoutesStorage.key)).toEqual([{
+    id: 0,
+    method: "GET",
+    paginated: true,
+    path: "/search",
+    request: {
+      fields: [{ name: "query", optional: false, type: "string" }],
+      typeName: "SearchRequest",
+    },
+    response: { fields: [], typeName: "SearchResult" },
+  }]);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download" }).click();
+  const skill = await readDownload(await downloadPromise);
+  expect(skill).toContain("Request model: `SearchRequest`");
+  expect(skill).toContain("Response model: `SearchResultPage`");
+  expect(skill).toContain("items: SearchResult[];");
+  expect(skill).toContain("totalHits: number;");
+  expect(skill).toContain("totalPages: number;");
 });
 
 test("blocks contract download when stored routes are invalid", async ({

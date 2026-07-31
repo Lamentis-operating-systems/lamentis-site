@@ -145,6 +145,10 @@ export function ApiCreatorStudio({
       ? {
           ...responseEditor,
           responseTypeDescription: editResponseTypeDescription,
+          typeDescriptionByKind: {
+            ...responseEditor.typeDescriptionByKind,
+            response: editResponseTypeDescription,
+          },
         }
       : responseEditor;
 
@@ -153,10 +157,12 @@ export function ApiCreatorStudio({
         <ResponseSchemaEditor
           content={editorContent}
           disabledRouteMethods={disabledMethods}
-          existingResponseSchemas={routeSnapshot.flatMap(
+          existingSchemas={routeSnapshot.flatMap(
             (candidateRoute) => (
-              candidateRoute.id !== route.id && candidateRoute.response
-                ? [candidateRoute.response]
+              candidateRoute.id !== route.id
+                ? [candidateRoute.request, candidateRoute.response].filter(
+                    (schema): schema is NonNullable<typeof schema> => Boolean(schema),
+                  )
                 : []
             ),
           )}
@@ -168,7 +174,6 @@ export function ApiCreatorStudio({
               route.id,
             )
           )}
-          initialSchema={mode === "edit" ? route.response : undefined}
           {...(mode === "create"
             ? {
                 onRouteMethodChange: (nextMethod: HttpMethod) => {
@@ -176,12 +181,14 @@ export function ApiCreatorStudio({
                 },
               }
             : {})}
-          onSave={(response, nextRoute) => {
+          onSave={(contract, nextRoute) => {
             const { result } = transactRoutes((currentRoutes) => {
               const transition = transitionApiRouteWorkspaceSave(
                 currentRoutes,
                 {
-                  response,
+                  paginated: contract.paginated === true,
+                  request: contract.request,
+                  response: contract.response!,
                   route: nextRoute,
                   routeId: route.id,
                 },

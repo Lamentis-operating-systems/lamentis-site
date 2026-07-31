@@ -68,6 +68,27 @@ describe("API-route workspace", () => {
     });
   });
 
+  it("saves an optional request schema and pagination with the response", () => {
+    const request: ApiResponseSchema = {
+      fields: [{ name: "search", optional: false, type: "string" }],
+      typeName: "AccountRequest",
+    };
+    const transition = transitionApiRouteWorkspaceSave(routes, {
+      paginated: true,
+      request,
+      response: userResponse,
+      route: { method: "POST", path: "/accounts" },
+      routeId: 2,
+    });
+
+    expect(transition.result).toBe("saved");
+    expect(transition.routes[1]).toMatchObject({
+      paginated: true,
+      request,
+      response: userResponse,
+    });
+  });
+
   it("reports a missing route without replacing the workspace", () => {
     const transition = transitionApiRouteWorkspaceSave(routes, {
       response: userResponse,

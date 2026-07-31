@@ -39,6 +39,20 @@ describe("API-route persistence schema", () => {
       },
     }])).toBe(true);
     expect(apiRoutesStorage.key).toBe("lamentis:api-creator-routes:v1");
+    expect(isApiRouteContractList([{
+      ...validRoute,
+      paginated: true,
+      request: {
+        fields: [{ name: "query", optional: false, type: "string" }],
+        typeName: "UserRequest",
+      },
+    }])).toBe(true);
+    expect(isApiRouteContractList([{
+      id: 4,
+      method: "GET",
+      paginated: true,
+      path: "/invalid-page",
+    }])).toBe(false);
   });
 
   it.each([

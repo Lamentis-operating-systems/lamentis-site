@@ -1,6 +1,7 @@
 import type { ApiResponseSchema } from "./api-response-schema";
+import { hasIncompatibleApiResponseSchema } from "./api-response-schema";
 import {
-  hasApiResponseSchemaConflict,
+  hasApiSchemaConflict,
   hasApiRouteIdentity,
   httpMethods,
   type ApiRouteContract,
@@ -20,6 +21,8 @@ export type ApiRouteWorkspaceSaveTransition = {
 };
 
 type ApiRouteWorkspaceSaveRequest = {
+  paginated?: boolean;
+  request?: ApiResponseSchema;
   response: ApiResponseSchema;
   route: Pick<ApiRouteContract, "method" | "path">;
   routeId: number;
@@ -32,6 +35,8 @@ export type ApiRouteWorkspaceValidationReason =
 export function transitionApiRouteWorkspaceSave(
   routes: ApiRouteContract[],
   {
+    paginated,
+    request,
     response,
     route,
     routeId,
@@ -45,7 +50,14 @@ export function transitionApiRouteWorkspaceSave(
     return { result: "route-conflict", routes };
   }
 
-  if (hasApiResponseSchemaConflict(routes, response, routeId)) {
+  if (
+    hasApiSchemaConflict(routes, response, routeId)
+    || (request && hasApiSchemaConflict(routes, request, routeId))
+    || (
+      request
+      && hasIncompatibleApiResponseSchema([request], response)
+    )
+  ) {
     return { result: "schema-conflict", routes };
   }
 
@@ -56,6 +68,8 @@ export function transitionApiRouteWorkspaceSave(
         ? {
             ...candidateRoute,
             ...route,
+            ...(paginated ? { paginated: true } : { paginated: undefined }),
+            ...(request ? { request } : { request: undefined }),
             response,
           }
         : candidateRoute

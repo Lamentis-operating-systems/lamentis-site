@@ -15,6 +15,8 @@ export type ApiRouteContract = {
   id: number;
   method: HttpMethod;
   path: string;
+  paginated?: boolean;
+  request?: ApiResponseSchema;
   response?: ApiResponseSchema;
 };
 
@@ -52,6 +54,23 @@ export function hasApiResponseSchemaConflict(
   );
 }
 
+export function hasApiSchemaConflict(
+  routes: readonly ApiRouteContract[],
+  candidate: ApiResponseSchema,
+  excludingId?: number,
+): boolean {
+  return hasIncompatibleApiResponseSchema(
+    routes.flatMap((route) => (
+      route.id !== excludingId
+        ? [route.request, route.response].filter(
+            (schema): schema is ApiResponseSchema => Boolean(schema),
+          )
+        : []
+    )),
+    candidate,
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -78,8 +97,16 @@ function isApiRouteContract(
   }
 
   return (
-    value.response === undefined
-    || isValidPersistedApiResponseSchema(value.response)
+    (value.paginated === undefined || typeof value.paginated === "boolean")
+    && (
+      value.request === undefined
+      || isValidPersistedApiResponseSchema(value.request)
+    )
+    && (
+      value.response === undefined
+      || isValidPersistedApiResponseSchema(value.response)
+    )
+    && (!value.paginated || value.response !== undefined)
   );
 }
 

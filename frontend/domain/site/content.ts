@@ -32,13 +32,19 @@ export type ResponseSchemaEditorContent = {
   addPropertyLabel: string;
   arrayConnectorLabel: string;
   arrayItemTypeLabel: string;
+  collapseSectionLabel: string;
   duplicatePropertyError: string;
+  expandSectionLabel: string;
   identifierHint: string;
   incompleteSchemaError: string;
+  newSchemaTypeLabel: string;
   newResponseTypeLabel: string;
   objectTypeTemplateLabel: string;
   optionalLabel: string;
+  paginationDescription: string;
+  paginationLabel: string;
   propertiesLabel: string;
+  propertiesLabelByKind: Record<"request" | "response", string>;
   propertyNameLabel: string;
   propertyNamePlaceholder: string;
   propertyTypeLabel: string;
@@ -48,9 +54,14 @@ export type ResponseSchemaEditorContent = {
   responseTypeLabel: string;
   responseTypePlaceholder: string;
   responseTypeTemplateLabel: string;
+  schemaTypeConflictError: string;
   routeLabel: string;
   saveLabel: string;
+  typeDescriptionByKind: Record<"request" | "response", string>;
+  typeLabelByKind: Record<"request" | "response", string>;
   typeOptions: Record<ApiResponseFieldType, string>;
+  typePlaceholderByKind: Record<"request" | "response", string>;
+  typeTemplateLabelByKind: Record<"request" | "response", string>;
 };
 
 export type ApiCreatorStudioContent = SearchContent & {
@@ -161,20 +172,32 @@ export const contentByLocale = {
         addPropertyLabel: "Add property",
         arrayConnectorLabel: "of",
         arrayItemTypeLabel: "Array item type",
+        collapseSectionLabel: "Collapse",
         duplicatePropertyError: "Property names must be unique.",
+        expandSectionLabel: "Expand",
         identifierHint: "Use a valid TypeScript identifier.",
         incompleteSchemaError:
           "Complete every object type and property before saving.",
+        newSchemaTypeLabel: "New",
         newResponseTypeLabel: "New",
         objectTypeTemplateLabel: "Object type template",
         optionalLabel: "Optional",
+        paginationDescription:
+          "Wrap the response in a paginated result with items, totalHits, page, and totalPages.",
+        paginationLabel: "Paginated response",
         propertiesLabel: "Response properties",
+        propertiesLabelByKind: {
+          request: "Request properties",
+          response: "Response properties",
+        },
         propertyNameLabel: "Property name",
         propertyNamePlaceholder: "propertyName",
         propertyTypeLabel: "Property type",
         removePropertyLabel: "Remove property",
         responseTypeConflictError:
           "This response type already uses a different schema.",
+        schemaTypeConflictError:
+          "This type name already uses a different schema.",
         responseTypeDescription:
           "Create a response type or use an existing one as an editable template.",
         responseTypeLabel: "Response type",
@@ -182,6 +205,16 @@ export const contentByLocale = {
         responseTypeTemplateLabel: "Response type template",
         routeLabel: "Route",
         saveLabel: "Save",
+        typeDescriptionByKind: {
+          request:
+            "Create a request type or use an existing one as an editable template.",
+          response:
+            "Create a response type or use an existing one as an editable template.",
+        },
+        typeLabelByKind: {
+          request: "Request type",
+          response: "Response type",
+        },
         typeOptions: {
           string: "string",
           number: "number",
@@ -190,6 +223,14 @@ export const contentByLocale = {
           array: "array",
           null: "null",
           unknown: "unknown",
+        },
+        typePlaceholderByKind: {
+          request: "Name your request type",
+          response: "Name your response type",
+        },
+        typeTemplateLabelByKind: {
+          request: "Request type template",
+          response: "Response type template",
         },
       },
       responseOverlayTitle: "Add a data structure to this route",
@@ -287,20 +328,32 @@ export const contentByLocale = {
         addPropertyLabel: "Eigenschaft hinzufügen",
         arrayConnectorLabel: "aus",
         arrayItemTypeLabel: "Array-Elementtyp",
+        collapseSectionLabel: "Einklappen",
         duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
+        expandSectionLabel: "Ausklappen",
         identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
         incompleteSchemaError:
           "Vervollständige jeden Objekttyp und jede Eigenschaft vor dem Speichern.",
+        newSchemaTypeLabel: "Neu",
         newResponseTypeLabel: "Neu",
         objectTypeTemplateLabel: "Objekttyp-Vorlage",
         optionalLabel: "Optionales Feld",
+        paginationDescription:
+          "Hülle die Antwort in ein paginiertes Ergebnis mit items, totalHits, page und totalPages.",
+        paginationLabel: "Paginierte Antwort",
         propertiesLabel: "Antwort-Eigenschaften",
+        propertiesLabelByKind: {
+          request: "Anfrage-Eigenschaften",
+          response: "Antwort-Eigenschaften",
+        },
         propertyNameLabel: "Eigenschaftsname",
         propertyNamePlaceholder: "eigenschaftName",
         propertyTypeLabel: "Eigenschaftstyp",
         removePropertyLabel: "Eigenschaft entfernen",
         responseTypeConflictError:
           "Dieser Antworttyp verwendet bereits ein anderes Schema.",
+        schemaTypeConflictError:
+          "Dieser Typname verwendet bereits ein anderes Schema.",
         responseTypeDescription:
           "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
         responseTypeLabel: "Antworttyp",
@@ -308,6 +361,16 @@ export const contentByLocale = {
         responseTypeTemplateLabel: "Antworttyp-Vorlage",
         routeLabel: "Route",
         saveLabel: "Speichern",
+        typeDescriptionByKind: {
+          request:
+            "Erstelle einen Anfragetyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
+          response:
+            "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
+        },
+        typeLabelByKind: {
+          request: "Anfragetyp",
+          response: "Antworttyp",
+        },
         typeOptions: {
           string: "string",
           number: "number",
@@ -316,6 +379,14 @@ export const contentByLocale = {
           array: "array",
           null: "null",
           unknown: "unknown",
+        },
+        typePlaceholderByKind: {
+          request: "Benenne deinen Anfragetyp",
+          response: "Benenne deinen Antworttyp",
+        },
+        typeTemplateLabelByKind: {
+          request: "Anfragetyp-Vorlage",
+          response: "Antworttyp-Vorlage",
         },
       },
       responseOverlayTitle:
