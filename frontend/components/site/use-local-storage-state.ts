@@ -22,11 +22,30 @@ type SetLocalStorageState<T> = (
   nextValue: SetStateAction<T>,
 ) => LocalStorageWriteStatus;
 
+type LocalStorageStateTransition<T, Result> = (
+  currentValue: T,
+) => {
+  result: Result;
+  value: T;
+};
+
+type LocalStorageTransactionStatus =
+  | LocalStorageWriteStatus
+  | "unchanged";
+
+type TransactLocalStorageState<T> = <Result>(
+  transition: LocalStorageStateTransition<T, Result>,
+) => {
+  result: Result;
+  writeStatus: LocalStorageTransactionStatus;
+};
+
 type LocalStorageStateStore<T> = {
   getServerSnapshot: () => LocalStorageStateSnapshot<T>;
   getSnapshot: () => LocalStorageStateSnapshot<T>;
   setValue: SetLocalStorageState<T>;
   subscribe: (listener: () => void) => () => void;
+  transact: TransactLocalStorageState<T>;
 };
 
 const localStorageStateStores = new WeakMap<
@@ -66,6 +85,19 @@ function createLocalStorageStateStore<T>(
     emitChange();
   }
 
+  function commitValue(value: T): LocalStorageWriteStatus {
+    if (!item.isValid(value)) return "invalid";
+
+    const writeStatus = writeLocalStorageItem(item, value);
+    snapshot = {
+      status: writeStatus === "stored" ? "stored" : "volatile",
+      value,
+    };
+    initialized = true;
+    emitChange();
+    return writeStatus;
+  }
+
   return {
     getServerSnapshot: () => serverSnapshot,
     getSnapshot,
@@ -74,16 +106,7 @@ function createLocalStorageStateStore<T>(
         ? (nextValue as (currentValue: T) => T)(getSnapshot().value)
         : nextValue;
 
-      if (!item.isValid(resolvedValue)) return "invalid";
-
-      const writeStatus = writeLocalStorageItem(item, resolvedValue);
-      snapshot = {
-        status: writeStatus === "stored" ? "stored" : "volatile",
-        value: resolvedValue,
-      };
-      initialized = true;
-      emitChange();
-      return writeStatus;
+      return commitValue(resolvedValue);
     },
     subscribe(listener) {
       const firstSubscriber = listeners.size === 0;
@@ -102,6 +125,18 @@ function createLocalStorageStateStore<T>(
         if (listeners.size === 0) {
           window.removeEventListener("storage", synchronizeFromStorage);
         }
+      };
+    },
+    transact(transition) {
+      const currentValue = getSnapshot().value;
+      const { result, value } = transition(currentValue);
+      if (Object.is(value, currentValue)) {
+        return { result, writeStatus: "unchanged" };
+      }
+
+      return {
+        result,
+        writeStatus: commitValue(value),
       };
     },
   };
@@ -126,7 +161,12 @@ function localStorageStateStore<T>(
 
 export function useLocalStorageState<T>(
   item: LocalStorageItem<T>,
-): [T, SetLocalStorageState<T>, LocalStorageStateStatus] {
+): [
+  T,
+  SetLocalStorageState<T>,
+  LocalStorageStateStatus,
+  TransactLocalStorageState<T>,
+] {
   const store = localStorageStateStore(item);
   const snapshot = useSyncExternalStore(
     store.subscribe,
@@ -134,5 +174,10 @@ export function useLocalStorageState<T>(
     store.getServerSnapshot,
   );
 
-  return [snapshot.value, store.setValue, snapshot.status];
+  return [
+    snapshot.value,
+    store.setValue,
+    snapshot.status,
+    store.transact,
+  ];
 }

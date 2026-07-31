@@ -36,10 +36,8 @@ export type ResponseSchemaEditorContent = {
   identifierHint: string;
   incompleteSchemaError: string;
   newResponseTypeLabel: string;
-  objectDefinitionLabel: string;
   objectTypeTemplateLabel: string;
   optionalLabel: string;
-  propertiesDescription: string;
   propertiesLabel: string;
   propertyNameLabel: string;
   propertyNamePlaceholder: string;
@@ -63,7 +61,6 @@ export type ApiCreatorStudioContent = SearchContent & {
   copyRouteLabel: string;
   deleteRouteLabel: string;
   duplicatePathError: string;
-  editPropertiesDescription: string;
   editResponseTypeDescription: string;
   editRouteLabel: string;
   editRouteTitle: string;
@@ -90,6 +87,7 @@ type LocalizedSiteContent = {
     downloadApiContractsErrorLabel: string;
     homeLabel: string;
     openMenuLabel: string;
+    skipToContentLabel: string;
   };
   footer: {
     sections: Record<FooterSectionId, { title: string }>;
@@ -97,11 +95,6 @@ type LocalizedSiteContent = {
     languageLabel: string;
     copyright: string;
     productionCredit: string;
-  };
-  notFound: {
-    title: string;
-    description: string;
-    homeLabel: string;
   };
 };
 
@@ -155,8 +148,6 @@ export const contentByLocale = {
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
       duplicatePathError: "This HTTP method and path already exist.",
-      editPropertiesDescription:
-        "Update the fields returned in this response.",
       editResponseTypeDescription:
         "Update this response type or use an existing one as an editable template.",
       editRouteLabel: "Edit",
@@ -175,11 +166,8 @@ export const contentByLocale = {
         incompleteSchemaError:
           "Complete every object type and property before saving.",
         newResponseTypeLabel: "New",
-        objectDefinitionLabel: "Object definition",
         objectTypeTemplateLabel: "Object type template",
         optionalLabel: "Optional",
-        propertiesDescription:
-          "Define the fields returned in this response.",
         propertiesLabel: "Response properties",
         propertyNameLabel: "Property name",
         propertyNamePlaceholder: "propertyName",
@@ -220,6 +208,7 @@ export const contentByLocale = {
       downloadApiContractsErrorLabel: "Download failed",
       homeLabel: "Lamentis home",
       openMenuLabel: "Open primary navigation",
+      skipToContentLabel: "Skip to main content",
     },
     footer: {
       sections: {
@@ -231,11 +220,6 @@ export const contentByLocale = {
       languageLabel: "Language",
       copyright: "© 2026 Lamentis.",
       productionCredit: "A production by Elias Papavlassopoulos.",
-    },
-    notFound: {
-      title: "Page not found",
-      description: "The requested page does not exist.",
-      homeLabel: "Back to Lamentis",
     },
   },
   de: {
@@ -289,8 +273,6 @@ export const contentByLocale = {
       deleteRouteLabel: "Löschen",
       duplicatePathError:
         "Diese HTTP-Methode und dieser Pfad sind bereits vorhanden.",
-      editPropertiesDescription:
-        "Bearbeite die Felder, die in dieser Antwort zurückgegeben werden.",
       editResponseTypeDescription:
         "Bearbeite diesen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
       editRouteLabel: "Bearbeiten",
@@ -310,11 +292,8 @@ export const contentByLocale = {
         incompleteSchemaError:
           "Vervollständige jeden Objekttyp und jede Eigenschaft vor dem Speichern.",
         newResponseTypeLabel: "Neu",
-        objectDefinitionLabel: "Objektdefinition",
         objectTypeTemplateLabel: "Objekttyp-Vorlage",
         optionalLabel: "Optionales Feld",
-        propertiesDescription:
-          "Definiere die Felder, die in dieser Antwort zurückgegeben werden.",
         propertiesLabel: "Antwort-Eigenschaften",
         propertyNameLabel: "Eigenschaftsname",
         propertyNamePlaceholder: "eigenschaftName",
@@ -356,6 +335,7 @@ export const contentByLocale = {
       downloadApiContractsErrorLabel: "Download fehlgeschlagen",
       homeLabel: "Lamentis-Startseite",
       openMenuLabel: "Hauptnavigation öffnen",
+      skipToContentLabel: "Zum Hauptinhalt",
     },
     footer: {
       sections: {
@@ -367,11 +347,6 @@ export const contentByLocale = {
       languageLabel: "Sprache",
       copyright: "© 2026 Lamentis.",
       productionCredit: "Eine Produktion von Elias Papavlassopoulos.",
-    },
-    notFound: {
-      title: "Seite nicht gefunden",
-      description: "Die angeforderte Seite existiert nicht.",
-      homeLabel: "Zurück zu Lamentis",
     },
   },
 } as const satisfies Record<Locale, LocalizedSiteContent>;
@@ -402,6 +377,7 @@ export type NavigationContent = {
   items: NavigationItem[];
   locale: Locale;
   openMenuLabel: string;
+  skipToContentLabel: string;
 };
 
 export type FooterLink = (
@@ -489,6 +465,7 @@ export function getNavigationContent(locale: Locale): NavigationContent {
     homeLabel: content.navigation.homeLabel,
     homeHref: routePath(homeRef),
     openMenuLabel: content.navigation.openMenuLabel,
+    skipToContentLabel: content.navigation.skipToContentLabel,
     items: primaryNavigationRouteIds.map((routeId) => ({
       ...createInternalLink(locale, routeId, `navigation-${routeId}`),
       label: getRouteCopy(locale, routeId).title,

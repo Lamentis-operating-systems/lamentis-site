@@ -246,10 +246,6 @@
   transform: none;
 }
 
-.optionalToggle:focus-visible {
-  outline: none;
-}
-
 .optionalToggle[aria-pressed="true"] {
   background: transparent;
   color: var(--color-text);

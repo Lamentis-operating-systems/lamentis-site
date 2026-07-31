@@ -8,15 +8,18 @@ import {
   useState,
 } from "react";
 import {
-  hasApiResponseSchemaConflict,
   hasApiRouteIdentity,
   httpMethods,
   nextApiRouteId,
   type ApiRouteContract,
   type HttpMethod,
 } from "@/domain/site/api-route";
-import { parseApiRoutePath } from "@/domain/site/api-route-path";
 import { apiRoutesStorage } from "@/domain/site/api-route-storage";
+import {
+  apiRouteWorkspaceValidationReason,
+  disabledApiRouteMethods,
+  transitionApiRouteWorkspaceSave,
+} from "@/domain/site/api-route-workspace";
 import type { ApiCreatorStudioContent } from "@/domain/site/content";
 import {
   ApiRouteRow,
@@ -28,7 +31,7 @@ import { useOverlay } from "./overlay/overlay-provider";
 import { ResponseSchemaEditor } from "./response-schema-editor";
 import { SearchSurface } from "./search-surface";
 import { useLocalStorageState } from "./use-local-storage-state";
-import styles from "./search-page.module.css";
+import styles from "./api-creator-studio.module.css";
 
 const studioOverlaySize = "var(--overlay-size-large)";
 const studioOverlayResize = {
@@ -74,7 +77,6 @@ export function ApiCreatorStudio({
   copyRouteLabel,
   deleteRouteLabel,
   duplicatePathError,
-  editPropertiesDescription,
   editResponseTypeDescription,
   editRouteLabel,
   editRouteTitle,
@@ -93,9 +95,12 @@ export function ApiCreatorStudio({
   const { closeOverlay, openOverlay } = useOverlay();
   const [method, setMethod] = useState<HttpMethod>("GET");
   const [copyFailed, setCopyFailed] = useState(false);
-  const [routes, setRoutes, storageStatus] = useLocalStorageState(
-    apiRoutesStorage,
-  );
+  const [
+    routes,
+    setRoutes,
+    storageStatus,
+    transactRoutes,
+  ] = useLocalStorageState(apiRoutesStorage);
   const routesRef = useRef(routes);
   const responseFormId = useId();
   const routeInputRef = useRef<HTMLInputElement>(null);
@@ -135,18 +140,10 @@ export function ApiCreatorStudio({
     mode: "create" | "edit",
     routeSnapshot: readonly ApiRouteContract[],
   ) {
-    const disabledMethods = httpMethods.filter((candidateMethod) => (
-      candidateMethod !== route.method
-      && routeSnapshot.some((candidateRoute) => (
-        candidateRoute.id !== route.id
-        && candidateRoute.path === route.path
-        && candidateRoute.method === candidateMethod
-      ))
-    ));
+    const disabledMethods = disabledApiRouteMethods(routeSnapshot, route);
     const editorContent = mode === "edit"
       ? {
           ...responseEditor,
-          propertiesDescription: editPropertiesDescription,
           responseTypeDescription: editResponseTypeDescription,
         }
       : responseEditor;
@@ -164,57 +161,41 @@ export function ApiCreatorStudio({
             ),
           )}
           formId={responseFormId}
-          getRouteValidationReason={(nextMethod, nextPath) => {
-            if (!parseApiRoutePath(nextPath)) return "syntax";
-
-            return hasApiRouteIdentity(
+          getRouteValidationReason={(nextMethod, nextPath) => (
+            apiRouteWorkspaceValidationReason(
               routesRef.current,
               { method: nextMethod, path: nextPath },
               route.id,
             )
-              ? "duplicate"
-              : null;
-          }}
+          )}
           initialSchema={mode === "edit" ? route.response : undefined}
-          onRouteMethodChange={(nextMethod) => {
-            updateRouteMethod(route.id, nextMethod);
-          }}
-          onSave={(response, nextRoute) => {
-            let didSave = false;
-            setRoutes((currentRoutes) => {
-              if (
-                !currentRoutes.some((candidateRoute) => (
-                  candidateRoute.id === route.id
-                ))
-                || hasApiRouteIdentity(
-                  currentRoutes,
-                  nextRoute,
-                  route.id,
-                )
-                || hasApiResponseSchemaConflict(
-                  currentRoutes,
-                  response,
-                  route.id,
-                )
-              ) {
-                return currentRoutes;
+          {...(mode === "create"
+            ? {
+                onRouteMethodChange: (nextMethod: HttpMethod) => {
+                  updateRouteMethod(route.id, nextMethod);
+                },
               }
-
-              didSave = true;
-              return currentRoutes.map((candidateRoute) => (
-                candidateRoute.id === route.id
-                  ? {
-                      ...candidateRoute,
-                      ...nextRoute,
-                      response,
-                    }
-                  : candidateRoute
-              ));
+            : {})}
+          onSave={(response, nextRoute) => {
+            const { result } = transactRoutes((currentRoutes) => {
+              const transition = transitionApiRouteWorkspaceSave(
+                currentRoutes,
+                {
+                  response,
+                  route: nextRoute,
+                  routeId: route.id,
+                },
+              );
+              return {
+                result: transition.result,
+                value: transition.routes,
+              };
             });
-            if (!didSave) return false;
 
-            closeOverlay();
-            return true;
+            if (result === "saved" || result === "route-missing") {
+              closeOverlay();
+            }
+            return result;
           }}
           route={route}
           routeInputContent={{
@@ -245,27 +226,31 @@ export function ApiCreatorStudio({
   }
 
   function addRoute(path: string) {
-    let createdRouteId: number | undefined;
-    let routesAtCreation = routes;
-    setRoutes((currentRoutes) => {
-      routesAtCreation = currentRoutes;
+    const { result } = transactRoutes((currentRoutes) => {
       if (hasApiRouteIdentity(currentRoutes, { method, path })) {
-        return currentRoutes;
+        return { result: null, value: currentRoutes };
       }
 
-      createdRouteId = nextApiRouteId(currentRoutes);
-      return [
+      const createdRoute = {
+        id: nextApiRouteId(currentRoutes),
+        method,
+        path,
+      };
+      const nextRoutes = [
         ...currentRoutes,
-        { id: createdRouteId, method, path },
+        createdRoute,
       ];
+      return {
+        result: { createdRoute, routes: nextRoutes },
+        value: nextRoutes,
+      };
     });
-    if (createdRouteId === undefined) return;
-    const routeId = createdRouteId;
-    const createdRoute = { id: routeId, method, path };
+    if (!result) return;
+
     openResponseEditor(
-      createdRoute,
+      result.createdRoute,
       "create",
-      [...routesAtCreation, createdRoute],
+      result.routes,
     );
   }
 
@@ -321,10 +306,10 @@ export function ApiCreatorStudio({
     || storageStatus === "unavailable"
     || storageStatus === "volatile"
   ) ? (
-      <p className={styles.persistenceWarning} role="status">
-        {storageErrorLabel}
-      </p>
-    ) : null;
+    <p className={styles.persistenceWarning} role="status">
+      {storageErrorLabel}
+    </p>
+  ) : null;
 
   const routeList = (
     <>
@@ -371,20 +356,15 @@ export function ApiCreatorStudio({
       contentAfter={routeList}
       heading={heading}
       label={label}
-      role="group"
       surface={(
         <ApiRouteInputBar
           actionLabel={actionLabel}
-          getValidationReason={(candidateMethod, path) => {
-            if (!parseApiRoutePath(path)) return "syntax";
-
-            return hasApiRouteIdentity(
+          getValidationReason={(candidateMethod, path) => (
+            apiRouteWorkspaceValidationReason(
               routes,
               { method: candidateMethod, path },
             )
-              ? "duplicate"
-              : null;
-          }}
+          )}
           inputRef={routeInputRef}
           label={label}
           method={method}

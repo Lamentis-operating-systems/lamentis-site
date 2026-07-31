@@ -17,12 +17,14 @@ import {
 
 const apiSkillModuleState = vi.hoisted(() => ({
   generate: vi.fn(() => "# Generated API contracts"),
+  moduleLoads: 0,
 }));
 const browserDownloadState = vi.hoisted(() => ({
   downloadTextFile: vi.fn(() => "downloaded" as const),
 }));
 
 vi.mock("@/domain/site/api-contract-skill", () => {
+  apiSkillModuleState.moduleLoads += 1;
   return {
     apiContractsAgentSkillFileName: "api-contracts-agent-skill.md",
     generateApiContractsAgentSkill: apiSkillModuleState.generate,
@@ -49,6 +51,37 @@ function StorageProbe({
     <output data-status={status}>
       {value.join(",")}
     </output>
+  );
+}
+
+function TransactionProbe({
+  item,
+  onRender,
+  onTransaction,
+}: {
+  item: LocalStorageItem<string[]>;
+  onRender: () => void;
+  onTransaction: (status: string) => void;
+}) {
+  const [value, , status, transact] = useLocalStorageState(item);
+  onRender();
+
+  return (
+    <>
+      <output data-status={status}>{value.join(",")}</output>
+      <button
+        type="button"
+        onClick={() => {
+          const transaction = transact((currentValue) => ({
+            result: "no-op",
+            value: currentValue,
+          }));
+          onTransaction(transaction.writeStatus);
+        }}
+      >
+        Keep value
+      </button>
+    </>
   );
 }
 
@@ -114,6 +147,38 @@ describe("useLocalStorageState hydration", () => {
       container.remove();
     }
   });
+
+  it("does not write or emit for a transaction that keeps the current value", () => {
+    const item = defineLocalStorageItem<string[]>({
+      createDefault: () => ["unchanged"],
+      isValid: isStringList,
+      name: "transaction-no-op-probe",
+      version: 1,
+    });
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const onRender = vi.fn();
+    const onTransaction = vi.fn();
+
+    render(
+      <TransactionProbe
+        item={item}
+        onRender={onRender}
+        onTransaction={onTransaction}
+      />,
+    );
+    setItem.mockClear();
+    onRender.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep value" }));
+
+    expect(onTransaction).toHaveBeenCalledWith("unchanged");
+    expect(setItem).not.toHaveBeenCalled();
+    expect(onRender).not.toHaveBeenCalled();
+    expect(screen.getByText("unchanged")).toHaveAttribute(
+      "data-status",
+      "empty",
+    );
+  });
 });
 
 describe("API-contract download loading", () => {
@@ -129,12 +194,14 @@ describe("API-contract download loading", () => {
       />,
     );
 
+    expect(apiSkillModuleState.moduleLoads).toBe(0);
     expect(apiSkillModuleState.generate).not.toHaveBeenCalled();
     expect(browserDownloadState.downloadTextFile).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
 
     await waitFor(() => {
+      expect(apiSkillModuleState.moduleLoads).toBe(1);
       expect(apiSkillModuleState.generate).toHaveBeenCalledWith([]);
       expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
         contents: "# Generated API contracts",

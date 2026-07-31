@@ -326,6 +326,92 @@ describe("overlay resize geometry", () => {
 });
 
 describe("resizable overlay integration", () => {
+  it("attaches global listeners only for an active resize session", async () => {
+    const pointerEnvironment = installFinePointerEnvironment();
+    const addEventListener = vi.spyOn(window, "addEventListener");
+    const removeEventListener = vi.spyOn(window, "removeEventListener");
+    const sessionEventTypes = [
+      "blur",
+      "keydown",
+      "pointercancel",
+      "pointermove",
+      "pointerup",
+    ] as const;
+    const callCount = (
+      listener: typeof addEventListener | typeof removeEventListener,
+      type: (typeof sessionEventTypes)[number],
+    ) => listener.mock.calls.filter(([eventType]) => eventType === type).length;
+
+    try {
+      render(
+        <OverlayProvider>
+          <ResizableOverlayHarness />
+        </OverlayProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", {
+        name: "Open resizable overlay",
+      }));
+      const dialog = await screen.findByRole("dialog", {
+        name: "Resizable overlay",
+      });
+      const panel = dialog.querySelector("section");
+      if (!panel) throw new Error("Resizable panel must be rendered.");
+      await waitFor(() => {
+        expect(panel).toHaveAttribute("data-positioned", "true");
+      });
+
+      const baselineAdds = Object.fromEntries(
+        sessionEventTypes.map((type) => [type, callCount(
+          addEventListener,
+          type,
+        )]),
+      );
+      expect(baselineAdds).toEqual(Object.fromEntries(
+        sessionEventTypes.map((type) => [type, 0]),
+      ));
+      const handle = panel.querySelector<HTMLElement>(
+        '[data-overlay-resize-handle="se"]',
+      );
+      if (!handle) throw new Error("Resize handle must exist.");
+
+      fireEvent.pointerDown(handle, {
+        button: 0,
+        clientX: 1_000,
+        clientY: 800,
+        isPrimary: true,
+        pointerId: 12,
+        pointerType: "mouse",
+      });
+
+      for (const type of sessionEventTypes) {
+        expect(callCount(addEventListener, type)).toBe(
+          baselineAdds[type] + 1,
+        );
+      }
+
+      const baselineRemovals = Object.fromEntries(
+        sessionEventTypes.map((type) => [type, callCount(
+          removeEventListener,
+          type,
+        )]),
+      );
+      fireEvent.pointerUp(window, {
+        pointerId: 12,
+        pointerType: "mouse",
+      });
+
+      for (const type of sessionEventTypes) {
+        expect(callCount(removeEventListener, type)).toBe(
+          baselineRemovals[type] + 1,
+        );
+      }
+    } finally {
+      addEventListener.mockRestore();
+      removeEventListener.mockRestore();
+      pointerEnvironment.restore();
+    }
+  });
+
   it("resizes with mouse capture while preserving normal overlay actions", async () => {
     const pointerEnvironment = installFinePointerEnvironment();
 

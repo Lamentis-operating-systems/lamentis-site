@@ -1,4 +1,8 @@
-import type { ComponentProps, ReactNode } from "react";
+import {
+  forwardRef,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import styles from "./icon-button.module.css";
 
 type IconButtonProps = Omit<
@@ -9,16 +13,19 @@ type IconButtonProps = Omit<
   children: ReactNode;
 };
 
-export function IconButton({
-  className,
-  type = "button",
-  ...props
-}: IconButtonProps) {
-  return (
-    <button
-      {...props}
-      type={type}
-      className={`${styles.button} ${className ?? ""}`.trim()}
-    />
-  );
-}
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  function IconButton({
+    className,
+    type = "button",
+    ...props
+  }, ref) {
+    return (
+      <button
+        {...props}
+        ref={ref}
+        type={type}
+        className={`${styles.button} ${className ?? ""}`.trim()}
+      />
+    );
+  },
+);

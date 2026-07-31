@@ -62,11 +62,6 @@
   box-shadow: var(--shadow-control-border);
 }
 
-.root .trigger:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-control-focus);
-}
-
 .trigger svg {
   width: var(--icon-size-control);
   height: var(--icon-size-control);

@@ -2,10 +2,12 @@ import type { IconSetId, SocialImageId } from "./assets";
 
 export const localeCatalog = {
   en: {
+    direction: "ltr",
     label: "English",
     openGraphLocale: "en_US",
   },
   de: {
+    direction: "ltr",
     label: "Deutsch",
     openGraphLocale: "de_DE",
   },

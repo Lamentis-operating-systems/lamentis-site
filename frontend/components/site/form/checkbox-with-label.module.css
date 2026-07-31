@@ -67,4 +67,9 @@
   .indicator {
     border: var(--control-border-width) solid CanvasText;
   }
+
+  .input:focus-visible + .indicator {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: var(--focus-ring-offset);
+  }
 }

@@ -99,14 +99,16 @@ export function BracedPathInput({
   }, [inputRef, value]);
 
   useLayoutEffect(() => {
-    onPathChange?.(path);
     inputRef.current?.setCustomValidity(validationMessage ?? "");
   }, [
     inputRef,
-    onPathChange,
-    path,
     validationMessage,
   ]);
+
+  function setPathValue(nextValue: string) {
+    setValue(nextValue);
+    onPathChange?.(canonicalPath(nextValue));
+  }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.ctrlKey || event.metaKey) return;
@@ -150,7 +152,7 @@ export function BracedPathInput({
           start: openingBraceIndex,
           end: openingBraceIndex,
         };
-        setValue(
+        setPathValue(
           `${value.slice(0, openingBraceIndex)}${
             value.slice(openingBraceIndex + 1, closingBraceIndex)
           }${value.slice(closingBraceIndex + 1)}`,
@@ -179,7 +181,7 @@ export function BracedPathInput({
           start: separatorStart + 3,
           end: separatorStart + 3,
         };
-        setValue(
+        setPathValue(
           `${value.slice(0, separatorStart)} / ${value.slice(separatorStart)}`,
         );
         return;
@@ -196,7 +198,7 @@ export function BracedPathInput({
         start: selectionStart - 3,
         end: selectionStart - 3,
       };
-      setValue(
+      setPathValue(
         `${value.slice(0, selectionStart - 3)}${value.slice(selectionStart)}`,
       );
       return;
@@ -212,7 +214,7 @@ export function BracedPathInput({
         start: selectionStart,
         end: selectionStart,
       };
-      setValue(
+      setPathValue(
         `${value.slice(0, selectionStart)}${value.slice(selectionStart + 3)}`,
       );
       return;
@@ -231,7 +233,7 @@ export function BracedPathInput({
         start: selectionStart + 3,
         end: selectionStart + 3,
       };
-      setValue(
+      setPathValue(
         `${value.slice(0, selectionStart)} / ${value.slice(selectionEnd)}`,
       );
       return;
@@ -244,7 +246,7 @@ export function BracedPathInput({
         start: selectionStart + 1,
         end: selectionEnd + 1,
       };
-      setValue(
+      setPathValue(
         `${value.slice(0, selectionStart)}{${selectedText}}${value.slice(selectionEnd)}`,
       );
       return;
@@ -269,7 +271,7 @@ export function BracedPathInput({
     if (!valid || !onAdd) return;
 
     onAdd(path);
-    setValue("");
+    setPathValue("");
     setScrollLeft(0);
     inputRef.current?.focus();
   }
@@ -319,7 +321,9 @@ export function BracedPathInput({
             required={required}
             value={value}
             onChange={(event) => {
-              setValue(formatEditablePath(event.currentTarget.value));
+              setPathValue(
+                formatEditablePath(event.currentTarget.value),
+              );
             }}
             onKeyDown={handleKeyDown}
             onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}

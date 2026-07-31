@@ -98,11 +98,11 @@ test("adds and persists a route while restoring focus after Escape", {
     { exact: true },
   )).toHaveCount(0);
   const propertyType = responseDialog.getByRole("button", {
-    name: "Property type",
+    name: "Property type 1 string",
   });
   await propertyType.click();
   const propertyTypeMenu = responseDialog.getByRole("list", {
-    name: "Property type",
+    name: "Property type 1",
   });
   await expect(propertyTypeMenu).toBeVisible();
   expect(await propertyTypeMenu.evaluate(
@@ -135,17 +135,19 @@ test("adds and persists a route while restoring focus after Escape", {
   expect(firstOptionOwnsItsCenter).toBe(true);
   await propertyTypeMenu.getByRole("button", { name: "array" }).click();
   await expect(propertyTypeMenu).toBeHidden();
-  await expect(propertyType).toContainText("array");
+  await expect(responseDialog.getByRole("button", {
+    name: "Property type 1 array",
+  })).toContainText("array");
   await expect(responseDialog.getByText("of", { exact: true })).toBeVisible();
   await expect(responseDialog.getByRole("button", {
-    name: "Array item type",
+    name: "Array item type 1 string",
   })).toContainText("string");
 
   const overlayRoute = responseDialog.getByRole("group", {
     name: "API endpoint path",
   });
   const overlayMethod = overlayRoute.getByRole("button", {
-    name: "HTTP method",
+    name: "HTTP method GET",
   });
   await expect(overlayRoute.getByRole("textbox", {
     name: "API endpoint path",
@@ -154,7 +156,9 @@ test("adds and persists a route while restoring focus after Escape", {
   await responseDialog.getByRole("list", {
     name: "HTTP method",
   }).getByRole("button", { name: "PATCH" }).click();
-  await expect(overlayMethod).toContainText("PATCH");
+  await expect(overlayRoute.getByRole("button", {
+    name: "HTTP method PATCH",
+  })).toContainText("PATCH");
   await expect(responseDialog.getByRole("button", {
     name: "Route actions /orders/{orderid}",
   })).toHaveCount(0);
@@ -193,6 +197,63 @@ test("adds and persists a route while restoring focus after Escape", {
   await expect(persistedRoute).toContainText("/orders/{orderid}");
 });
 
+test("keeps edit-route changes atomic until Save", async ({ page }) => {
+  const originalRoute: ApiRouteContract = {
+    id: 7,
+    method: "GET",
+    path: "/users/{id}",
+    response: {
+      fields: [
+        { name: "id", optional: false, type: "string" },
+      ],
+      typeName: "UserResponse",
+    },
+  };
+  await seedRoutes(page, [originalRoute]);
+  await page.goto(studioPath);
+
+  await page.getByRole("button", {
+    name: "Route actions /users/{id}",
+  }).click();
+  await page.getByRole("list", {
+    name: "Route actions /users/{id}",
+  }).getByRole("button", { name: "Edit /users/{id}" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Edit this route" });
+  const routeEditor = dialog.getByRole("group", {
+    name: "API endpoint path",
+  });
+  await routeEditor.getByRole("textbox", {
+    name: "API endpoint path",
+  }).fill("accounts/{id}");
+  await routeEditor.getByRole("button", {
+    name: "HTTP method GET",
+  }).click();
+  await dialog.getByRole("list", {
+    name: "HTTP method",
+  }).getByRole("button", { name: "PATCH" }).click();
+  await dialog.getByRole("textbox", {
+    name: "Response type",
+  }).fill("AccountResponse");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  const route = page
+    .getByRole("list", { name: "API routes" })
+    .getByRole("listitem");
+  await expect(route).toContainText("GET");
+  await expect(route).toContainText("/users/{id}");
+  await expect(route).not.toContainText("/accounts/{id}");
+  await expect.poll(
+    () => page.evaluate(
+      (key) => JSON.parse(
+        window.localStorage.getItem(key) ?? "null",
+      ) as ApiRouteContract[] | null,
+      apiRoutesStorage.key,
+    ),
+  ).toEqual([originalRoute]);
+});
+
 test("synchronizes the canonical route snapshot across tabs", {
   tag: "@cross-browser-smoke",
 }, async ({ context, page }) => {
@@ -216,7 +277,7 @@ test("synchronizes the canonical route snapshot across tabs", {
   await expect(peerRoute).toContainText("/shared/{id}");
 
   await peerRoute.getByRole("button", {
-    name: "HTTP method /shared/{id}",
+    name: "HTTP method /shared/{id} GET",
   }).click();
   await peerPage.getByRole("button", { name: "POST" }).click();
 
@@ -292,7 +353,7 @@ test("prevents incompatible response-type reuse before persistence", async ({
     name: "Response type",
   });
   const responseTypeTemplate = responseDialog.getByRole("button", {
-    name: "Response type template",
+    name: "Response type template New",
   });
   await expect(responseTypeTemplate).toContainText(
     "New",
@@ -303,23 +364,25 @@ test("prevents incompatible response-type reuse before persistence", async ({
   }).getByRole("button", { name: "UserResponse" }).click();
   await expect(responseType).toHaveValue("UserResponse");
   await expect(responseDialog.getByRole("textbox", {
-    name: "Property name",
+    name: "Property name 1",
   })).toHaveValue("id");
   await expect(save).toBeEnabled();
 
   const propertyType = responseDialog.getByRole("button", {
-    name: "Property type",
+    name: "Property type 1 string",
   });
   await propertyType.click();
   const propertyTypeMenu = responseDialog.getByRole("list", {
-    name: "Property type",
+    name: "Property type 1",
   });
   await expect(propertyType).toHaveAttribute("aria-expanded", "true");
   await expect(
     propertyTypeMenu.getByRole("button", { name: "string" }).locator("svg"),
   ).toBeVisible();
   await propertyTypeMenu.getByRole("button", { name: "number" }).click();
-  await expect(propertyType).toContainText("number");
+  await expect(responseDialog.getByRole("button", {
+    name: "Property type 1 number",
+  })).toContainText("number");
   await expect(save).toBeDisabled();
   await expect(responseDialog.getByRole("alert")).toHaveText(
     "This response type already uses a different schema.",
@@ -391,24 +454,26 @@ test("derives object names from properties and can prefill an existing model", a
   await expect(addPropertyButton.locator("svg")).toHaveCount(1);
   await addPropertyButton.click();
   await dialog.getByRole("textbox", {
-    name: "Property name",
+    name: "Property name 1",
   }).fill("profile");
   await dialog.getByRole("button", {
-    name: "Property type",
+    name: "Property type 1 string",
   }).click();
   await dialog.getByRole("list", {
-    name: "Property type",
+    name: "Property type 1",
   }).getByRole("button", { name: "object" }).click();
 
   const objectTemplate = dialog.getByRole("button", {
-    name: "Object type template",
+    name: "Object type template 1 New",
   });
   await expect(dialog.getByRole("button", {
     name: "Object definition: profile",
   })).toHaveCount(0);
-  const objectPropertyRow = objectTemplate.locator("xpath=ancestor::li[1]");
+  const objectPropertyRow = dialog.locator(
+    '[data-root-properties="true"] > li',
+  ).first();
   await expect(objectPropertyRow.getByRole("button", {
-    name: "Add property",
+    name: "Add property 1",
   })).toHaveCount(1);
   await expect(dialog.getByRole("textbox", {
     name: "Object type",
@@ -418,14 +483,14 @@ test("derives object names from properties and can prefill an existing model", a
 
   await objectTemplate.click();
   await dialog.getByRole("list", {
-    name: "Object type template",
+    name: "Object type template 1",
   }).getByRole("button", { name: "AddressResponse" }).click();
   const nestedProperties = objectPropertyRow.locator(
     "[data-nested-properties]",
   );
   await expect(nestedProperties).toHaveCount(1);
   await expect(nestedProperties.getByRole("textbox", {
-    name: "Property name",
+    name: "Property name 1.1",
   })).toHaveValue("city");
   const nestedPropertyList = nestedProperties.locator(":scope > ul");
   await expect(nestedPropertyList).toHaveCSS("padding-inline-start", "16px");
@@ -447,7 +512,7 @@ test("derives object names from properties and can prefill an existing model", a
   await expect(save).toBeEnabled();
 
   await nestedProperties.getByRole("textbox", {
-    name: "Property name",
+    name: "Property name 1.1",
   }).fill("displayName");
   await expect(save).toBeEnabled();
   await expect(objectTemplate).toContainText("New");
@@ -517,10 +582,14 @@ test("renders object definitions inline without an empty state", async ({
     name: "Add a data structure to this route",
   });
   await dialog.getByRole("button", { name: "Add property" }).click();
-  await dialog.getByRole("textbox", { name: "Property name" }).fill("profile");
-  await dialog.getByRole("button", { name: "Property type" }).click();
+  await dialog.getByRole("textbox", {
+    name: "Property name 1",
+  }).fill("profile");
+  await dialog.getByRole("button", {
+    name: "Property type 1 string",
+  }).click();
   await dialog.getByRole("list", {
-    name: "Property type",
+    name: "Property type 1",
   }).getByRole("button", { name: "object" }).click();
 
   await expect(dialog.getByRole("button", {
@@ -531,7 +600,7 @@ test("renders object definitions inline without an empty state", async ({
   const objectPropertyRow = dialog.getByRole("listitem");
   await expect(objectPropertyRow).toHaveCount(1);
   const addObjectProperty = objectPropertyRow.getByRole("button", {
-    name: "Add property",
+    name: "Add property 1",
   });
   await expect(addObjectProperty).toHaveCount(1);
   await addObjectProperty.click();
@@ -541,7 +610,7 @@ test("renders object definitions inline without an empty state", async ({
   const nestedProperties = dialog.locator("[data-nested-properties]");
   await expect(nestedProperties).toHaveCount(1);
   await expect(nestedProperties.getByRole("textbox", {
-    name: "Property name",
+    name: "Property name 1.1",
   })).toBeVisible();
   const rootProperties = dialog.locator('[data-root-properties="true"]');
   await expect(rootProperties).toHaveCount(1);
@@ -581,14 +650,19 @@ test("renders object definitions inline without an empty state", async ({
       endCapRadius: "8px",
     },
   ]);
-  const removeProperties = dialog.getByRole("button", {
+  const objectRemove = dialog.getByRole("button", {
     name: "Remove property 1",
+    exact: true,
   });
-  await expect(removeProperties).toHaveCount(2);
-  const [objectRemove, nestedRemove] = await removeProperties.all();
+  const nestedRemove = dialog.getByRole("button", {
+    name: "Remove property 1.1",
+    exact: true,
+  });
+  await expect(objectRemove).toHaveCount(1);
+  await expect(nestedRemove).toHaveCount(1);
   const [objectRemoveBox, nestedRemoveBox] = await Promise.all([
-    objectRemove?.boundingBox(),
-    nestedRemove?.boundingBox(),
+    objectRemove.boundingBox(),
+    nestedRemove.boundingBox(),
   ]);
   expect(objectRemoveBox).not.toBeNull();
   expect(nestedRemoveBox).not.toBeNull();

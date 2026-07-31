@@ -58,7 +58,7 @@ test("mobile route navigation closes the dialog", async ({ page }) => {
 
 test("locale switcher preserves route identity", async ({ page }) => {
   await page.goto("/en/trending");
-  const trigger = page.getByRole("button", { name: "Language" });
+  const trigger = page.getByRole("button", { name: "Language English" });
   await trigger.click();
   const germanLink = page.getByRole("link", { name: "Deutsch" });
   await expect(germanLink).toHaveAttribute("href", "/de/trending");
@@ -149,12 +149,12 @@ test("search focus gains a system outline only in forced colors", async ({ page 
   await expect(searchRegion).toHaveCSS("outline-offset", "4px");
 });
 
-test("platform controls reuse the subtle hover border for focus", async ({
+test("platform controls expose the shared high-contrast focus indicator", async ({
   page,
 }) => {
   await page.goto("/en/api-creator-studio");
 
-  const method = page.getByRole("button", { name: "HTTP method" });
+  const method = page.getByRole("button", { name: "HTTP method GET" });
   await method.hover();
   await page.waitForTimeout(200);
   const hoverShadow = await method.evaluate(
@@ -169,18 +169,23 @@ test("platform controls reuse the subtle hover border for focus", async ({
     name: "API endpoint path",
   });
   await routeInput.focus();
-  await expect(routeSurface).toHaveCSS("box-shadow", hoverShadow);
+  const routeFocusShadow = await routeSurface.evaluate(
+    (element) => getComputedStyle(element).boxShadow,
+  );
+  expect(routeFocusShadow).not.toBe(hoverShadow);
+  expect(routeFocusShadow).toMatch(/2px/);
 
   await method.focus();
-  await expect(method).toHaveCSS("box-shadow", hoverShadow);
-  await expect(method).toHaveCSS("outline-style", "none");
+  await expect(method).toHaveCSS("outline-style", "solid");
+  await expect(method).toHaveCSS("outline-width", "2px");
+  await expect(method).toHaveCSS("outline-offset", "4px");
 
   const navigationTrigger = page.getByRole("button", {
     name: "Open primary navigation",
   });
   await navigationTrigger.focus();
-  await expect(navigationTrigger).toHaveCSS("outline-width", "1px");
-  await expect(navigationTrigger).toHaveCSS("outline-offset", "-1px");
+  await expect(navigationTrigger).toHaveCSS("outline-width", "2px");
+  await expect(navigationTrigger).toHaveCSS("outline-offset", "4px");
 });
 
 test("sticky navigation stays above page select popovers", async ({ page }) => {
@@ -189,7 +194,7 @@ test("sticky navigation stays above page select popovers", async ({ page }) => {
   const navigation = page.getByRole("navigation", {
     name: "Primary navigation",
   });
-  const method = page.getByRole("button", { name: "HTTP method" });
+  const method = page.getByRole("button", { name: "HTTP method GET" });
   const methodRoot = method.locator("..");
 
   await expect(methodRoot).toHaveCSS("z-index", "auto");

@@ -33,30 +33,3 @@
 .searchSurface {
   width: min(100%, var(--layout-form-wide));
 }
-
-.routeTable {
-  display: grid;
-  width: min(100%, var(--layout-form-wide));
-  gap: var(--space-2);
-}
-
-.routeList {
-  display: grid;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  gap: var(--space-2);
-  list-style: none;
-}
-
-.routeList > li {
-  min-width: 0;
-}
-
-.persistenceWarning {
-  width: min(100%, var(--layout-form-wide));
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--text-caption);
-  line-height: var(--line-body);
-}

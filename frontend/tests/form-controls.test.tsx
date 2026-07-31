@@ -107,9 +107,13 @@ describe("shared form controls", () => {
         </dialog>,
       );
 
-      fireEvent.click(screen.getByRole("button", {
-        name: "Property type",
-      }));
+      const trigger = screen.getByRole("button", {
+        name: "Property type string",
+      });
+      expect(trigger).not.toHaveAttribute("aria-label");
+      expect(trigger).toHaveAttribute("aria-labelledby");
+      expect(trigger.getAttribute("aria-labelledby")?.split(" ")).toHaveLength(2);
+      fireEvent.click(trigger);
       await waitFor(() => expect(showPopover).toHaveBeenCalledTimes(1));
       const menu = document.querySelector(
         'ul[aria-label="Property type"]',
@@ -118,10 +122,10 @@ describe("shared form controls", () => {
       expect(menu).toHaveAttribute("popover", "manual");
       expect(menu).toHaveAttribute("data-dialog-layer", "true");
       expect(screen.getByRole("button", {
-        name: "Property type",
+        name: "Property type string",
       }).parentElement).toHaveAttribute("data-height", "large");
       expect(screen.getByRole("button", {
-        name: "Property type",
+        name: "Property type string",
       }).parentElement).toHaveAttribute("data-rounded", "true");
 
       view.unmount();

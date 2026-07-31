@@ -6,6 +6,7 @@ import {
   type SocialImageId,
 } from "./assets";
 import { contentByLocale, getRouteCopy } from "./content";
+import { getNotFoundContent } from "./not-found-content";
 import {
   defaultLocale,
   localeCatalog,
@@ -124,7 +125,7 @@ export function metadataForRoute(
 }
 
 export function metadataForNotFound(locale: Locale): Metadata {
-  const copy = contentByLocale[locale].notFound;
+  const copy = getNotFoundContent(locale);
 
   return {
     title: copy.title,

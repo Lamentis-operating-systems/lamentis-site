@@ -2,7 +2,7 @@ import type { AriaRole, ReactNode } from "react";
 import styles from "./visually-hidden.module.css";
 
 type VisuallyHiddenProps = {
-  as?: "legend" | "span";
+  as?: "h1" | "legend" | "span";
   children: ReactNode;
   id?: string;
   role?: AriaRole;

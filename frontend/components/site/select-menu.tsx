@@ -13,6 +13,7 @@ import { ChevronIcon } from "./icons/chevron-icon";
 import optionStyles from "./options-menu.module.css";
 import styles from "./select-menu.module.css";
 import { useDismissiblePopover } from "./use-dismissible-popover";
+import { VisuallyHidden } from "./visually-hidden";
 
 type SelectMenuBaseOption = {
   id: string;
@@ -29,6 +30,7 @@ type SelectMenuLinkOption = SelectMenuBaseOption & {
   href: string;
   hrefLang?: string;
   kind: "link";
+  lang?: string;
 };
 
 export type SelectMenuOption =
@@ -54,7 +56,9 @@ export function SelectMenu({
   selectedId,
   width = "content",
 }: SelectMenuProps) {
+  const labelId = useId();
   const menuId = useId();
+  const selectedValueId = useId();
   const menuRef = useRef<HTMLUListElement>(null);
   const postSelectionFocusRef = useRef<HTMLElement | null>(null);
   const [usesDialogLayer, setUsesDialogLayer] = useState(false);
@@ -154,16 +158,17 @@ export function SelectMenu({
       data-rounded={rounded ? true : undefined}
       data-width={width}
     >
+      <VisuallyHidden id={labelId}>{label}</VisuallyHidden>
       <button
         ref={triggerRef}
         type="button"
         className={styles.trigger}
-        aria-label={label}
+        aria-labelledby={`${labelId} ${selectedValueId}`}
         aria-expanded={isOpen}
         aria-controls={menuId}
         onClick={togglePopover}
       >
-        <span>{selectedOption?.label ?? selectedId}</span>
+        <span id={selectedValueId}>{selectedOption?.label ?? selectedId}</span>
         <ChevronIcon />
       </button>
 
@@ -192,6 +197,7 @@ export function SelectMenu({
                         option.id === selectedId ? "page" : undefined
                       }
                       hrefLang={option.hrefLang}
+                      lang={option.lang}
                       onClick={() => closePopover()}
                     >
                       <span>{option.label}</span>

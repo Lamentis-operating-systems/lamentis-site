@@ -116,6 +116,8 @@ describe("site route authority", () => {
 
   it("keeps locale and site facts in their dedicated catalogs", () => {
     expect(supportedLocales).toEqual(Object.keys(localeCatalog));
+    expect(Object.values(localeCatalog).map((locale) => locale.direction))
+      .toEqual(["ltr", "ltr"]);
     expect(Object.keys(siteConfig)).toEqual(["brandName", "origin", "externalLinks"]);
     expect(new URL(siteConfig.origin).protocol).toBe("https:");
     for (const href of Object.values(siteConfig.externalLinks)) {
@@ -201,6 +203,7 @@ describe("site route authority", () => {
       label: "Download",
       errorLabel: "Download failed",
     });
+    expect(navigation.skipToContentLabel).toBe("Skip to main content");
     for (const section of footer.sections) {
       const internalRouteIds = section.links.flatMap((link) => (
         link.kind === "internal" ? [link.routeId] : []
@@ -219,6 +222,7 @@ describe("site route authority", () => {
     expect(getGlobalSiteChromeModel("de").navigation).toMatchObject({
       locale: "de",
       ariaLabel: "Hauptnavigation",
+      skipToContentLabel: "Zum Hauptinhalt",
       action: { label: "Website hinzufügen" },
       actionOverrides: {
         apiCreatorStudio: {
