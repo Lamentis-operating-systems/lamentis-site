@@ -8,10 +8,19 @@ import {
 
 export type ResponseDraftField = {
   arrayItemType: ApiResponseArrayItemType;
+  defaultValue?: string;
+  description?: string;
+  enumValues?: string[];
+  example?: string;
   id: number;
+  maximum?: number;
+  maxLength?: number;
+  minimum?: number;
+  minLength?: number;
   name: string;
   objectSchema?: ResponseDraftObjectSchema;
   optional: boolean;
+  pattern?: string;
   type: ApiResponseFieldType;
 };
 
@@ -125,7 +134,15 @@ export function createResponseDraftFields(
         arrayItemType: field.type === "array"
           ? (field.arrayItemType ?? "string")
           : "string",
+        ...(field.defaultValue ? { defaultValue: field.defaultValue } : {}),
+        ...(field.description ? { description: field.description } : {}),
+        ...(field.enumValues ? { enumValues: [...field.enumValues] } : {}),
+        ...(field.example ? { example: field.example } : {}),
         id,
+        ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
+        ...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {}),
+        ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
+        ...(field.minLength !== undefined ? { minLength: field.minLength } : {}),
         name: field.name,
         ...(field.objectSchema
           ? {
@@ -136,6 +153,7 @@ export function createResponseDraftFields(
             }
           : {}),
         optional: field.optional,
+        ...(field.pattern ? { pattern: field.pattern } : {}),
         type: field.type,
       };
     });
@@ -154,6 +172,20 @@ export function draftFieldsToApiResponseSchema(
       ...(field.type === "array"
         ? { arrayItemType: field.arrayItemType }
         : {}),
+      ...(field.defaultValue?.trim()
+        ? { defaultValue: field.defaultValue.trim() }
+        : {}),
+      ...(field.description?.trim()
+        ? { description: field.description.trim() }
+        : {}),
+      ...(field.enumValues && field.enumValues.length > 0
+        ? { enumValues: field.enumValues }
+        : {}),
+      ...(field.example?.trim() ? { example: field.example.trim() } : {}),
+      ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
+      ...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {}),
+      ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
+      ...(field.minLength !== undefined ? { minLength: field.minLength } : {}),
       name: field.name.trim(),
       ...(apiResponseFieldRequiresObjectSchema(field) && field.objectSchema
         ? {
@@ -168,6 +200,7 @@ export function draftFieldsToApiResponseSchema(
           }
         : {}),
       optional: field.optional,
+      ...(field.pattern?.trim() ? { pattern: field.pattern.trim() } : {}),
       type: field.type,
     })),
     typeName: typeName.trim(),

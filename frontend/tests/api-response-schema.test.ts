@@ -41,8 +41,15 @@ describe("API response schemas", () => {
         typeName: "UserResponse",
         fields: [
           {
+            defaultValue: "anonymous",
+            description: "Public display name",
+            enumValues: ["anonymous", "member"],
+            example: "member",
+            maxLength: 40,
+            minLength: 2,
             name: "displayName",
             optional: false,
+            pattern: "^[a-z]+$",
             type: "string",
           },
           {
@@ -64,6 +71,29 @@ describe("API response schemas", () => {
         ],
       }),
     ).toBe(true);
+  });
+
+  it("rejects contradictory field constraints", () => {
+    expect(isValidApiResponseSchema({
+      fields: [{
+        maxLength: 2,
+        minLength: 3,
+        name: "name",
+        optional: false,
+        type: "string",
+      }],
+      typeName: "InvalidResponse",
+    })).toBe(false);
+    expect(isValidApiResponseSchema({
+      fields: [{
+        maximum: 1,
+        minimum: 2,
+        name: "score",
+        optional: false,
+        type: "number",
+      }],
+      typeName: "InvalidResponse",
+    })).toBe(false);
   });
 
   it("compares schemas canonically without depending on field order", () => {

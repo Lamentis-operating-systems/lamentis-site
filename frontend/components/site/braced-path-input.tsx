@@ -120,7 +120,7 @@ export function BracedPathInput({
     if (event.key === "Enter") {
       if (onAdd) {
         event.preventDefault();
-        addRoute();
+        addRoute(formatEditablePath(input.value));
       }
       return;
     }
@@ -267,10 +267,13 @@ export function BracedPathInput({
     }
   }
 
-  function addRoute() {
-    if (!valid || !onAdd) return;
+  function addRoute(candidateValue = value) {
+    const candidatePath = canonicalPath(candidateValue);
+    const candidateIsValid = candidateValue.length > 0
+      && getValidationReason(candidatePath) === null;
+    if (!candidateIsValid || !onAdd) return;
 
-    onAdd(path);
+    onAdd(candidatePath);
     setPathValue("");
     setScrollLeft(0);
     inputRef.current?.focus();
@@ -344,7 +347,7 @@ export function BracedPathInput({
           className={styles.action}
           aria-label={actionLabel}
           disabled={!valid}
-          onClick={addRoute}
+          onClick={() => addRoute()}
         >
           <PlusIcon />
         </IconButton>

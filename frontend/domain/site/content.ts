@@ -21,6 +21,7 @@ import type {
   ApiIdempotencyPolicy,
   ApiParameterLocation,
   ApiParameterType,
+  ApiQueryArraySerialization,
   ApiSecurityScheme,
 } from "./api-route";
 
@@ -65,31 +66,45 @@ export type ResponseSchemaEditorContent = {
     addParameterLabel: string;
     addResponseHeaderLabel: string;
     addResponseLabel: string;
+    allowedValuesLabel: string;
     authLocationLabel: string;
     authNameLabel: string;
     cacheLabel: string;
     cacheOptions: Record<ApiCachePolicy, string>;
     contentTypesHint: string;
     contentTypesLabel: string;
+    defaultValueLabel: string;
     defaultResponseDescription: string;
     duplicateResponseStatusError: string;
     deprecatedLabel: string;
     descriptionLabel: string;
     detailsDescription: string;
     detailsLabel: string;
+    exampleHint: string;
+    exampleLabel: string;
+    requestExampleLabel: string;
+    responseExampleLabel: string;
     formatLabel: string;
     idempotencyLabel: string;
     idempotencyOptions: Record<ApiIdempotencyPolicy, string>;
     invalidContractError: string;
+    invalidExampleError: string;
+    maximumLabel: string;
+    maxLengthLabel: string;
+    minimumLabel: string;
+    minLengthLabel: string;
     operationIdLabel: string;
     parameterDescriptionLabel: string;
     parameterLocationLabel: string;
     parameterLocationOptions: Record<ApiParameterLocation, string>;
     parameterNameLabel: string;
+    parameterSerializationLabel: string;
+    parameterSerializationOptions: Record<ApiQueryArraySerialization, string>;
     parameterTypeLabel: string;
     parameterTypeOptions: Record<ApiParameterType, string>;
     parametersDescription: string;
     parametersLabel: string;
+    patternLabel: string;
     rateLimitLabel: string;
     removeParameterLabel: string;
     removeResponseHeaderLabel: string;
@@ -125,6 +140,13 @@ export type ApiCreatorStudioContent = SearchContent & {
   actionLabel: string;
   closeEditRouteOverlayLabel: string;
   closeResponseOverlayLabel: string;
+  contractMetadata: {
+    basePathLabel: string;
+    description: string;
+    label: string;
+    titleLabel: string;
+    versionLabel: string;
+  };
   copyRouteErrorLabel: string;
   copyRouteLabel: string;
   deleteRouteLabel: string;
@@ -212,6 +234,13 @@ export const contentByLocale = {
       actionLabel: "Add API route",
       closeEditRouteOverlayLabel: "Close Edit this route",
       closeResponseOverlayLabel: "Close the response editor",
+      contractMetadata: {
+        basePathLabel: "Base path",
+        description: "Optional details that apply to every route in this contract.",
+        label: "API details",
+        titleLabel: "API title",
+        versionLabel: "API version",
+      },
       copyRouteErrorLabel: "The route could not be copied.",
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
@@ -264,6 +293,7 @@ export const contentByLocale = {
           addParameterLabel: "Add parameter",
           addResponseHeaderLabel: "Add response header",
           addResponseLabel: "Add response",
+          allowedValuesLabel: "Allowed values",
           authLocationLabel: "Credential location",
           authNameLabel: "Credential name",
           cacheLabel: "Cache policy",
@@ -275,6 +305,7 @@ export const contentByLocale = {
           },
           contentTypesHint: "Comma-separated media types",
           contentTypesLabel: "Content types",
+          defaultValueLabel: "Default value",
           defaultResponseDescription: "Successful response",
           duplicateResponseStatusError:
             "Response status codes must be unique.",
@@ -283,6 +314,10 @@ export const contentByLocale = {
           detailsDescription:
             "Document the operation with editable suggestions derived from its method and path.",
           detailsLabel: "Route details",
+          exampleHint: "Valid JSON example",
+          exampleLabel: "Example",
+          requestExampleLabel: "Request example",
+          responseExampleLabel: "Response example",
           formatLabel: "Format",
           idempotencyLabel: "Idempotency",
           idempotencyOptions: {
@@ -293,6 +328,11 @@ export const contentByLocale = {
           },
           invalidContractError:
             "Complete every route contract field with a valid value before saving.",
+          invalidExampleError: "Examples must contain valid JSON.",
+          maximumLabel: "Maximum",
+          maxLengthLabel: "Maximum length",
+          minimumLabel: "Minimum",
+          minLengthLabel: "Minimum length",
           operationIdLabel: "Operation ID",
           parameterDescriptionLabel: "Parameter description",
           parameterLocationLabel: "Parameter location",
@@ -303,6 +343,13 @@ export const contentByLocale = {
             cookie: "cookie",
           },
           parameterNameLabel: "Parameter name",
+          parameterSerializationLabel: "Array serialization",
+          parameterSerializationOptions: {
+            repeat: "Repeated (?tag=a&tag=b)",
+            comma: "Comma separated (?tag=a,b)",
+            space: "Space separated (?tag=a b)",
+            pipe: "Pipe separated (?tag=a|b)",
+          },
           parameterTypeLabel: "Parameter type",
           parameterTypeOptions: {
             string: "string",
@@ -314,6 +361,7 @@ export const contentByLocale = {
           parametersDescription:
             "Path parameters are synchronized from the route. Add query, header, or cookie parameters explicitly.",
           parametersLabel: "Parameters",
+          patternLabel: "Pattern",
           rateLimitLabel: "Rate limit",
           removeParameterLabel: "Remove parameter",
           removeResponseHeaderLabel: "Remove response header",
@@ -449,6 +497,13 @@ export const contentByLocale = {
       closeEditRouteOverlayLabel: "Route bearbeiten schließen",
       closeResponseOverlayLabel:
         "Datenstruktur für diese Route schließen",
+      contractMetadata: {
+        basePathLabel: "Basispfad",
+        description: "Optionale Angaben, die für alle Routen dieses Vertrags gelten.",
+        label: "API-Angaben",
+        titleLabel: "API-Titel",
+        versionLabel: "API-Version",
+      },
       copyRouteErrorLabel: "Die Route konnte nicht kopiert werden.",
       copyRouteLabel: "Kopieren",
       deleteRouteLabel: "Löschen",
@@ -503,6 +558,7 @@ export const contentByLocale = {
           addParameterLabel: "Parameter hinzufügen",
           addResponseHeaderLabel: "Antwort-Header hinzufügen",
           addResponseLabel: "Antwort hinzufügen",
+          allowedValuesLabel: "Erlaubte Werte",
           authLocationLabel: "Zugangsdaten-Ort",
           authNameLabel: "Zugangsdaten-Name",
           cacheLabel: "Cache-Richtlinie",
@@ -514,6 +570,7 @@ export const contentByLocale = {
           },
           contentTypesHint: "Kommagetrennte Medientypen",
           contentTypesLabel: "Inhaltstypen",
+          defaultValueLabel: "Standardwert",
           defaultResponseDescription: "Erfolgreiche Antwort",
           duplicateResponseStatusError:
             "HTTP-Statuscodes der Antworten müssen eindeutig sein.",
@@ -522,6 +579,10 @@ export const contentByLocale = {
           detailsDescription:
             "Dokumentiere die Operation mit bearbeitbaren Vorschlägen aus Methode und Pfad.",
           detailsLabel: "Routendetails",
+          exampleHint: "Gültiges JSON-Beispiel",
+          exampleLabel: "Beispiel",
+          requestExampleLabel: "Request-Beispiel",
+          responseExampleLabel: "Response-Beispiel",
           formatLabel: "Format",
           idempotencyLabel: "Idempotenz",
           idempotencyOptions: {
@@ -532,6 +593,11 @@ export const contentByLocale = {
           },
           invalidContractError:
             "Vervollständige vor dem Speichern alle Felder des Routenvertrags mit gültigen Werten.",
+          invalidExampleError: "Beispiele müssen gültiges JSON enthalten.",
+          maximumLabel: "Maximum",
+          maxLengthLabel: "Maximale Länge",
+          minimumLabel: "Minimum",
+          minLengthLabel: "Minimale Länge",
           operationIdLabel: "Operations-ID",
           parameterDescriptionLabel: "Parameterbeschreibung",
           parameterLocationLabel: "Parameterort",
@@ -542,6 +608,13 @@ export const contentByLocale = {
             cookie: "Cookie",
           },
           parameterNameLabel: "Parametername",
+          parameterSerializationLabel: "Array-Serialisierung",
+          parameterSerializationOptions: {
+            repeat: "Wiederholt (?tag=a&tag=b)",
+            comma: "Kommagetrennt (?tag=a,b)",
+            space: "Leerzeichengetrennt (?tag=a b)",
+            pipe: "Pipe-getrennt (?tag=a|b)",
+          },
           parameterTypeLabel: "Parametertyp",
           parameterTypeOptions: {
             string: "string",
@@ -553,6 +626,7 @@ export const contentByLocale = {
           parametersDescription:
             "Pfadparameter werden mit der Route synchronisiert. Query-, Header- und Cookie-Parameter werden explizit ergänzt.",
           parametersLabel: "Parameter",
+          patternLabel: "Muster",
           rateLimitLabel: "Ratenbegrenzung",
           removeParameterLabel: "Parameter entfernen",
           removeResponseHeaderLabel: "Antwort-Header entfernen",

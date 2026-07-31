@@ -168,6 +168,8 @@ describe("site route authority", () => {
     ).toEqual([
       "apiCreatorStudio.responseEditor.routeContract.formatLabel",
       "apiCreatorStudio.responseEditor.routeContract.idempotencyOptions.idempotent",
+      "apiCreatorStudio.responseEditor.routeContract.maximumLabel",
+      "apiCreatorStudio.responseEditor.routeContract.minimumLabel",
       "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.array",
       "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.boolean",
       "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.integer",

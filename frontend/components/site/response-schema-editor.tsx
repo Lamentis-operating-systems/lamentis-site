@@ -31,6 +31,7 @@ import {
   type ApiRouteContract,
   type ApiRouteHeader,
   type ApiRouteResponse,
+  type ApiContractExample,
   type HttpMethod,
 } from "@/domain/site/api-route";
 import { deriveApiRouteSuggestions } from "@/domain/site/api-route-suggestions";
@@ -114,6 +115,12 @@ type PendingPropertyFocus =
 
 function schemaPathKey(schemaPath: readonly number[]): string {
   return schemaPath.length > 0 ? schemaPath.join(".") : "root";
+}
+
+function optionalFiniteNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 const SchemaDefinitionEditor = forwardRef<
@@ -366,9 +373,14 @@ const SchemaDefinitionEditor = forwardRef<
     const needsObjectSchema = apiResponseFieldRequiresObjectSchema({ arrayItemType, type });
     updateProperty(schemaPath, field.id, {
       arrayItemType,
+      maximum: type === "number" ? field.maximum : undefined,
+      maxLength: type === "string" ? field.maxLength : undefined,
+      minimum: type === "number" ? field.minimum : undefined,
+      minLength: type === "string" ? field.minLength : undefined,
       objectSchema: needsObjectSchema
         ? (field.objectSchema ?? createDraftObjectSchema())
         : undefined,
+      pattern: type === "string" ? field.pattern : undefined,
       type,
     });
   }
@@ -520,6 +532,116 @@ const SchemaDefinitionEditor = forwardRef<
                     <CloseIcon />
                   </IconButton>
                 </div>
+              </div>
+              <div className={styles.propertyConstraintGrid}>
+                <TextInput
+                  aria-label={`${content.routeContract.parameterDescriptionLabel} ${positionLabel}`}
+                  name={`${kind}-property-${field.id}-description`}
+                  placeholder={content.routeContract.parameterDescriptionLabel}
+                  tone="nested"
+                  value={field.description ?? ""}
+                  onChange={(event) => updateProperty(schemaPath, field.id, {
+                    description: event.currentTarget.value,
+                  })}
+                />
+                {!objectSchemaRequired && field.type !== "array" ? (
+                  <TextInput
+                    aria-label={`${content.routeContract.allowedValuesLabel} ${positionLabel}`}
+                    name={`${kind}-property-${field.id}-allowed-values`}
+                    placeholder={content.routeContract.allowedValuesLabel}
+                    tone="nested"
+                    value={(field.enumValues ?? []).join(", ")}
+                    onChange={(event) => updateProperty(schemaPath, field.id, {
+                      enumValues: commaSeparatedValues(event.currentTarget.value),
+                    })}
+                  />
+                ) : null}
+                {!objectSchemaRequired ? (
+                  <>
+                    <TextInput
+                      aria-label={`${content.routeContract.defaultValueLabel} ${positionLabel}`}
+                      name={`${kind}-property-${field.id}-default`}
+                      placeholder={content.routeContract.defaultValueLabel}
+                      tone="nested"
+                      value={field.defaultValue ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        defaultValue: event.currentTarget.value,
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.routeContract.exampleLabel} ${positionLabel}`}
+                      name={`${kind}-property-${field.id}-example`}
+                      placeholder={content.routeContract.exampleLabel}
+                      tone="nested"
+                      value={field.example ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        example: event.currentTarget.value,
+                      })}
+                    />
+                  </>
+                ) : null}
+                {(field.type === "number") ? (
+                  <>
+                    <TextInput
+                      aria-label={`${content.routeContract.minimumLabel} ${positionLabel}`}
+                      inputMode="decimal"
+                      name={`${kind}-property-${field.id}-minimum`}
+                      placeholder={content.routeContract.minimumLabel}
+                      tone="nested"
+                      value={field.minimum ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        minimum: optionalFiniteNumber(event.currentTarget.value),
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.routeContract.maximumLabel} ${positionLabel}`}
+                      inputMode="decimal"
+                      name={`${kind}-property-${field.id}-maximum`}
+                      placeholder={content.routeContract.maximumLabel}
+                      tone="nested"
+                      value={field.maximum ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        maximum: optionalFiniteNumber(event.currentTarget.value),
+                      })}
+                    />
+                  </>
+                ) : null}
+                {field.type === "string" ? (
+                  <>
+                    <TextInput
+                      aria-label={`${content.routeContract.minLengthLabel} ${positionLabel}`}
+                      inputMode="numeric"
+                      name={`${kind}-property-${field.id}-min-length`}
+                      placeholder={content.routeContract.minLengthLabel}
+                      tone="nested"
+                      value={field.minLength ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        minLength: optionalFiniteNumber(event.currentTarget.value),
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.routeContract.maxLengthLabel} ${positionLabel}`}
+                      inputMode="numeric"
+                      name={`${kind}-property-${field.id}-max-length`}
+                      placeholder={content.routeContract.maxLengthLabel}
+                      tone="nested"
+                      value={field.maxLength ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        maxLength: optionalFiniteNumber(event.currentTarget.value),
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.routeContract.patternLabel} ${positionLabel}`}
+                      name={`${kind}-property-${field.id}-pattern`}
+                      placeholder={content.routeContract.patternLabel}
+                      tone="nested"
+                      value={field.pattern ?? ""}
+                      onChange={(event) => updateProperty(schemaPath, field.id, {
+                        pattern: event.currentTarget.value,
+                      })}
+                    />
+                  </>
+                ) : null}
               </div>
               {hasObjectDefinitionContent && field.objectSchema ? (
                 <div className={styles.objectDefinition}>
@@ -722,6 +844,7 @@ type ResponseHeaderDraft = ApiRouteHeader & { id: number };
 type ResponseDraft = {
   contentTypes: string;
   description: string;
+  example: string;
   headers: ResponseHeaderDraft[];
   id: number;
   initialSchema?: ApiResponseSchema;
@@ -731,6 +854,17 @@ type ResponseDraft = {
 
 function commaSeparatedValues(value: string): string[] {
   return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
+}
+
+function parseJsonExample(value: string):
+  | { example?: ApiContractExample; valid: true }
+  | { valid: false } {
+  if (!value.trim()) return { valid: true };
+  try {
+    return { example: JSON.parse(value) as ApiContractExample, valid: true };
+  } catch {
+    return { valid: false };
+  }
 }
 
 function initialResponseDrafts(
@@ -749,6 +883,9 @@ function initialResponseDrafts(
   return responses.map((response, index) => ({
     contentTypes: response.contentTypes.join(", "),
     description: response.description,
+    example: response.example === undefined
+      ? ""
+      : JSON.stringify(response.example),
     headers: (response.headers ?? []).map((header) => ({
       ...header,
       id: nextHeaderId++,
@@ -782,6 +919,11 @@ export function ResponseSchemaEditor({
   );
   const [requestRequired, setRequestRequired] = useState(
     route.requestBody?.required === true,
+  );
+  const [requestExample, setRequestExample] = useState(
+    route.requestBody?.example === undefined
+      ? ""
+      : JSON.stringify(route.requestBody.example),
   );
   const [responses, setResponses] = useState<ResponseDraft[]>(() => (
     initialResponseDrafts(
@@ -849,6 +991,7 @@ export function ResponseSchemaEditor({
       {
         contentTypes: "application/json",
         description: content.routeContract.defaultResponseDescription,
+        example: "",
         headers: [],
         id: nextResponseIdRef.current++,
         paginated: false,
@@ -908,11 +1051,26 @@ export function ResponseSchemaEditor({
   function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const request = requestRef.current?.getSchema();
+    const parsedRequestExample = parseJsonExample(requestExample);
+    const parsedResponseExamples = responses.map((response) => (
+      parseJsonExample(response.example)
+    ));
+    if (!parsedRequestExample.valid
+      || parsedResponseExamples.some((example) => !example.valid)) {
+      setRequestOpen(true);
+      setResponseOpen(true);
+      setResponseIssue(content.routeContract.invalidExampleError);
+      return;
+    }
     const normalizedResponses: ApiRouteResponse[] = responses.map((response) => {
       const schema = responseRefs.current.get(response.id)?.getSchema();
+      const parsedExample = parseJsonExample(response.example);
       return {
         contentTypes: commaSeparatedValues(response.contentTypes),
         description: response.description.trim(),
+        ...(parsedExample.valid && parsedExample.example !== undefined
+          ? { example: parsedExample.example }
+          : {}),
         headers: response.headers
           .filter((header) => header.name.trim())
           .map((header): ApiRouteHeader => ({
@@ -950,7 +1108,9 @@ export function ResponseSchemaEditor({
     const primaryResponse = normalizedResponses.find((response) => (
       response.schema && /^2[0-9]{2}$/.test(response.status)
     )) ?? normalizedResponses.find((response) => response.schema);
-    const hasRequestBody = Boolean(request || requestRequired || route.requestBody);
+    const hasRequestBody = Boolean(
+      request || requestRequired || requestExample.trim() || route.requestBody,
+    );
     const result = onSave({
       ...detailsRef.current?.getContract(),
       paginated: primaryResponse?.paginated === true ? true : undefined,
@@ -959,6 +1119,9 @@ export function ResponseSchemaEditor({
         ? {
             requestBody: {
               contentTypes: commaSeparatedValues(requestContentTypes),
+              ...(parsedRequestExample.example !== undefined
+                ? { example: parsedRequestExample.example }
+                : {}),
               required: requestRequired,
               ...(request ? { schema: request } : {}),
             },
@@ -1058,6 +1221,17 @@ export function ResponseSchemaEditor({
             label={content.routeContract.requestRequiredLabel}
             onChange={(event) => setRequestRequired(event.currentTarget.checked)}
           />
+          <label className={`${styles.contractField} ${styles.contractWideField}`}>
+            <span className={styles.label}>{content.routeContract.exampleLabel}</span>
+            <TextInput
+              aria-label={content.routeContract.requestExampleLabel}
+              name="request-example"
+              placeholder={content.routeContract.exampleHint}
+              tone="nested"
+              value={requestExample}
+              onChange={(event) => setRequestExample(event.currentTarget.value)}
+            />
+          </label>
         </div>
         <SchemaDefinitionEditor
           ref={requestRef}
@@ -1149,6 +1323,19 @@ export function ResponseSchemaEditor({
                   />
                 )}
               </div>
+              <label className={styles.contractField}>
+                <span className={styles.label}>{content.routeContract.exampleLabel}</span>
+                <TextInput
+                  aria-label={`${content.routeContract.responseExampleLabel} ${responseIndex + 1}`}
+                  name={`response-${response.id}-example`}
+                  placeholder={content.routeContract.exampleHint}
+                  tone="nested"
+                  value={response.example}
+                  onChange={(event) => updateResponse(response.id, {
+                    example: event.currentTarget.value,
+                  })}
+                />
+              </label>
               <SchemaDefinitionEditor
                 ref={(handle) => {
                   if (handle) responseRefs.current.set(response.id, handle);

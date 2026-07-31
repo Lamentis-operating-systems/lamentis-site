@@ -325,4 +325,51 @@ describe("API-contract agent skill", () => {
     expect(skill).toContain("totalPages: number;");
     expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
   });
+
+  it("exports global details, serialization, field rules, and JSON examples", () => {
+    const skill = generateApiContractsAgentSkill([{
+      id: 0,
+      method: "GET",
+      parameters: [{
+        defaultValue: "25",
+        enumValues: ["10", "25", "50"],
+        location: "query",
+        name: "limit",
+        required: false,
+        serialization: "comma",
+        type: "array",
+      }],
+      path: "/users",
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Invalid query",
+        example: { code: "INVALID_LIMIT" },
+        schema: {
+          fields: [{
+            description: "Stable machine-readable code",
+            enumValues: ["INVALID_LIMIT"],
+            example: "INVALID_LIMIT",
+            name: "code",
+            optional: false,
+            type: "string",
+          }],
+          typeName: "ErrorResponse",
+        },
+        status: "400",
+      }],
+    }], {
+      basePath: "/api/v1",
+      security: { scheme: "bearer" },
+      title: "Accounts API",
+      version: "1.0.0",
+    });
+
+    expect(skill).toContain("Title: Accounts API");
+    expect(skill).toContain("Base path: `/api/v1`");
+    expect(skill).toContain("Default security: bearer");
+    expect(skill).toContain("serialization comma");
+    expect(skill).toContain("allowed values: `INVALID_LIMIT`");
+    expect(skill).toContain('"code": "INVALID_LIMIT"');
+    expect(skill).toContain("Security: Inherit API default");
+  });
 });

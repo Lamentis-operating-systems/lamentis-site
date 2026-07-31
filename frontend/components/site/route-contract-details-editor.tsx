@@ -12,6 +12,7 @@ import {
   apiIdempotencyPolicies,
   apiParameterLocations,
   apiParameterTypes,
+  apiQueryArraySerializations,
   apiSecuritySchemes,
   type ApiParameterLocation,
   type ApiRouteContract,
@@ -58,6 +59,12 @@ type RouteContractDetailsEditorProps = {
 
 function commaSeparatedValues(value: string): string[] {
   return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
+}
+
+function optionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function LabeledInput({
@@ -122,15 +129,46 @@ export const RouteContractDetailsEditor = forwardRef<
       const normalizedParameters = parameters
         .filter((parameter) => parameter.name.trim().length > 0)
         .map((parameter): ApiRouteParameter => ({
+          ...(parameter.defaultValue?.trim()
+            ? { defaultValue: parameter.defaultValue.trim() }
+            : {}),
           ...(parameter.description?.trim()
             ? { description: parameter.description.trim() }
             : {}),
           ...(parameter.format?.trim()
             ? { format: parameter.format.trim() }
             : {}),
+          ...(parameter.enumValues?.length
+            ? { enumValues: parameter.enumValues }
+            : {}),
+          ...(parameter.example?.trim()
+            ? { example: parameter.example.trim() }
+            : {}),
           location: parameter.location,
+          ...(parameter.maximum !== undefined
+            ? { maximum: parameter.maximum }
+            : {}),
+          ...(parameter.maxLength !== undefined
+            ? { maxLength: parameter.maxLength }
+            : {}),
+          ...(parameter.minimum !== undefined
+            ? { minimum: parameter.minimum }
+            : {}),
+          ...(parameter.minLength !== undefined
+            ? { minLength: parameter.minLength }
+            : {}),
           name: parameter.name.trim(),
+          ...(parameter.pattern?.trim()
+            ? { pattern: parameter.pattern.trim() }
+            : {}),
           required: parameter.location === "path" ? true : parameter.required,
+          ...(parameter.serialization
+            && parameter.location === "query"
+            && parameter.type === "array"
+            ? { serialization: parameter.serialization }
+            : parameter.location === "query" && parameter.type === "array"
+              ? { serialization: "repeat" as const }
+            : {}),
           type: parameter.type,
         }));
       const behavior = {
@@ -223,6 +261,27 @@ export const RouteContractDetailsEditor = forwardRef<
     )));
   }
 
+  function updateParameterType(id: number, type: ApiRouteParameter["type"]) {
+    setParameters((current) => current.map((parameter) => (
+      parameter.id === id ? {
+        ...parameter,
+        maximum: type === "number" || type === "integer"
+          ? parameter.maximum
+          : undefined,
+        maxLength: type === "string" ? parameter.maxLength : undefined,
+        minimum: type === "number" || type === "integer"
+          ? parameter.minimum
+          : undefined,
+        minLength: type === "string" ? parameter.minLength : undefined,
+        pattern: type === "string" ? parameter.pattern : undefined,
+        serialization: type === "array" && parameter.location === "query"
+          ? (parameter.serialization ?? "repeat")
+          : undefined,
+        type,
+      } : parameter
+    )));
+  }
+
   function removeParameter(id: number) {
     setParameters((current) => current.filter((parameter) => parameter.id !== id));
   }
@@ -308,6 +367,9 @@ export const RouteContractDetailsEditor = forwardRef<
                   onSelect: () => updateParameter(parameter.id, {
                     location,
                     required: location === "path" ? true : parameter.required,
+                    serialization: location === "query" && parameter.type === "array"
+                      ? (parameter.serialization ?? "repeat")
+                      : undefined,
                   }),
                 } satisfies SelectMenuOption))}
                 rounded
@@ -321,7 +383,7 @@ export const RouteContractDetailsEditor = forwardRef<
                   id: type,
                   kind: "action",
                   label: content.parameterTypeOptions[type],
-                  onSelect: () => updateParameter(parameter.id, { type }),
+                  onSelect: () => updateParameterType(parameter.id, type),
                 }))}
                 rounded
                 selectedId={parameter.type}
@@ -369,6 +431,115 @@ export const RouteContractDetailsEditor = forwardRef<
                     <CloseIcon />
                   </IconButton>
                 )}
+              </div>
+              <div className={styles.parameterConstraintGrid}>
+                {parameter.location === "query" && parameter.type === "array" ? (
+                  <SelectMenu
+                    height="large"
+                    label={`${content.parameterSerializationLabel} ${position}`}
+                    options={apiQueryArraySerializations.map((serialization) => ({
+                      id: serialization,
+                      kind: "action",
+                      label: content.parameterSerializationOptions[serialization],
+                      onSelect: () => updateParameter(parameter.id, { serialization }),
+                    }))}
+                    rounded
+                    selectedId={parameter.serialization ?? "repeat"}
+                    width="field"
+                  />
+                ) : null}
+                <TextInput
+                  aria-label={`${content.allowedValuesLabel} ${position}`}
+                  name={`parameter-${parameter.id}-allowed-values`}
+                  placeholder={content.allowedValuesLabel}
+                  tone="nested"
+                  value={(parameter.enumValues ?? []).join(", ")}
+                  onChange={(event) => updateParameter(parameter.id, {
+                    enumValues: commaSeparatedValues(event.currentTarget.value),
+                  })}
+                />
+                <TextInput
+                  aria-label={`${content.defaultValueLabel} ${position}`}
+                  name={`parameter-${parameter.id}-default`}
+                  placeholder={content.defaultValueLabel}
+                  tone="nested"
+                  value={parameter.defaultValue ?? ""}
+                  onChange={(event) => updateParameter(parameter.id, {
+                    defaultValue: event.currentTarget.value,
+                  })}
+                />
+                <TextInput
+                  aria-label={`${content.exampleLabel} ${position}`}
+                  name={`parameter-${parameter.id}-example`}
+                  placeholder={content.exampleLabel}
+                  tone="nested"
+                  value={parameter.example ?? ""}
+                  onChange={(event) => updateParameter(parameter.id, {
+                    example: event.currentTarget.value,
+                  })}
+                />
+                {(parameter.type === "number" || parameter.type === "integer") ? (
+                  <>
+                    <TextInput
+                      aria-label={`${content.minimumLabel} ${position}`}
+                      inputMode="decimal"
+                      name={`parameter-${parameter.id}-minimum`}
+                      placeholder={content.minimumLabel}
+                      tone="nested"
+                      value={parameter.minimum ?? ""}
+                      onChange={(event) => updateParameter(parameter.id, {
+                        minimum: optionalNumber(event.currentTarget.value),
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.maximumLabel} ${position}`}
+                      inputMode="decimal"
+                      name={`parameter-${parameter.id}-maximum`}
+                      placeholder={content.maximumLabel}
+                      tone="nested"
+                      value={parameter.maximum ?? ""}
+                      onChange={(event) => updateParameter(parameter.id, {
+                        maximum: optionalNumber(event.currentTarget.value),
+                      })}
+                    />
+                  </>
+                ) : null}
+                {parameter.type === "string" ? (
+                  <>
+                    <TextInput
+                      aria-label={`${content.minLengthLabel} ${position}`}
+                      inputMode="numeric"
+                      name={`parameter-${parameter.id}-min-length`}
+                      placeholder={content.minLengthLabel}
+                      tone="nested"
+                      value={parameter.minLength ?? ""}
+                      onChange={(event) => updateParameter(parameter.id, {
+                        minLength: optionalNumber(event.currentTarget.value),
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.maxLengthLabel} ${position}`}
+                      inputMode="numeric"
+                      name={`parameter-${parameter.id}-max-length`}
+                      placeholder={content.maxLengthLabel}
+                      tone="nested"
+                      value={parameter.maxLength ?? ""}
+                      onChange={(event) => updateParameter(parameter.id, {
+                        maxLength: optionalNumber(event.currentTarget.value),
+                      })}
+                    />
+                    <TextInput
+                      aria-label={`${content.patternLabel} ${position}`}
+                      name={`parameter-${parameter.id}-pattern`}
+                      placeholder={content.patternLabel}
+                      tone="nested"
+                      value={parameter.pattern ?? ""}
+                      onChange={(event) => updateParameter(parameter.id, {
+                        pattern: event.currentTarget.value,
+                      })}
+                    />
+                  </>
+                ) : null}
               </div>
             </div>
           );

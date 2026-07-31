@@ -113,6 +113,14 @@
   display: contents;
 }
 
+.parameterConstraintGrid {
+  display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  gap: var(--space-3);
+}
+
 .parameterActionSpacer {
   width: var(--control-height);
   height: var(--control-height);
@@ -378,6 +386,14 @@
   gap: var(--space-3);
 }
 
+.propertyConstraintGrid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  padding-inline-start: var(--space-4);
+  gap: var(--space-3);
+}
+
 .objectTemplateControl {
   min-width: 0;
   flex: 1 1 auto;
@@ -440,6 +456,8 @@
 
 @container (width <= 50rem) {
   .contractFieldGrid,
+  .parameterConstraintGrid,
+  .propertyConstraintGrid,
   .parameterRow,
   .responseMetadataRow,
   .responseHeaderRow {
@@ -462,6 +480,8 @@
 
 @media (width <= 40rem) {
   .contractFieldGrid,
+  .parameterConstraintGrid,
+  .propertyConstraintGrid,
   .parameterRow,
   .responseMetadataRow,
   .responseHeaderRow {

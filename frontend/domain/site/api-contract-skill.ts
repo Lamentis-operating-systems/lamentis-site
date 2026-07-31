@@ -16,6 +16,7 @@ import {
   type ApiResponseField,
   type ApiResponseSchema,
 } from "./api-response-schema";
+import type { ApiContractMetadata } from "./api-contract-metadata";
 
 export const apiContractsAgentSkillFileName =
   "api-contracts-agent-skill.md";
@@ -249,6 +250,35 @@ function renderTypeScriptModel(schema: ApiResponseSchema): string {
   ].join("\n");
 }
 
+function renderSchemaFieldRules(schema: ApiResponseSchema): string[] {
+  return schema.fields.flatMap((field) => {
+    const rules = [
+      field.description ? `description: ${field.description}` : null,
+      field.enumValues?.length
+        ? `allowed values: ${field.enumValues.map((value) => `\`${value}\``).join(", ")}`
+        : null,
+      field.defaultValue ? `default: \`${field.defaultValue}\`` : null,
+      field.example ? `example: \`${field.example}\`` : null,
+      field.minimum !== undefined ? `minimum: ${field.minimum}` : null,
+      field.maximum !== undefined ? `maximum: ${field.maximum}` : null,
+      field.minLength !== undefined ? `minimum length: ${field.minLength}` : null,
+      field.maxLength !== undefined ? `maximum length: ${field.maxLength}` : null,
+      field.pattern ? `pattern: \`${field.pattern}\`` : null,
+    ].filter((rule): rule is string => Boolean(rule));
+    return rules.length > 0
+      ? [`- \`${field.name}\`: ${rules.join("; ")}`]
+      : [];
+  });
+}
+
+function renderJsonExample(example: unknown, indent = ""): string[] {
+  return [
+    `${indent}\`\`\`json`,
+    ...JSON.stringify(example, null, 2).split("\n").map((line) => `${indent}${line}`),
+    `${indent}\`\`\``,
+  ];
+}
+
 function renderInventory(groups: readonly CanonicalRouteGroup[]): string {
   if (groups.length === 0) {
     return [
@@ -281,7 +311,10 @@ function renderInventory(groups: readonly CanonicalRouteGroup[]): string {
   ].join("\n");
 }
 
-function renderRouteContract(group: CanonicalRouteGroup): string {
+function renderRouteContract(
+  group: CanonicalRouteGroup,
+  hasDefaultSecurity: boolean,
+): string {
   const parameters = pathParameters(group.path);
   const lines = [
     `### \`${group.method} ${group.path}\``,
@@ -330,7 +363,17 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
               parameter.format ? ` (${parameter.format})` : ""
             }, ${parameter.required ? "required" : "optional"}${
               parameter.description ? ` — ${parameter.description}` : ""
-            }`
+            }${parameter.serialization ? `; serialization ${parameter.serialization}` : ""}${
+              parameter.enumValues?.length
+                ? `; allowed values ${parameter.enumValues.map((value) => `\`${value}\``).join(", ")}`
+                : ""
+            }${parameter.defaultValue ? `; default \`${parameter.defaultValue}\`` : ""}${
+              parameter.example ? `; example \`${parameter.example}\`` : ""
+            }${parameter.minimum !== undefined ? `; minimum ${parameter.minimum}` : ""}${
+              parameter.maximum !== undefined ? `; maximum ${parameter.maximum}` : ""
+            }${parameter.minLength !== undefined ? `; minimum length ${parameter.minLength}` : ""}${
+              parameter.maxLength !== undefined ? `; maximum length ${parameter.maxLength}` : ""
+            }${parameter.pattern ? `; pattern \`${parameter.pattern}\`` : ""}`
           )),
         );
       }
@@ -339,6 +382,12 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
             variant.requestBody.contentTypes.map((type) => `\`${type}\``).join(", ") || "no content type"
           }; model ${variant.requestBody.schema ? `\`${variant.requestBody.schema.typeName}\`` : "not specified"}`
         : "- Request body: Not specified. Do not invent one.");
+      if (variant.requestBody?.example !== undefined) {
+        lines.push("- Request example:", ...renderJsonExample(
+          variant.requestBody.example,
+          "  ",
+        ));
+      }
       lines.push(
         `- Request model: ${variant.request ? `\`${variant.request.typeName}\`` : "Not specified"}`,
         `- Response model: ${responseModelName(variant) ? `\`${responseModelName(variant)}\`` : "Not specified"}`,
@@ -368,6 +417,9 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
               ...(response.paginated && response.schema
                 ? [`    - Pagination wraps \`${response.schema.typeName}\` in \`items\` and includes \`totalHits\`, \`page\`, \`limit\`, and \`totalPages\`.`]
                 : []),
+              ...(response.example !== undefined
+                ? ["    - Example:", ...renderJsonExample(response.example, "      ")]
+                : []),
             ];
           }),
         );
@@ -377,7 +429,7 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
           ? `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
               variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
             }`
-          : "None"}`,
+          : hasDefaultSecurity ? "Inherit API default" : "None"}`,
         `- Cache policy: ${variant.behavior?.cache ?? "Unspecified"}`,
         `- Idempotency: ${variant.behavior?.idempotency ?? "Unspecified"}`,
         `- Rate limit: ${variant.behavior?.rateLimit ?? "Unspecified"}`,
@@ -401,12 +453,14 @@ function renderResponseModels(groups: readonly ResponseModelGroup[]): string {
 
   return groups.map((group) => {
     if (group.variants.length === 1 && group.variants[0]) {
+      const rules = renderSchemaFieldRules(group.variants[0]);
       return [
         `### \`${group.typeName}\``,
         "",
         "```ts",
         renderTypeScriptModel(group.variants[0]),
         "```",
+        ...(rules.length > 0 ? ["", "Field rules:", ...rules] : []),
       ].join("\n");
     }
 
@@ -430,11 +484,15 @@ function renderResponseModels(groups: readonly ResponseModelGroup[]): string {
 
 export function generateApiContractsAgentSkill(
   routes: readonly ApiRouteContract[],
+  metadata: ApiContractMetadata = {},
 ): string {
   const routeGroups = canonicalRouteGroups(routes);
   const modelGroups = responseModelGroups(routes);
   const contracts = routeGroups.length > 0
-    ? routeGroups.map(renderRouteContract).join("\n\n")
+    ? routeGroups.map((group) => renderRouteContract(
+        group,
+        Boolean(metadata.security),
+      )).join("\n\n")
     : "No route contracts are available.";
 
   return [
@@ -459,6 +517,19 @@ export function generateApiContractsAgentSkill(
     "6. Do not invent authentication, authorization, request bodies, status codes, persistence, errors, or response fields that are not specified here.",
     "7. Treat every `BLOCKED` conflict as a stop condition. Ask the contract owner to resolve it before implementation.",
     "8. Follow the target project's validation, formatting, test, and build commands.",
+    "",
+    "## API details",
+    "",
+    `- Title: ${metadata.title ?? "Not specified"}`,
+    `- Version: ${metadata.version ?? "Not specified"}`,
+    `- Base path: ${metadata.basePath ? `\`${metadata.basePath}\`` : "Not specified"}`,
+    `- Default security: ${metadata.security
+      ? `${metadata.security.scheme}${metadata.security.name ? ` (\`${metadata.security.name}\`)` : ""}${
+          metadata.security.location ? ` in ${metadata.security.location}` : ""
+        }${metadata.security.scopes?.length
+          ? `; scopes ${metadata.security.scopes.map((scope) => `\`${scope}\``).join(", ")}`
+          : ""}`
+      : "None specified"}`,
     "",
     "## Required workflow",
     "",

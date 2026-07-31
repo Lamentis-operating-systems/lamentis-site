@@ -202,7 +202,7 @@ describe("API-contract download loading", () => {
 
     await waitFor(() => {
       expect(apiSkillModuleState.moduleLoads).toBe(1);
-      expect(apiSkillModuleState.generate).toHaveBeenCalledWith([]);
+      expect(apiSkillModuleState.generate).toHaveBeenCalledWith([], {});
       expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
         contents: "# Generated API contracts",
         fileName: "api-contracts-agent-skill.md",
@@ -268,7 +268,7 @@ describe("API-contract download loading", () => {
 
     await waitFor(() => {
       expect(loadSkillModule).toHaveBeenCalledTimes(2);
-      expect(generate).toHaveBeenCalledWith([]);
+      expect(generate).toHaveBeenCalledWith([], {});
       expect(browserDownloadState.downloadTextFile).toHaveBeenCalledWith({
         contents: "# Retried API contracts",
         fileName: "api-contracts-agent-skill.md",

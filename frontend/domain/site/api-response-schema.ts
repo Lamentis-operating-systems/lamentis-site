@@ -23,9 +23,18 @@ export type ApiResponseArrayItemType =
 
 export type ApiResponseField = {
   arrayItemType?: ApiResponseArrayItemType;
+  defaultValue?: string;
+  description?: string;
+  enumValues?: string[];
+  example?: string;
+  maximum?: number;
+  maxLength?: number;
+  minimum?: number;
+  minLength?: number;
   name: string;
   objectSchema?: ApiResponseSchema;
   optional: boolean;
+  pattern?: string;
   type: ApiResponseFieldType;
 };
 
@@ -129,11 +138,20 @@ export function canonicalizeApiResponseSchema(
         ...(field.type === "array"
           ? { arrayItemType: field.arrayItemType }
           : {}),
+        ...(field.defaultValue ? { defaultValue: field.defaultValue } : {}),
+        ...(field.description ? { description: field.description } : {}),
+        ...(field.enumValues ? { enumValues: [...field.enumValues].sort(compareText) } : {}),
+        ...(field.example ? { example: field.example } : {}),
+        ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
+        ...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {}),
+        ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
+        ...(field.minLength !== undefined ? { minLength: field.minLength } : {}),
         name: field.name,
         ...(field.objectSchema
           ? { objectSchema: canonicalizeApiResponseSchema(field.objectSchema) }
           : {}),
         optional: field.optional,
+        ...(field.pattern ? { pattern: field.pattern } : {}),
         type: field.type,
       })),
     typeName: schema.typeName,
@@ -346,6 +364,8 @@ function isValidApiResponseSchemaValue(
       break;
     }
 
+    const typedField = field as Partial<ApiResponseField>;
+
     if (
       typeof field.name !== "string"
       || typeof field.optional !== "boolean"
@@ -360,32 +380,61 @@ function isValidApiResponseSchemaValue(
         field.type !== "array"
         && field.arrayItemType !== undefined
       )
+      || (field.defaultValue !== undefined
+        && (typeof field.defaultValue !== "string" || !field.defaultValue.trim()))
+      || (field.description !== undefined
+        && (typeof field.description !== "string" || !field.description.trim()))
+      || (field.example !== undefined
+        && (typeof field.example !== "string" || !field.example.trim()))
+      || (field.pattern !== undefined
+        && (typeof field.pattern !== "string" || !field.pattern.trim()))
+      || (field.enumValues !== undefined && (
+        !Array.isArray(field.enumValues)
+        || field.enumValues.length === 0
+        || field.enumValues.some((item) => typeof item !== "string" || !item.trim())
+      ))
+      || (typedField.minimum !== undefined && !Number.isFinite(typedField.minimum))
+      || (typedField.maximum !== undefined && !Number.isFinite(typedField.maximum))
+      || (typedField.minLength !== undefined && (
+        !Number.isSafeInteger(typedField.minLength) || typedField.minLength < 0
+      ))
+      || (typedField.maxLength !== undefined && (
+        !Number.isSafeInteger(typedField.maxLength) || typedField.maxLength < 0
+      ))
+      || (typedField.minimum !== undefined && typedField.maximum !== undefined
+        && typedField.minimum > typedField.maximum)
+      || (typedField.minLength !== undefined && typedField.maxLength !== undefined
+        && typedField.minLength > typedField.maxLength)
+      || ((typedField.minimum !== undefined || typedField.maximum !== undefined)
+        && field.type !== "number")
+      || ((typedField.minLength !== undefined || typedField.maxLength !== undefined
+        || field.pattern !== undefined) && field.type !== "string")
     ) {
       valid = false;
       break;
     }
 
-    const typedField = field as ApiResponseField;
+    const completeField = field as ApiResponseField;
     const requiresObjectSchema =
-      apiResponseFieldRequiresObjectSchema(typedField);
+      apiResponseFieldRequiresObjectSchema(completeField);
     if (
       (
         requiresObjectSchema
-        && typedField.objectSchema === undefined
+        && completeField.objectSchema === undefined
         && !allowLegacyOpaqueObject
       )
       || (
         requiresObjectSchema
-        && typedField.objectSchema !== undefined
+        && completeField.objectSchema !== undefined
         && !isValidApiResponseSchemaValue(
-          typedField.objectSchema,
+          completeField.objectSchema,
           ancestors,
           allowLegacyOpaqueObject,
         )
       )
       || (
         !requiresObjectSchema
-        && typedField.objectSchema !== undefined
+        && completeField.objectSchema !== undefined
       )
     ) {
       valid = false;

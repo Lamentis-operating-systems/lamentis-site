@@ -31,6 +31,12 @@ export const apiParameterTypes = [
   "boolean",
   "array",
 ] as const;
+export const apiQueryArraySerializations = [
+  "repeat",
+  "comma",
+  "space",
+  "pipe",
+] as const;
 export const apiSecuritySchemes = [
   "none",
   "bearer",
@@ -54,16 +60,27 @@ export const apiIdempotencyPolicies = [
 
 export type ApiParameterLocation = (typeof apiParameterLocations)[number];
 export type ApiParameterType = (typeof apiParameterTypes)[number];
+export type ApiQueryArraySerialization =
+  (typeof apiQueryArraySerializations)[number];
 export type ApiSecurityScheme = (typeof apiSecuritySchemes)[number];
 export type ApiCachePolicy = (typeof apiCachePolicies)[number];
 export type ApiIdempotencyPolicy = (typeof apiIdempotencyPolicies)[number];
 
 export type ApiRouteParameter = {
+  defaultValue?: string;
   description?: string;
+  enumValues?: string[];
+  example?: string;
   format?: string;
   location: ApiParameterLocation;
+  maximum?: number;
+  maxLength?: number;
+  minimum?: number;
+  minLength?: number;
   name: string;
+  pattern?: string;
   required: boolean;
+  serialization?: ApiQueryArraySerialization;
   type: ApiParameterType;
 };
 
@@ -75,6 +92,7 @@ export type ApiRouteHeader = {
 
 type ApiRouteRequestBody = {
   contentTypes: string[];
+  example?: ApiContractExample;
   required: boolean;
   schema?: ApiResponseSchema;
 };
@@ -82,13 +100,22 @@ type ApiRouteRequestBody = {
 export type ApiRouteResponse = {
   contentTypes: string[];
   description: string;
+  example?: ApiContractExample;
   headers?: ApiRouteHeader[];
   paginated?: boolean;
   schema?: ApiResponseSchema;
   status: string;
 };
 
-type ApiRouteSecurity = {
+export type ApiContractExample =
+  | boolean
+  | null
+  | number
+  | string
+  | ApiContractExample[]
+  | { [key: string]: ApiContractExample };
+
+export type ApiRouteSecurity = {
   location?: Exclude<ApiParameterLocation, "path">;
   name?: string;
   scheme: ApiSecurityScheme;
@@ -198,7 +225,7 @@ function isApiParameterType(value: unknown): value is ApiParameterType {
 }
 
 function isApiRouteParameter(value: unknown): value is ApiRouteParameter {
-  return isRecord(value)
+  const valid = isRecord(value)
     && apiParameterLocations.some((location) => location === value.location)
     && typeof value.name === "string"
     && parameterNamePattern.test(value.name)
@@ -206,7 +233,50 @@ function isApiRouteParameter(value: unknown): value is ApiRouteParameter {
     && isApiParameterType(value.type)
     && isOptionalString(value.format)
     && isOptionalString(value.description)
+    && isOptionalString(value.defaultValue)
+    && isOptionalString(value.example)
+    && isOptionalString(value.pattern)
+    && (value.enumValues === undefined || isStringList(value.enumValues))
+    && (value.minimum === undefined || typeof value.minimum === "number")
+    && (value.maximum === undefined || typeof value.maximum === "number")
+    && (value.minLength === undefined || Number.isSafeInteger(value.minLength))
+    && (value.maxLength === undefined || Number.isSafeInteger(value.maxLength))
+    && (value.serialization === undefined
+      || apiQueryArraySerializations.some((item) => item === value.serialization))
     && (value.location !== "path" || value.required === true);
+  if (!valid) return false;
+  const parameter = value as ApiRouteParameter;
+  if (parameter.minimum !== undefined && parameter.maximum !== undefined
+    && parameter.minimum > parameter.maximum) return false;
+  if (parameter.minLength !== undefined && parameter.minLength < 0) return false;
+  if (parameter.maxLength !== undefined && parameter.maxLength < 0) return false;
+  if (parameter.minLength !== undefined && parameter.maxLength !== undefined
+    && parameter.minLength > parameter.maxLength) return false;
+  if ((parameter.minimum !== undefined || parameter.maximum !== undefined)
+    && parameter.type !== "number" && parameter.type !== "integer") return false;
+  if ((parameter.minLength !== undefined || parameter.maxLength !== undefined
+    || parameter.pattern !== undefined) && parameter.type !== "string") return false;
+  return parameter.serialization === undefined
+    || (parameter.location === "query" && parameter.type === "array");
+}
+
+function isApiContractExample(
+  value: unknown,
+  ancestors = new Set<unknown>(),
+): value is ApiContractExample {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return true;
+  }
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value !== "object" || ancestors.has(value)) return false;
+  ancestors.add(value);
+  const valid = Array.isArray(value)
+    ? value.every((item) => isApiContractExample(item, ancestors))
+    : Object.entries(value).every(([, item]) => (
+        isApiContractExample(item, ancestors)
+      ));
+  ancestors.delete(value);
+  return valid;
 }
 
 function isApiRouteHeader(value: unknown): value is ApiRouteHeader {
@@ -222,6 +292,7 @@ function isApiRouteRequestBody(value: unknown): value is ApiRouteRequestBody {
     && isMediaTypeList(value.contentTypes)
     && value.contentTypes.length > 0
     && typeof value.required === "boolean"
+    && (value.example === undefined || isApiContractExample(value.example))
     && (
       value.schema === undefined
       || isValidPersistedApiResponseSchema(value.schema)
@@ -235,7 +306,13 @@ function isApiRouteResponse(value: unknown): value is ApiRouteResponse {
     && typeof value.description === "string"
     && value.description.trim().length > 0
     && isMediaTypeList(value.contentTypes)
+    && (value.example === undefined || isApiContractExample(value.example))
     && (value.schema === undefined || value.contentTypes.length > 0)
+    && (value.status !== "204" || (
+      value.contentTypes.length === 0
+      && value.schema === undefined
+      && value.example === undefined
+    ))
     && (value.paginated === undefined || typeof value.paginated === "boolean")
     && (
       value.schema === undefined

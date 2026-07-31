@@ -7,6 +7,7 @@ import {
 } from "@playwright/test";
 import { Buffer } from "node:buffer";
 import type { ApiRouteContract } from "../domain/site/api-route";
+import { apiContractMetadataStorage } from "../domain/site/api-contract-metadata-storage";
 import { apiRoutesStorage } from "../domain/site/api-route-storage";
 import { routePath } from "../domain/site/routes";
 
@@ -355,6 +356,8 @@ test("adds and persists a route while restoring focus after Escape", {
     name: "API endpoint path",
   });
   await routeInput.fill("orders/{orderid}");
+  await expect(page.getByRole("button", { name: "Add API route" }))
+    .toBeEnabled();
   await routeInput.press("Enter");
 
   const responseDialog = page.getByRole("dialog", {
@@ -1287,6 +1290,95 @@ test("prefills a path contract and persists explicit parameters and behavior", a
   expect(skill).toContain("Security: bearer");
   expect(skill).toContain("Cache policy: private");
   expect(skill).toContain("Rate limit: 120/minute");
+});
+
+test("authors portable contract details, constraints, examples, and array serialization", async ({
+  page,
+}) => {
+  await page.goto(studioPath);
+  await page.getByRole("button", { name: "API details" }).click();
+  await page.getByRole("textbox", { name: "API title" }).fill("Accounts API");
+  await page.getByRole("textbox", { name: "API version" }).fill("1.0.0");
+  await page.getByRole("textbox", { name: "Base path" }).fill("/api/v1");
+  await page.getByRole("button", { name: /^Security scheme / }).click();
+  await page.getByRole("list", { name: "Security scheme" })
+    .getByRole("button", { name: "Bearer token" }).click();
+
+  await page.getByRole("button", { name: /^HTTP method / }).click();
+  await page.getByRole("list", { name: "HTTP method" })
+    .getByRole("button", { name: "POST" }).click();
+  const routeInput = page.getByRole("textbox", { name: "API endpoint path" });
+  await routeInput.fill("accounts/search");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+  const details = dialog.getByRole("region", { name: "Route details" });
+  await details.getByRole("button", { name: "Add parameter" }).click();
+  await details.getByRole("textbox", { name: "Parameter name 1" }).fill("tags");
+  await details.getByRole("button", { name: /^Parameter type 1 / }).click();
+  await details.getByRole("list", { name: "Parameter type 1" })
+    .getByRole("button", { name: "array" }).click();
+  await details.getByRole("button", { name: /^Array serialization 1 / }).click();
+  await details.getByRole("list", { name: "Array serialization 1" })
+    .getByRole("button", { name: /Comma separated/ }).click();
+  await details.getByRole("textbox", { name: "Allowed values 1" })
+    .fill("active, archived");
+  await details.getByRole("textbox", { name: "Default value 1" }).fill("active");
+  await details.getByRole("textbox", { name: "Example 1" }).fill("active");
+
+  await dialog.getByRole("button", { name: "Request type: Expand" }).click();
+  await dialog.getByRole("textbox", { name: "Request example" })
+    .fill('{"query":"elias"}');
+  await dialog.getByRole("button", { name: "Add property" }).click();
+  await dialog.getByRole("textbox", { name: "Property name 1" }).fill("query");
+  await dialog.getByRole("textbox", { name: "Allowed values 1" }).last()
+    .fill("elias, account");
+  await dialog.getByRole("textbox", { name: "Minimum length 1" }).fill("2");
+  await dialog.getByRole("textbox", { name: "Maximum length 1" }).fill("80");
+  await dialog.getByRole("textbox", { name: "Pattern 1" }).fill("^[a-z]+$");
+
+  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+  await dialog.getByRole("textbox", { name: "Response example 1" })
+    .fill('{"id":"acc_1"}');
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  await expect.poll(() => page.evaluate((key) => JSON.parse(
+    window.localStorage.getItem(key) ?? "{}",
+  ), apiContractMetadataStorage.key)).toMatchObject({
+    basePath: "/api/v1",
+    security: { scheme: "bearer" },
+    title: "Accounts API",
+    version: "1.0.0",
+  });
+  const [route] = await page.evaluate((key) => JSON.parse(
+    window.localStorage.getItem(key) ?? "[]",
+  ) as ApiRouteContract[], apiRoutesStorage.key);
+  expect(route).toMatchObject({
+    parameters: [{
+      defaultValue: "active",
+      enumValues: ["active", "archived"],
+      example: "active",
+      location: "query",
+      name: "tags",
+      serialization: "comma",
+      type: "array",
+    }],
+    requestBody: { example: { query: "elias" } },
+    responses: [{ example: { id: "acc_1" } }],
+  });
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download" }).click();
+  const skill = await readDownload(await downloadPromise);
+  expect(skill).toContain("Title: Accounts API");
+  expect(skill).toContain("Base path: `/api/v1`");
+  expect(skill).toContain("serialization comma");
+  expect(skill).toContain("minimum length: 2");
+  expect(skill).toContain('"query": "elias"');
+  expect(skill).toContain('"id": "acc_1"');
 });
 
 test("blocks contract download when stored routes are invalid", async ({

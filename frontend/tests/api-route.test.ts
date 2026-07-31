@@ -75,9 +75,13 @@ describe("API-route persistence schema", () => {
           type: "string",
         },
         {
+          defaultValue: "10",
+          enumValues: ["10", "25", "50"],
+          example: "25",
           location: "query",
           name: "include",
           required: false,
+          serialization: "repeat",
           type: "array",
         },
       ],
@@ -85,6 +89,7 @@ describe("API-route persistence schema", () => {
       responses: [{
         contentTypes: ["application/json"],
         description: "The user.",
+        example: { items: ["active"] },
         headers: [{ name: "ETag", type: "string" }],
         schema: validRoute.response,
         status: "200",
@@ -98,6 +103,14 @@ describe("API-route persistence schema", () => {
     expect(isApiRouteContractList([{
       ...richRoute,
       parameters: richRoute.parameters?.filter(({ location }) => location !== "path"),
+    }])).toBe(false);
+    expect(isApiRouteContractList([{
+      ...richRoute,
+      parameters: richRoute.parameters?.map((parameter) => (
+        parameter.name === "include"
+          ? { ...parameter, location: "header" as const }
+          : parameter
+      )),
     }])).toBe(false);
     expect(isApiRouteContractList([{
       ...richRoute,

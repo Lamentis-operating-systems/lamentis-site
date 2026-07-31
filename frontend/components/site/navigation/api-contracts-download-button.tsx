@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useLocalStorageState } from "@/components/site/use-local-storage-state";
 import { apiRoutesStorage } from "@/domain/site/api-route-storage";
+import { apiContractMetadataStorage } from "@/domain/site/api-contract-metadata-storage";
 import { downloadTextFile } from "@/domain/site/browser-download";
 import { DownloadIcon } from "../icons/download-icon";
 
@@ -31,12 +32,16 @@ export function ApiContractsDownloadButton({
   onDownload,
 }: ApiContractsDownloadButtonProps) {
   const [routes, , storageStatus] = useLocalStorageState(apiRoutesStorage);
+  const [metadata, , metadataStorageStatus] =
+    useLocalStorageState(apiContractMetadataStorage);
   const [downloadFailed, setDownloadFailed] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const downloadInFlight = useRef(false);
   const downloadUnavailable = (
     storageStatus === "invalid"
     || storageStatus === "unavailable"
+    || metadataStorageStatus === "invalid"
+    || metadataStorageStatus === "unavailable"
   );
 
   async function downloadApiContracts() {
@@ -51,7 +56,7 @@ export function ApiContractsDownloadButton({
       } = await loadSkillModule();
 
       const result = downloadTextFile({
-        contents: generateApiContractsAgentSkill(routes),
+        contents: generateApiContractsAgentSkill(routes, metadata),
         fileName: apiContractsAgentSkillFileName,
         mimeType: "text/markdown;charset=utf-8",
       });
