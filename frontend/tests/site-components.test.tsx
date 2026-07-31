@@ -957,6 +957,7 @@ describe("search page", () => {
     const optionalToggle = screen.getAllByRole("button", {
       name: /^Optional /,
     })[0];
+    expect(optionalToggle).toHaveAttribute("data-variant", "transparent");
     expect(optionalToggle).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(optionalToggle);
     expect(optionalToggle).toHaveAttribute("aria-pressed", "true");

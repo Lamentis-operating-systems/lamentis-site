@@ -258,7 +258,7 @@ test("shared controls use their intended interaction states", async ({
   await navigationTrigger.hover();
   await expect(navigationTrigger).toHaveCSS(
     "background-color",
-    "rgb(238, 238, 238)",
+    "rgb(250, 250, 250)",
   );
   await expect.poll(
     () => navigationTrigger.evaluate(
@@ -269,7 +269,7 @@ test("shared controls use their intended interaction states", async ({
   await expect(navigationTrigger).toHaveCSS("outline-style", "none");
   await expect(navigationTrigger).toHaveCSS(
     "background-color",
-    "rgb(238, 238, 238)",
+    "rgb(250, 250, 250)",
   );
   await expect.poll(
     () => navigationTrigger.evaluate(
@@ -300,6 +300,30 @@ test("shared controls use their intended interaction states", async ({
     name: "Add a data structure to this route",
   });
   await expect(responseDialog).toBeVisible();
+  await responseDialog.getByRole("button", { name: "Add property" }).click();
+  const optionalProperty = responseDialog.getByRole("button", {
+    name: "Optional 1",
+  });
+  await expect(optionalProperty).toHaveAttribute("data-variant", "transparent");
+  await optionalProperty.hover();
+  await expect(optionalProperty).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(optionalProperty).toHaveCSS("box-shadow", "none");
+  await optionalProperty.focus();
+  await expect(optionalProperty).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(optionalProperty).toHaveCSS("box-shadow", "none");
+  await optionalProperty.click();
+  await expect(optionalProperty).toHaveAttribute("aria-pressed", "true");
+  await expect(optionalProperty).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(optionalProperty).toHaveCSS("box-shadow", "none");
   await page.keyboard.press("Escape");
   await expect(responseDialog).not.toBeVisible();
 
@@ -312,7 +336,7 @@ test("shared controls use their intended interaction states", async ({
   await expect(routeActions).toHaveCSS("outline-style", "none");
   await expect(routeActions).toHaveCSS(
     "background-color",
-    "rgb(238, 238, 238)",
+    "rgb(250, 250, 250)",
   );
   await expect.poll(
     () => routeActions.evaluate(

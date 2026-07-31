@@ -11,12 +11,14 @@ type IconButtonProps = Omit<
 > & {
   "aria-label": string;
   children: ReactNode;
+  variant?: "default" | "transparent";
 };
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   function IconButton({
     className,
     type = "button",
+    variant = "default",
     ...props
   }, ref) {
     return (
@@ -24,6 +26,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         {...props}
         ref={ref}
         type={type}
+        data-variant={variant}
         className={`${styles.button} ${className ?? ""}`.trim()}
       />
     );

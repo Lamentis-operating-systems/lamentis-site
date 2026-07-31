@@ -536,6 +536,7 @@ export function ResponseSchemaEditor({
                       trailingControl={(
                         <IconButton
                           className={styles.optionalToggle}
+                          variant="transparent"
                           aria-label={
                             `${content.optionalLabel} ${positionLabel}`
                           }

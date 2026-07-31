@@ -1,7 +1,7 @@
 :where(.button) {
   --icon-button-background: transparent;
   --icon-button-foreground: inherit;
-  --icon-button-interaction-background: var(--color-field-focus-background);
+  --icon-button-interaction-background: var(--color-field-menu-background);
 
   display: grid;
   width: var(--control-height);
@@ -31,6 +31,15 @@
   color: var(--icon-button-foreground);
   filter: none;
   transform: none;
+}
+
+.button[data-variant="transparent"]:hover:not(:disabled),
+.button[data-variant="transparent"]:active:not(:disabled),
+.button[data-variant="transparent"]:focus-visible:not(:disabled),
+.button[data-variant="transparent"][aria-expanded="true"],
+.button[data-variant="transparent"][aria-pressed="true"] {
+  background: transparent;
+  box-shadow: none;
 }
 
 :where(.button) svg {
