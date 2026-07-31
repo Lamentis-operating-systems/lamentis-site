@@ -4,20 +4,122 @@ import {
   type ApiResponseSchema,
 } from "./api-response-schema";
 import { isValidApiRoutePath } from "./api-route-path";
+import { parseApiRoutePath } from "./api-route-path";
 
-export const httpMethods = ["GET", "POST", "PATCH", "DELETE"] as const;
+export const httpMethods = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+] as const;
 
 export type HttpMethod = (typeof httpMethods)[number];
+
+export const apiParameterLocations = [
+  "path",
+  "query",
+  "header",
+  "cookie",
+] as const;
+export const apiParameterTypes = [
+  "string",
+  "number",
+  "integer",
+  "boolean",
+  "array",
+] as const;
+export const apiSecuritySchemes = [
+  "none",
+  "bearer",
+  "basic",
+  "apiKey",
+  "cookie",
+  "oauth2",
+] as const;
+export const apiCachePolicies = [
+  "unspecified",
+  "no-store",
+  "private",
+  "public",
+] as const;
+export const apiIdempotencyPolicies = [
+  "unspecified",
+  "idempotent",
+  "non-idempotent",
+  "idempotency-key",
+] as const;
+
+export type ApiParameterLocation = (typeof apiParameterLocations)[number];
+export type ApiParameterType = (typeof apiParameterTypes)[number];
+export type ApiSecurityScheme = (typeof apiSecuritySchemes)[number];
+export type ApiCachePolicy = (typeof apiCachePolicies)[number];
+export type ApiIdempotencyPolicy = (typeof apiIdempotencyPolicies)[number];
+
+export type ApiRouteParameter = {
+  description?: string;
+  format?: string;
+  location: ApiParameterLocation;
+  name: string;
+  required: boolean;
+  type: ApiParameterType;
+};
+
+export type ApiRouteHeader = {
+  description?: string;
+  name: string;
+  type: ApiParameterType;
+};
+
+type ApiRouteRequestBody = {
+  contentTypes: string[];
+  required: boolean;
+  schema?: ApiResponseSchema;
+};
+
+export type ApiRouteResponse = {
+  contentTypes: string[];
+  description: string;
+  headers?: ApiRouteHeader[];
+  paginated?: boolean;
+  schema?: ApiResponseSchema;
+  status: string;
+};
+
+type ApiRouteSecurity = {
+  location?: Exclude<ApiParameterLocation, "path">;
+  name?: string;
+  scheme: ApiSecurityScheme;
+  scopes?: string[];
+};
+
+type ApiRouteBehavior = {
+  cache?: ApiCachePolicy;
+  idempotency?: ApiIdempotencyPolicy;
+  rateLimit?: string;
+};
 
 export type ApiRouteIdentity = `${HttpMethod} ${string}`;
 
 export type ApiRouteContract = {
+  behavior?: ApiRouteBehavior;
+  deprecated?: boolean;
+  description?: string;
   id: number;
   method: HttpMethod;
+  operationId?: string;
+  parameters?: ApiRouteParameter[];
   path: string;
   paginated?: boolean;
   request?: ApiResponseSchema;
+  requestBody?: ApiRouteRequestBody;
   response?: ApiResponseSchema;
+  responses?: ApiRouteResponse[];
+  security?: ApiRouteSecurity;
+  tags?: string[];
+  title?: string;
 };
 
 type ApiRouteIdentitySource = Pick<ApiRouteContract, "method" | "path">;
@@ -62,9 +164,7 @@ export function hasApiSchemaConflict(
   return hasIncompatibleApiResponseSchema(
     routes.flatMap((route) => (
       route.id !== excludingId
-        ? [route.request, route.response].filter(
-            (schema): schema is ApiResponseSchema => Boolean(schema),
-          )
+        ? apiRouteSchemas(route)
         : []
     )),
     candidate,
@@ -73,6 +173,143 @@ export function hasApiSchemaConflict(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+const parameterNamePattern = /^[A-Za-z][A-Za-z0-9_-]*$/;
+const operationIdPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const mediaTypePattern = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i;
+const responseStatusPattern = /^(?:default|[1-5][0-9]{2})$/;
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || (typeof value === "string" && value.trim().length > 0);
+}
+
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value)
+    && value.every((item) => typeof item === "string" && item.trim().length > 0);
+}
+
+function isMediaTypeList(value: unknown): value is string[] {
+  return isStringList(value) && value.every((item) => mediaTypePattern.test(item));
+}
+
+function isApiParameterType(value: unknown): value is ApiParameterType {
+  return apiParameterTypes.some((type) => type === value);
+}
+
+function isApiRouteParameter(value: unknown): value is ApiRouteParameter {
+  return isRecord(value)
+    && apiParameterLocations.some((location) => location === value.location)
+    && typeof value.name === "string"
+    && parameterNamePattern.test(value.name)
+    && typeof value.required === "boolean"
+    && isApiParameterType(value.type)
+    && isOptionalString(value.format)
+    && isOptionalString(value.description)
+    && (value.location !== "path" || value.required === true);
+}
+
+function isApiRouteHeader(value: unknown): value is ApiRouteHeader {
+  return isRecord(value)
+    && typeof value.name === "string"
+    && parameterNamePattern.test(value.name)
+    && isApiParameterType(value.type)
+    && isOptionalString(value.description);
+}
+
+function isApiRouteRequestBody(value: unknown): value is ApiRouteRequestBody {
+  return isRecord(value)
+    && isMediaTypeList(value.contentTypes)
+    && value.contentTypes.length > 0
+    && typeof value.required === "boolean"
+    && (
+      value.schema === undefined
+      || isValidPersistedApiResponseSchema(value.schema)
+    );
+}
+
+function isApiRouteResponse(value: unknown): value is ApiRouteResponse {
+  return isRecord(value)
+    && typeof value.status === "string"
+    && responseStatusPattern.test(value.status)
+    && typeof value.description === "string"
+    && value.description.trim().length > 0
+    && isMediaTypeList(value.contentTypes)
+    && (value.schema === undefined || value.contentTypes.length > 0)
+    && (value.paginated === undefined || typeof value.paginated === "boolean")
+    && (
+      value.schema === undefined
+      || isValidPersistedApiResponseSchema(value.schema)
+    )
+    && (!value.paginated || value.schema !== undefined)
+    && (
+      value.headers === undefined
+      || (
+        Array.isArray(value.headers)
+        && value.headers.every(isApiRouteHeader)
+        && new Set(value.headers.map((header) => header.name.toLowerCase())).size
+          === value.headers.length
+      )
+    );
+}
+
+function isApiRouteSecurity(value: unknown): value is ApiRouteSecurity {
+  if (
+    !isRecord(value)
+    || !apiSecuritySchemes.some((scheme) => scheme === value.scheme)
+    || !isOptionalString(value.name)
+    || (
+      value.location !== undefined
+      && !["query", "header", "cookie"].includes(String(value.location))
+    )
+    || (value.scopes !== undefined && !isStringList(value.scopes))
+  ) {
+    return false;
+  }
+  if (value.scheme === "none") {
+    return value.name === undefined
+      && value.location === undefined
+      && value.scopes === undefined;
+  }
+  if (value.scheme === "apiKey") {
+    return typeof value.name === "string" && value.location !== undefined;
+  }
+  if (value.scheme === "cookie") {
+    return typeof value.name === "string" && value.location === "cookie";
+  }
+  return value.name === undefined && value.location === undefined;
+}
+
+function isApiRouteBehavior(value: unknown): value is ApiRouteBehavior {
+  return isRecord(value)
+    && (
+      value.cache === undefined
+      || apiCachePolicies.some((policy) => policy === value.cache)
+    )
+    && (
+      value.idempotency === undefined
+      || apiIdempotencyPolicies.some((policy) => policy === value.idempotency)
+    )
+    && isOptionalString(value.rateLimit);
+}
+
+function parametersMatchPath(
+  path: string,
+  parameters: readonly ApiRouteParameter[],
+): boolean {
+  const pathNames = (parseApiRoutePath(path)?.segments ?? []).flatMap((segment) => (
+    segment.kind === "parameter" ? [segment.name] : []
+  ));
+  const parameterIdentities = parameters.map((parameter) => (
+    `${parameter.location}:${parameter.name.toLowerCase()}`
+  ));
+  if (new Set(parameterIdentities).size !== parameterIdentities.length) return false;
+
+  const declaredPathNames = parameters
+    .filter((parameter) => parameter.location === "path")
+    .map((parameter) => parameter.name);
+  return declaredPathNames.length === pathNames.length
+    && pathNames.every((name) => declaredPathNames.includes(name));
 }
 
 function isHttpMethod(value: unknown): value is HttpMethod {
@@ -98,6 +335,25 @@ function isApiRouteContract(
 
   return (
     (value.paginated === undefined || typeof value.paginated === "boolean")
+    && (value.title === undefined || isOptionalString(value.title))
+    && (value.description === undefined || isOptionalString(value.description))
+    && (
+      value.operationId === undefined
+      || (
+        typeof value.operationId === "string"
+        && operationIdPattern.test(value.operationId)
+      )
+    )
+    && (value.deprecated === undefined || typeof value.deprecated === "boolean")
+    && (value.tags === undefined || isStringList(value.tags))
+    && (
+      value.parameters === undefined
+      || (
+        Array.isArray(value.parameters)
+        && value.parameters.every(isApiRouteParameter)
+        && parametersMatchPath(value.path, value.parameters)
+      )
+    )
     && (
       value.request === undefined
       || isValidPersistedApiResponseSchema(value.request)
@@ -107,7 +363,50 @@ function isApiRouteContract(
       || isValidPersistedApiResponseSchema(value.response)
     )
     && (!value.paginated || value.response !== undefined)
+    && (
+      value.requestBody === undefined
+      || isApiRouteRequestBody(value.requestBody)
+    )
+    && (
+      value.responses === undefined
+      || (
+        Array.isArray(value.responses)
+        && value.responses.length > 0
+        && value.responses.every(isApiRouteResponse)
+        && new Set(value.responses.map((response) => response.status)).size
+          === value.responses.length
+      )
+    )
+    && (value.security === undefined || isApiRouteSecurity(value.security))
+    && (value.behavior === undefined || isApiRouteBehavior(value.behavior))
   );
+}
+
+export function apiRouteRequestSchema(
+  route: ApiRouteContract,
+): ApiResponseSchema | undefined {
+  return route.requestBody?.schema ?? route.request;
+}
+
+export function apiRouteResponses(
+  route: ApiRouteContract,
+): ApiRouteResponse[] {
+  if (route.responses) return route.responses;
+  if (!route.response) return [];
+  return [{
+    contentTypes: ["application/json"],
+    description: "Successful response",
+    ...(route.paginated ? { paginated: true } : {}),
+    schema: route.response,
+    status: "200",
+  }];
+}
+
+export function apiRouteSchemas(route: ApiRouteContract): ApiResponseSchema[] {
+  return [
+    apiRouteRequestSchema(route),
+    ...apiRouteResponses(route).map((response) => response.schema),
+  ].filter((schema): schema is ApiResponseSchema => Boolean(schema));
 }
 
 export function isApiRouteContractList(
@@ -116,10 +415,15 @@ export function isApiRouteContractList(
   if (!Array.isArray(value)) return false;
 
   const routeIds = new Set<number>();
+  const operationIds = new Set<string>();
 
   for (const route of value) {
     if (!isApiRouteContract(route) || routeIds.has(route.id)) return false;
     routeIds.add(route.id);
+    if (route.operationId) {
+      if (operationIds.has(route.operationId)) return false;
+      operationIds.add(route.operationId);
+    }
   }
 
   return true;

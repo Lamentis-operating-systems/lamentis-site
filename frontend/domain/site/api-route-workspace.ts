@@ -1,9 +1,11 @@
 import type { ApiResponseSchema } from "./api-response-schema";
 import { hasIncompatibleApiResponseSchema } from "./api-response-schema";
 import {
+  apiRouteSchemas,
   hasApiSchemaConflict,
   hasApiRouteIdentity,
   httpMethods,
+  isApiRouteContractList,
   type ApiRouteContract,
   type HttpMethod,
 } from "./api-route";
@@ -13,6 +15,7 @@ export type ApiRouteWorkspaceSaveResult =
   | "saved"
   | "route-missing"
   | "route-conflict"
+  | "contract-invalid"
   | "schema-conflict";
 
 export type ApiRouteWorkspaceSaveTransition = {
@@ -21,11 +24,21 @@ export type ApiRouteWorkspaceSaveTransition = {
 };
 
 type ApiRouteWorkspaceSaveRequest = {
+  behavior?: ApiRouteContract["behavior"];
+  deprecated?: ApiRouteContract["deprecated"];
+  description?: ApiRouteContract["description"];
+  operationId?: ApiRouteContract["operationId"];
   paginated?: boolean;
+  parameters?: ApiRouteContract["parameters"];
   request?: ApiResponseSchema;
-  response: ApiResponseSchema;
+  requestBody?: ApiRouteContract["requestBody"];
+  response?: ApiResponseSchema;
+  responses?: ApiRouteContract["responses"];
   route: Pick<ApiRouteContract, "method" | "path">;
   routeId: number;
+  security?: ApiRouteContract["security"];
+  tags?: ApiRouteContract["tags"];
+  title?: ApiRouteContract["title"];
 };
 
 export type ApiRouteWorkspaceValidationReason =
@@ -34,14 +47,9 @@ export type ApiRouteWorkspaceValidationReason =
 
 export function transitionApiRouteWorkspaceSave(
   routes: ApiRouteContract[],
-  {
-    paginated,
-    request,
-    response,
-    route,
-    routeId,
-  }: ApiRouteWorkspaceSaveRequest,
+  request: ApiRouteWorkspaceSaveRequest,
 ): ApiRouteWorkspaceSaveTransition {
+  const { route, routeId, ...contract } = request;
   if (!routes.some((candidateRoute) => candidateRoute.id === routeId)) {
     return { result: "route-missing", routes };
   }
@@ -50,30 +58,34 @@ export function transitionApiRouteWorkspaceSave(
     return { result: "route-conflict", routes };
   }
 
-  if (
-    hasApiSchemaConflict(routes, response, routeId)
-    || (request && hasApiSchemaConflict(routes, request, routeId))
-    || (
-      request
-      && hasIncompatibleApiResponseSchema([request], response)
+  const compactContract = Object.fromEntries(
+    Object.entries(contract).filter(([, value]) => value !== undefined),
+  ) as Omit<ApiRouteContract, "id" | "method" | "path">;
+  const candidateRoute: ApiRouteContract = {
+    id: routeId,
+    ...route,
+    ...compactContract,
+  };
+  const candidateRoutes = routes.map((currentRoute) => (
+    currentRoute.id === routeId ? candidateRoute : currentRoute
+  ));
+  if (!isApiRouteContractList(candidateRoutes)) {
+    return { result: "contract-invalid", routes };
+  }
+  const candidateSchemas = apiRouteSchemas(candidateRoute);
+  if (candidateSchemas.some((schema, index) => (
+    hasApiSchemaConflict(routes, schema, routeId)
+    || hasIncompatibleApiResponseSchema(
+      candidateSchemas.filter((_, candidateIndex) => candidateIndex !== index),
+      schema,
     )
-  ) {
+  ))) {
     return { result: "schema-conflict", routes };
   }
 
   return {
     result: "saved",
-    routes: routes.map((candidateRoute) => (
-      candidateRoute.id === routeId
-        ? {
-            ...candidateRoute,
-            ...route,
-            ...(paginated ? { paginated: true } : { paginated: undefined }),
-            ...(request ? { request } : { request: undefined }),
-            response,
-          }
-        : candidateRoute
-    )),
+    routes: candidateRoutes,
   };
 }
 

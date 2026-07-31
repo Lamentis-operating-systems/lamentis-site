@@ -868,7 +868,10 @@ describe("search page", () => {
     });
     expect(saveResponse.firstElementChild?.querySelector("svg")).not.toBeNull();
     expect(saveResponse.lastElementChild).toHaveTextContent("Save");
-    await waitFor(() => expect(saveResponse).toBeDisabled());
+    await waitFor(() => expect(saveResponse).toBeEnabled());
+    expect(within(responseDialog).getByRole("textbox", {
+      name: "Response type",
+    })).toHaveValue("PostResponse");
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Response type" }),
@@ -1275,12 +1278,30 @@ describe("search page", () => {
 
     fireEvent.submit(document.querySelector("#request-pagination-form")!);
     expect(onSave).toHaveBeenCalledWith({
+      operationId: "createSearch",
       paginated: true,
       request: {
         fields: [{ name: "query", optional: false, type: "string" }],
         typeName: "SearchRequest",
       },
+      requestBody: {
+        contentTypes: ["application/json"],
+        required: false,
+        schema: {
+          fields: [{ name: "query", optional: false, type: "string" }],
+          typeName: "SearchRequest",
+        },
+      },
       response: { fields: [], typeName: "SearchResult" },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        paginated: true,
+        schema: { fields: [], typeName: "SearchResult" },
+        status: "201",
+      }],
+      title: "Create search",
     }, { method: "POST", path: "/search" });
   });
 
@@ -1384,7 +1405,8 @@ describe("search page", () => {
     });
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      paginated: false,
+      operationId: "listAccount",
+      paginated: undefined,
       response: {
         fields: [
           {
@@ -1395,6 +1417,23 @@ describe("search page", () => {
         ],
         typeName: "UserResponse",
       },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        schema: {
+          fields: [
+            {
+              name: "id",
+              optional: false,
+              type: "string",
+            },
+          ],
+          typeName: "UserResponse",
+        },
+        status: "200",
+      }],
+      title: "List accounts",
     }, {
       method: "GET",
       path: "/accounts",
@@ -1431,13 +1470,27 @@ describe("search page", () => {
 
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      paginated: false,
+      operationId: "listAccount",
+      paginated: undefined,
       response: {
         fields: [
           { name: "id", optional: false, type: "number" },
         ],
         typeName: "AccountResponse",
       },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        schema: {
+          fields: [
+            { name: "id", optional: false, type: "number" },
+          ],
+          typeName: "AccountResponse",
+        },
+        status: "200",
+      }],
+      title: "List accounts",
     }, {
       method: "GET",
       path: "/accounts",
@@ -1482,7 +1535,8 @@ describe("search page", () => {
     });
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      paginated: false,
+      operationId: "listAccount",
+      paginated: undefined,
       response: {
         fields: [
           { name: "id", optional: false, type: "number" },
@@ -1500,6 +1554,30 @@ describe("search page", () => {
         ],
         typeName: "AccountResponse",
       },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        schema: {
+          fields: [
+            { name: "id", optional: false, type: "number" },
+            {
+              name: "profile",
+              objectSchema: {
+                fields: [
+                  { name: "id", optional: false, type: "string" },
+                ],
+                typeName: "AccountResponseProfile",
+              },
+              optional: false,
+              type: "object",
+            },
+          ],
+          typeName: "AccountResponse",
+        },
+        status: "200",
+      }],
+      title: "List accounts",
     }, {
       method: "GET",
       path: "/accounts",

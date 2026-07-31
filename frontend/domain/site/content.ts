@@ -16,6 +16,13 @@ import {
   type SiteRouteId,
 } from "./routes";
 import type { ApiResponseFieldType } from "./api-response-schema";
+import type {
+  ApiCachePolicy,
+  ApiIdempotencyPolicy,
+  ApiParameterLocation,
+  ApiParameterType,
+  ApiSecurityScheme,
+} from "./api-route";
 
 export type RouteCopy = {
   title: string;
@@ -54,6 +61,56 @@ export type ResponseSchemaEditorContent = {
   responseTypeLabel: string;
   responseTypePlaceholder: string;
   responseTypeTemplateLabel: string;
+  routeContract: {
+    addParameterLabel: string;
+    addResponseHeaderLabel: string;
+    addResponseLabel: string;
+    authLocationLabel: string;
+    authNameLabel: string;
+    cacheLabel: string;
+    cacheOptions: Record<ApiCachePolicy, string>;
+    contentTypesHint: string;
+    contentTypesLabel: string;
+    defaultResponseDescription: string;
+    duplicateResponseStatusError: string;
+    deprecatedLabel: string;
+    descriptionLabel: string;
+    detailsDescription: string;
+    detailsLabel: string;
+    formatLabel: string;
+    idempotencyLabel: string;
+    idempotencyOptions: Record<ApiIdempotencyPolicy, string>;
+    invalidContractError: string;
+    operationIdLabel: string;
+    parameterDescriptionLabel: string;
+    parameterLocationLabel: string;
+    parameterLocationOptions: Record<ApiParameterLocation, string>;
+    parameterNameLabel: string;
+    parameterTypeLabel: string;
+    parameterTypeOptions: Record<ApiParameterType, string>;
+    parametersDescription: string;
+    parametersLabel: string;
+    rateLimitLabel: string;
+    removeParameterLabel: string;
+    removeResponseHeaderLabel: string;
+    removeResponseLabel: string;
+    requestRequiredLabel: string;
+    requiredLabel: string;
+    responseDescriptionLabel: string;
+    responseHeaderDescriptionLabel: string;
+    responseHeaderNameLabel: string;
+    responseHeadersLabel: string;
+    responseStatusLabel: string;
+    securityBehaviorDescription: string;
+    securityBehaviorLabel: string;
+    securityNameHint: string;
+    securitySchemeLabel: string;
+    securitySchemeOptions: Record<ApiSecurityScheme, string>;
+    securityScopesLabel: string;
+    tagsHint: string;
+    tagsLabel: string;
+    titleLabel: string;
+  };
   schemaTypeConflictError: string;
   routeLabel: string;
   saveLabel: string;
@@ -183,7 +240,7 @@ export const contentByLocale = {
         objectTypeTemplateLabel: "Object type template",
         optionalLabel: "Optional",
         paginationDescription:
-          "Wrap the response in a paginated result with items, totalHits, page, and totalPages.",
+          "Wrap the response in a paginated result with items, totalHits, page, limit, and totalPages.",
         paginationLabel: "Paginated response",
         propertiesLabel: "Response properties",
         propertiesLabelByKind: {
@@ -203,6 +260,89 @@ export const contentByLocale = {
         responseTypeLabel: "Response type",
         responseTypePlaceholder: "Name your response type",
         responseTypeTemplateLabel: "Response type template",
+        routeContract: {
+          addParameterLabel: "Add parameter",
+          addResponseHeaderLabel: "Add response header",
+          addResponseLabel: "Add response",
+          authLocationLabel: "Credential location",
+          authNameLabel: "Credential name",
+          cacheLabel: "Cache policy",
+          cacheOptions: {
+            unspecified: "Unspecified",
+            "no-store": "No store",
+            private: "Private",
+            public: "Public",
+          },
+          contentTypesHint: "Comma-separated media types",
+          contentTypesLabel: "Content types",
+          defaultResponseDescription: "Successful response",
+          duplicateResponseStatusError:
+            "Response status codes must be unique.",
+          deprecatedLabel: "Deprecated route",
+          descriptionLabel: "Description",
+          detailsDescription:
+            "Document the operation with editable suggestions derived from its method and path.",
+          detailsLabel: "Route details",
+          formatLabel: "Format",
+          idempotencyLabel: "Idempotency",
+          idempotencyOptions: {
+            unspecified: "Unspecified",
+            idempotent: "Idempotent",
+            "non-idempotent": "Non-idempotent",
+            "idempotency-key": "Requires idempotency key",
+          },
+          invalidContractError:
+            "Complete every route contract field with a valid value before saving.",
+          operationIdLabel: "Operation ID",
+          parameterDescriptionLabel: "Parameter description",
+          parameterLocationLabel: "Parameter location",
+          parameterLocationOptions: {
+            path: "path",
+            query: "query",
+            header: "header",
+            cookie: "cookie",
+          },
+          parameterNameLabel: "Parameter name",
+          parameterTypeLabel: "Parameter type",
+          parameterTypeOptions: {
+            string: "string",
+            number: "number",
+            integer: "integer",
+            boolean: "boolean",
+            array: "array",
+          },
+          parametersDescription:
+            "Path parameters are synchronized from the route. Add query, header, or cookie parameters explicitly.",
+          parametersLabel: "Parameters",
+          rateLimitLabel: "Rate limit",
+          removeParameterLabel: "Remove parameter",
+          removeResponseHeaderLabel: "Remove response header",
+          removeResponseLabel: "Remove response",
+          requestRequiredLabel: "Request body required",
+          requiredLabel: "Required",
+          responseDescriptionLabel: "Response description",
+          responseHeaderDescriptionLabel: "Header description",
+          responseHeaderNameLabel: "Response header name",
+          responseHeadersLabel: "Response headers",
+          responseStatusLabel: "HTTP status",
+          securityBehaviorDescription:
+            "Define authentication and transport-independent operational behavior.",
+          securityBehaviorLabel: "Security and behavior",
+          securityNameHint: "Header, query parameter, or cookie name",
+          securitySchemeLabel: "Security scheme",
+          securitySchemeOptions: {
+            none: "None",
+            bearer: "Bearer token",
+            basic: "HTTP Basic",
+            apiKey: "API key",
+            cookie: "Cookie session",
+            oauth2: "OAuth 2",
+          },
+          securityScopesLabel: "OAuth scopes",
+          tagsHint: "Comma-separated tags",
+          tagsLabel: "Tags",
+          titleLabel: "Title",
+        },
         routeLabel: "Route",
         saveLabel: "Save",
         typeDescriptionByKind: {
@@ -339,7 +479,7 @@ export const contentByLocale = {
         objectTypeTemplateLabel: "Objekttyp-Vorlage",
         optionalLabel: "Optionales Feld",
         paginationDescription:
-          "Hülle die Antwort in ein paginiertes Ergebnis mit items, totalHits, page und totalPages.",
+          "Hülle die Antwort in ein paginiertes Ergebnis mit items, totalHits, page, limit und totalPages.",
         paginationLabel: "Paginierte Antwort",
         propertiesLabel: "Antwort-Eigenschaften",
         propertiesLabelByKind: {
@@ -359,6 +499,89 @@ export const contentByLocale = {
         responseTypeLabel: "Antworttyp",
         responseTypePlaceholder: "Benenne deinen Antworttyp",
         responseTypeTemplateLabel: "Antworttyp-Vorlage",
+        routeContract: {
+          addParameterLabel: "Parameter hinzufügen",
+          addResponseHeaderLabel: "Antwort-Header hinzufügen",
+          addResponseLabel: "Antwort hinzufügen",
+          authLocationLabel: "Zugangsdaten-Ort",
+          authNameLabel: "Zugangsdaten-Name",
+          cacheLabel: "Cache-Richtlinie",
+          cacheOptions: {
+            unspecified: "Nicht angegeben",
+            "no-store": "Nicht speichern",
+            private: "Privat",
+            public: "Öffentlich",
+          },
+          contentTypesHint: "Kommagetrennte Medientypen",
+          contentTypesLabel: "Inhaltstypen",
+          defaultResponseDescription: "Erfolgreiche Antwort",
+          duplicateResponseStatusError:
+            "HTTP-Statuscodes der Antworten müssen eindeutig sein.",
+          deprecatedLabel: "Veraltete Route",
+          descriptionLabel: "Beschreibung",
+          detailsDescription:
+            "Dokumentiere die Operation mit bearbeitbaren Vorschlägen aus Methode und Pfad.",
+          detailsLabel: "Routendetails",
+          formatLabel: "Format",
+          idempotencyLabel: "Idempotenz",
+          idempotencyOptions: {
+            unspecified: "Nicht angegeben",
+            idempotent: "Idempotent",
+            "non-idempotent": "Nicht idempotent",
+            "idempotency-key": "Idempotenzschlüssel erforderlich",
+          },
+          invalidContractError:
+            "Vervollständige vor dem Speichern alle Felder des Routenvertrags mit gültigen Werten.",
+          operationIdLabel: "Operations-ID",
+          parameterDescriptionLabel: "Parameterbeschreibung",
+          parameterLocationLabel: "Parameterort",
+          parameterLocationOptions: {
+            path: "Pfad",
+            query: "Query",
+            header: "Header",
+            cookie: "Cookie",
+          },
+          parameterNameLabel: "Parametername",
+          parameterTypeLabel: "Parametertyp",
+          parameterTypeOptions: {
+            string: "string",
+            number: "number",
+            integer: "integer",
+            boolean: "boolean",
+            array: "array",
+          },
+          parametersDescription:
+            "Pfadparameter werden mit der Route synchronisiert. Query-, Header- und Cookie-Parameter werden explizit ergänzt.",
+          parametersLabel: "Parameter",
+          rateLimitLabel: "Ratenbegrenzung",
+          removeParameterLabel: "Parameter entfernen",
+          removeResponseHeaderLabel: "Antwort-Header entfernen",
+          removeResponseLabel: "Antwort entfernen",
+          requestRequiredLabel: "Anfragekörper erforderlich",
+          requiredLabel: "Erforderlich",
+          responseDescriptionLabel: "Antwortbeschreibung",
+          responseHeaderDescriptionLabel: "Headerbeschreibung",
+          responseHeaderNameLabel: "Antwort-Headername",
+          responseHeadersLabel: "Antwort-Header",
+          responseStatusLabel: "HTTP-Status",
+          securityBehaviorDescription:
+            "Definiere Authentifizierung und transportunabhängiges Betriebsverhalten.",
+          securityBehaviorLabel: "Sicherheit und Verhalten",
+          securityNameHint: "Header-, Query-Parameter- oder Cookie-Name",
+          securitySchemeLabel: "Sicherheitsschema",
+          securitySchemeOptions: {
+            none: "Keine",
+            bearer: "Bearer-Token",
+            basic: "HTTP Basic",
+            apiKey: "API-Schlüssel",
+            cookie: "Cookie-Sitzung",
+            oauth2: "OAuth 2",
+          },
+          securityScopesLabel: "OAuth-Bereiche",
+          tagsHint: "Kommagetrennte Tags",
+          tagsLabel: "Tags",
+          titleLabel: "Titel",
+        },
         routeLabel: "Route",
         saveLabel: "Speichern",
         typeDescriptionByKind: {

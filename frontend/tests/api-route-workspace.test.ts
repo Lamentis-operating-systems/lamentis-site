@@ -89,6 +89,37 @@ describe("API-route workspace", () => {
     });
   });
 
+  it("removes optional contract fields that are omitted by an edit", () => {
+    const transition = transitionApiRouteWorkspaceSave([{
+      ...routes[0]!,
+      paginated: true,
+      request: userResponse,
+      response: userResponse,
+    }], {
+      responses: [{
+        contentTypes: [],
+        description: "No content",
+        status: "204",
+      }],
+      route: { method: "GET", path: "/users" },
+      routeId: 1,
+    });
+
+    expect(transition).toEqual({
+      result: "saved",
+      routes: [{
+        id: 1,
+        method: "GET",
+        path: "/users",
+        responses: [{
+          contentTypes: [],
+          description: "No content",
+          status: "204",
+        }],
+      }],
+    });
+  });
+
   it("reports a missing route without replacing the workspace", () => {
     const transition = transitionApiRouteWorkspaceSave(routes, {
       response: userResponse,
@@ -131,6 +162,25 @@ describe("API-route workspace", () => {
 
     expect(transition).toEqual({
       result: "schema-conflict",
+      routes,
+    });
+    expect(transition.routes).toBe(routes);
+  });
+
+  it("rejects an invalid rich contract without replacing the workspace", () => {
+    const transition = transitionApiRouteWorkspaceSave(routes, {
+      parameters: [{
+        location: "query",
+        name: "id",
+        required: false,
+        type: "string",
+      }],
+      route: { method: "PATCH", path: "/accounts/{id}" },
+      routeId: 2,
+    });
+
+    expect(transition).toEqual({
+      result: "contract-invalid",
       routes,
     });
     expect(transition.routes).toBe(routes);

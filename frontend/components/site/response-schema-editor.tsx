@@ -26,7 +26,14 @@ import {
   type ApiResponseSchema,
   typeScriptIdentifierPattern,
 } from "@/domain/site/api-response-schema";
-import type { ApiRouteContract, HttpMethod } from "@/domain/site/api-route";
+import {
+  apiParameterTypes,
+  type ApiRouteContract,
+  type ApiRouteHeader,
+  type ApiRouteResponse,
+  type HttpMethod,
+} from "@/domain/site/api-route";
+import { deriveApiRouteSuggestions } from "@/domain/site/api-route-suggestions";
 import type { ApiRouteWorkspaceSaveResult } from "@/domain/site/api-route-workspace";
 import type { ResponseSchemaEditorContent } from "@/domain/site/content";
 import {
@@ -41,6 +48,7 @@ import {
 } from "@/domain/site/response-schema-draft";
 import { ApiRouteInputBar } from "./api-route-input-bar";
 import type { BracedPathValidationReason } from "./braced-path-input";
+import { CheckboxWithLabel } from "./form/checkbox-with-label";
 import { TextInput } from "./form/text-input";
 import { IconButton } from "./icon-button";
 import { ChevronIcon } from "./icons/chevron-icon";
@@ -49,6 +57,10 @@ import { OptionalIcon } from "./icons/optional-icon";
 import { PaginationIcon } from "./icons/pagination-icon";
 import { PlusIcon } from "./icons/plus-icon";
 import { SelectMenu, type SelectMenuOption } from "./select-menu";
+import {
+  RouteContractDetailsEditor,
+  type RouteContractDetailsHandle,
+} from "./route-contract-details-editor";
 import styles from "./response-schema-editor.module.css";
 
 type SchemaKind = "request" | "response";
@@ -57,6 +69,7 @@ type SchemaDefinitionHandle = {
   focusTypeName: () => void;
   getSchema: () => ApiResponseSchema | undefined;
   rejectConflict: () => void;
+  updateSuggestedTypeName: (previous: string, next: string) => void;
 };
 
 type SchemaDefinitionEditorProps = {
@@ -66,6 +79,7 @@ type SchemaDefinitionEditorProps = {
   kind: SchemaKind;
   paginated?: boolean;
   required: boolean;
+  suggestedTypeName?: string;
   onPaginationChange?: (paginated: boolean) => void;
 };
 
@@ -80,7 +94,7 @@ type ResponseSchemaEditorProps = {
   ) => BracedPathValidationReason | null;
   onRouteMethodChange?: (method: HttpMethod) => void;
   onSave: (
-    contract: Pick<ApiRouteContract, "paginated" | "request" | "response">,
+    contract: Omit<ApiRouteContract, "id" | "method" | "path">,
     route: Pick<ApiRouteContract, "method" | "path">,
   ) => ApiRouteWorkspaceSaveResult;
   route: ApiRouteContract;
@@ -113,6 +127,7 @@ const SchemaDefinitionEditor = forwardRef<
   onPaginationChange,
   paginated = false,
   required,
+  suggestedTypeName = "",
 }, ref) {
   const [initialDraft] = useState(() => (
     createResponseDraftFields(initialSchema?.fields ?? [])
@@ -122,11 +137,12 @@ const SchemaDefinitionEditor = forwardRef<
     fields: initialDraft.fields,
     issue: null,
     selectedTemplateTypeName: "",
-    typeName: initialSchema?.typeName ?? "",
+    typeName: initialSchema?.typeName ?? suggestedTypeName,
   });
   const { fields, issue, selectedTemplateTypeName, typeName } = draft;
   const validationErrorId = useId();
   const typeInputRef = useRef<HTMLInputElement>(null);
+  const suggestionOwnedRef = useRef(!initialSchema && suggestedTypeName.length > 0);
   const propertyInputRefs = useRef(new Map<number, HTMLInputElement>());
   const addPropertyButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const pendingPropertyFocusRef = useRef<PendingPropertyFocus | null>(null);
@@ -198,8 +214,20 @@ const SchemaDefinitionEditor = forwardRef<
     getSchema: () => (
       !schemaIsRequired ? undefined : (isDraftSchemaValid ? draftSchema : undefined)
     ),
-    rejectConflict: () => dispatchDraft({ type: "reject-schema-conflict" }),
-  }), [draftSchema, isDraftSchemaValid, schemaIsRequired]);
+    rejectConflict: () => {
+      suggestionOwnedRef.current = false;
+      dispatchDraft({ type: "reject-schema-conflict" });
+      queueMicrotask(() => typeInputRef.current?.focus());
+    },
+    updateSuggestedTypeName(previous, next) {
+      if (typeName.length === 0 || (
+        suggestionOwnedRef.current && typeName === previous
+      )) {
+        dispatchDraft({ type: "set-type-name", typeName: next });
+        suggestionOwnedRef.current = next.length > 0;
+      }
+    },
+  }), [draftSchema, isDraftSchemaValid, schemaIsRequired, typeName]);
 
   useLayoutEffect(() => {
     const input = typeInputRef.current;
@@ -267,6 +295,7 @@ const SchemaDefinitionEditor = forwardRef<
   }
 
   function prefillSchema(schema?: ApiResponseSchema) {
+    suggestionOwnedRef.current = false;
     dispatchDraft({
       fields: allocateDraftFields(schema?.fields ?? []),
       selectedTemplateTypeName: schema?.typeName ?? "",
@@ -563,10 +592,13 @@ const SchemaDefinitionEditor = forwardRef<
               <PaginationIcon />
             </IconButton>
           ) : undefined}
-          onChange={(event) => dispatchDraft({
-            type: "set-type-name",
-            typeName: event.currentTarget.value,
-          })}
+          onChange={(event) => {
+            suggestionOwnedRef.current = false;
+            dispatchDraft({
+              type: "set-type-name",
+              typeName: event.currentTarget.value,
+            });
+          }}
         />
         {reusableSchemas.length > 0 ? (
           <SelectMenu
@@ -616,13 +648,23 @@ const SchemaDefinitionEditor = forwardRef<
 
 type ToggleSectionProps = {
   children: ReactNode;
-  content: ResponseSchemaEditorContent;
-  kind: SchemaKind;
+  collapseLabel: string;
+  description: string;
+  expandLabel: string;
+  label: string;
   onToggle: () => void;
   open: boolean;
 };
 
-function ToggleSection({ children, content, kind, onToggle, open }: ToggleSectionProps) {
+function ToggleSection({
+  children,
+  collapseLabel,
+  description,
+  expandLabel,
+  label,
+  onToggle,
+  open,
+}: ToggleSectionProps) {
   const headingId = useId();
   const panelId = useId();
   return (
@@ -632,17 +674,17 @@ function ToggleSection({ children, content, kind, onToggle, open }: ToggleSectio
         className={styles.sectionToggle}
         aria-controls={panelId}
         aria-expanded={open}
-        aria-label={`${content.typeLabelByKind[kind]}: ${
-          open ? content.collapseSectionLabel : content.expandSectionLabel
+        aria-label={`${label}: ${
+          open ? collapseLabel : expandLabel
         }`}
         onClick={onToggle}
       >
         <span className={styles.sectionHeader}>
           <span id={headingId} className={styles.sectionTitle}>
-            {content.typeLabelByKind[kind]}
+            {label}
           </span>
           <span className={styles.sectionDescription}>
-            {content.typeDescriptionByKind[kind]}
+            {description}
           </span>
         </span>
         <ChevronIcon />
@@ -652,6 +694,49 @@ function ToggleSection({ children, content, kind, onToggle, open }: ToggleSectio
       </div>
     </section>
   );
+}
+
+type ResponseHeaderDraft = ApiRouteHeader & { id: number };
+
+type ResponseDraft = {
+  contentTypes: string;
+  description: string;
+  headers: ResponseHeaderDraft[];
+  id: number;
+  initialSchema?: ApiResponseSchema;
+  paginated: boolean;
+  status: string;
+};
+
+function commaSeparatedValues(value: string): string[] {
+  return [...new Set(value.split(",").map((item) => item.trim()).filter(Boolean))];
+}
+
+function initialResponseDrafts(
+  route: ApiRouteContract,
+  suggestedStatus: string,
+  defaultDescription: string,
+): ResponseDraft[] {
+  const responses = route.responses ?? [{
+    contentTypes: suggestedStatus === "204" ? [] : ["application/json"],
+    description: defaultDescription,
+    ...(route.paginated ? { paginated: true } : {}),
+    ...(route.response ? { schema: route.response } : {}),
+    status: suggestedStatus,
+  }];
+  let nextHeaderId = 0;
+  return responses.map((response, index) => ({
+    contentTypes: response.contentTypes.join(", "),
+    description: response.description,
+    headers: (response.headers ?? []).map((header) => ({
+      ...header,
+      id: nextHeaderId++,
+    })),
+    id: index,
+    initialSchema: response.schema,
+    paginated: response.paginated === true,
+    status: response.status,
+  }));
 }
 
 export function ResponseSchemaEditor({
@@ -665,39 +750,207 @@ export function ResponseSchemaEditor({
   route,
   routeInputContent,
 }: ResponseSchemaEditorProps) {
+  const initialSuggestions = deriveApiRouteSuggestions(route.method, route.path);
   const [routeMethod, setRouteMethod] = useState(route.method);
   const [routePath, setRoutePath] = useState(route.path);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [responseOpen, setResponseOpen] = useState(false);
-  const [paginated, setPaginated] = useState(route.paginated === true);
+  const [requestContentTypes, setRequestContentTypes] = useState(
+    route.requestBody?.contentTypes.join(", ") ?? "application/json",
+  );
+  const [requestRequired, setRequestRequired] = useState(
+    route.requestBody?.required === true,
+  );
+  const [responses, setResponses] = useState<ResponseDraft[]>(() => (
+    initialResponseDrafts(
+      route,
+      initialSuggestions.responseStatus,
+      content.routeContract.defaultResponseDescription,
+    )
+  ));
+  const [responseIssue, setResponseIssue] = useState<string | null>(null);
   const [saveFailure, setSaveFailure] = useState<"route-conflict" | null>(null);
+  const nextResponseIdRef = useRef(responses.length);
+  const nextResponseHeaderIdRef = useRef(
+    responses.reduce((maximum, response) => Math.max(
+      maximum,
+      ...response.headers.map((header) => header.id + 1),
+    ), 0),
+  );
+  const suggestionsRef = useRef(initialSuggestions);
+  const detailsRef = useRef<RouteContractDetailsHandle>(null);
   const requestRef = useRef<SchemaDefinitionHandle>(null);
-  const responseRef = useRef<SchemaDefinitionHandle>(null);
+  const responseRefs = useRef(new Map<number, SchemaDefinitionHandle>());
   const routeInputRef = useRef<HTMLInputElement>(null);
+
+  function updateIdentity(nextMethod: HttpMethod, nextPath: string) {
+    const previous = suggestionsRef.current;
+    const next = deriveApiRouteSuggestions(nextMethod, nextPath);
+    detailsRef.current?.updateIdentity(nextMethod, nextPath);
+    requestRef.current?.updateSuggestedTypeName(
+      previous.requestTypeName,
+      next.requestTypeName,
+    );
+    const firstResponse = responses[0];
+    if (firstResponse) {
+      responseRefs.current.get(firstResponse.id)?.updateSuggestedTypeName(
+        previous.responseTypeName,
+        next.responseTypeName,
+      );
+      setResponses((current) => current.map((response, index) => (
+        index === 0 && response.status === previous.responseStatus
+          ? {
+              ...response,
+              contentTypes: next.responseStatus === "204"
+                ? ""
+                : response.contentTypes || "application/json",
+              status: next.responseStatus,
+            }
+          : response
+      )));
+    }
+    suggestionsRef.current = next;
+  }
+
+  function addResponse() {
+    const preferredStatuses = ["400", "401", "403", "404", "409", "500"];
+    const usedStatuses = new Set(responses.map((response) => response.status));
+    const status = preferredStatuses.find((candidate) => !usedStatuses.has(candidate))
+      ?? "default";
+    setResponses((current) => [
+      ...current,
+      {
+        contentTypes: "application/json",
+        description: content.routeContract.defaultResponseDescription,
+        headers: [],
+        id: nextResponseIdRef.current++,
+        paginated: false,
+        status,
+      },
+    ]);
+  }
+
+  function updateResponse(id: number, patch: Partial<ResponseDraft>) {
+    setResponseIssue(null);
+    setResponses((current) => current.map((response) => (
+      response.id === id ? { ...response, ...patch } : response
+    )));
+  }
+
+  function removeResponse(id: number) {
+    if (responses.length <= 1) return;
+    responseRefs.current.delete(id);
+    setResponses((current) => current.filter((response) => response.id !== id));
+  }
+
+  function addResponseHeader(responseId: number) {
+    updateResponse(responseId, {
+      headers: [
+        ...(responses.find((response) => response.id === responseId)?.headers ?? []),
+        {
+          id: nextResponseHeaderIdRef.current++,
+          name: "",
+          type: "string",
+        },
+      ],
+    });
+  }
+
+  function updateResponseHeader(
+    responseId: number,
+    headerId: number,
+    patch: Partial<ApiRouteHeader>,
+  ) {
+    const response = responses.find((candidate) => candidate.id === responseId);
+    if (!response) return;
+    updateResponse(responseId, {
+      headers: response.headers.map((header) => (
+        header.id === headerId ? { ...header, ...patch } : header
+      )),
+    });
+  }
+
+  function removeResponseHeader(responseId: number, headerId: number) {
+    const response = responses.find((candidate) => candidate.id === responseId);
+    if (!response) return;
+    updateResponse(responseId, {
+      headers: response.headers.filter((header) => header.id !== headerId),
+    });
+  }
 
   function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const request = requestRef.current?.getSchema();
-    const response = responseRef.current?.getSchema();
-    if (!response) {
+    const normalizedResponses: ApiRouteResponse[] = responses.map((response) => {
+      const schema = responseRefs.current.get(response.id)?.getSchema();
+      return {
+        contentTypes: commaSeparatedValues(response.contentTypes),
+        description: response.description.trim(),
+        headers: response.headers
+          .filter((header) => header.name.trim())
+          .map((header): ApiRouteHeader => ({
+            ...(header.description?.trim()
+              ? { description: header.description.trim() }
+              : {}),
+            name: header.name.trim(),
+            type: header.type,
+          })),
+        ...(response.paginated ? { paginated: true } : {}),
+        ...(schema ? { schema } : {}),
+        status: response.status,
+      };
+    });
+    const statuses = normalizedResponses.map((response) => response.status);
+    if (new Set(statuses).size !== statuses.length) {
+      setResponseIssue(content.routeContract.duplicateResponseStatusError);
       setResponseOpen(true);
-      queueMicrotask(() => responseRef.current?.focusTypeName());
       return;
     }
-    if (request && hasIncompatibleApiResponseSchema([request], response)) {
-      setRequestOpen(true);
-      queueMicrotask(() => requestRef.current?.focusTypeName());
+    const schemas = [
+      request,
+      ...normalizedResponses.map((response) => response.schema),
+    ].filter((schema): schema is ApiResponseSchema => Boolean(schema));
+    if (schemas.some((schema, index) => hasIncompatibleApiResponseSchema(
+      schemas.filter((_, candidateIndex) => candidateIndex !== index),
+      schema,
+    ))) {
+      setResponseOpen(true);
+      for (const responseRef of responseRefs.current.values()) {
+        responseRef.rejectConflict();
+      }
       return;
     }
+    const primaryResponse = normalizedResponses.find((response) => (
+      response.schema && /^2[0-9]{2}$/.test(response.status)
+    )) ?? normalizedResponses.find((response) => response.schema);
+    const hasRequestBody = Boolean(request || requestRequired || route.requestBody);
     const result = onSave({
-      paginated,
+      ...detailsRef.current?.getContract(),
+      paginated: primaryResponse?.paginated === true ? true : undefined,
       ...(request ? { request } : {}),
-      response,
+      ...(hasRequestBody
+        ? {
+            requestBody: {
+              contentTypes: commaSeparatedValues(requestContentTypes),
+              required: requestRequired,
+              ...(request ? { schema: request } : {}),
+            },
+          }
+        : {}),
+      ...(primaryResponse?.schema ? { response: primaryResponse.schema } : {}),
+      responses: normalizedResponses,
     }, { method: routeMethod, path: routePath });
     if (result === "schema-conflict") {
       setResponseOpen(true);
-      responseRef.current?.rejectConflict();
-      queueMicrotask(() => responseRef.current?.focusTypeName());
+      for (const responseRef of responseRefs.current.values()) {
+        responseRef.rejectConflict();
+      }
+    } else if (result === "contract-invalid") {
+      setDetailsOpen(true);
+      setRequestOpen(true);
+      setResponseOpen(true);
+      setResponseIssue(content.routeContract.invalidContractError);
     } else if (result === "route-conflict") {
       setSaveFailure("route-conflict");
       queueMicrotask(() => routeInputRef.current?.focus());
@@ -720,11 +973,13 @@ export function ResponseSchemaEditor({
         method={routeMethod}
         methodSelectorLabel={routeInputContent.methodSelectorLabel}
         onMethodChange={(nextMethod) => {
+          updateIdentity(nextMethod, routePath);
           setRouteMethod(nextMethod);
           setSaveFailure(null);
           onRouteMethodChange?.(nextMethod);
         }}
         onPathChange={(nextPath) => {
+          updateIdentity(routeMethod, nextPath);
           setRoutePath(nextPath);
           setSaveFailure(null);
         }}
@@ -738,36 +993,210 @@ export function ResponseSchemaEditor({
         }}
       />
       <ToggleSection
-        content={content}
-        kind="request"
+        collapseLabel={content.collapseSectionLabel}
+        description={content.routeContract.detailsDescription}
+        expandLabel={content.expandSectionLabel}
+        label={content.routeContract.detailsLabel}
+        open={detailsOpen}
+        onToggle={() => setDetailsOpen((current) => !current)}
+      >
+        <RouteContractDetailsEditor
+          ref={detailsRef}
+          content={content.routeContract}
+          route={route}
+        />
+      </ToggleSection>
+      <ToggleSection
+        collapseLabel={content.collapseSectionLabel}
+        description={content.typeDescriptionByKind.request}
+        expandLabel={content.expandSectionLabel}
+        label={content.typeLabelByKind.request}
         open={requestOpen}
         onToggle={() => setRequestOpen((current) => !current)}
       >
+        <div className={styles.contractFieldGrid}>
+          <label className={styles.contractField}>
+            <span className={styles.label}>{content.routeContract.contentTypesLabel}</span>
+            <TextInput
+              aria-label={content.routeContract.contentTypesLabel}
+              name="request-content-types"
+              required={requestRequired || Boolean(route.requestBody)}
+              placeholder={content.routeContract.contentTypesHint}
+              tone="nested"
+              value={requestContentTypes}
+              onChange={(event) => setRequestContentTypes(event.currentTarget.value)}
+            />
+          </label>
+          <CheckboxWithLabel
+            checked={requestRequired}
+            label={content.routeContract.requestRequiredLabel}
+            onChange={(event) => setRequestRequired(event.currentTarget.checked)}
+          />
+        </div>
         <SchemaDefinitionEditor
           ref={requestRef}
           content={content}
           existingSchemas={existingSchemas}
-          initialSchema={route.request}
+          initialSchema={route.requestBody?.schema ?? route.request}
           kind="request"
           required={false}
+          suggestedTypeName={initialSuggestions.requestTypeName}
         />
       </ToggleSection>
       <ToggleSection
-        content={content}
-        kind="response"
+        collapseLabel={content.collapseSectionLabel}
+        description={content.typeDescriptionByKind.response}
+        expandLabel={content.expandSectionLabel}
+        label={content.typeLabelByKind.response}
         open={responseOpen}
         onToggle={() => setResponseOpen((current) => !current)}
       >
-        <SchemaDefinitionEditor
-          ref={responseRef}
-          content={content}
-          existingSchemas={existingSchemas}
-          initialSchema={route.response}
-          kind="response"
-          onPaginationChange={setPaginated}
-          paginated={paginated}
-          required
-        />
+        <div className={styles.contractDefinition}>
+          <div className={styles.contractSubsectionHeader}>
+            <span className={styles.label}>{content.typeLabelByKind.response}</span>
+            <IconButton
+              aria-label={content.routeContract.addResponseLabel}
+              onClick={addResponse}
+            >
+              <PlusIcon />
+            </IconButton>
+          </div>
+          {responses.map((response, responseIndex) => (
+            <div
+              key={response.id}
+              className={styles.responseCard}
+              role="group"
+              aria-label={`${content.typeLabelByKind.response} ${responseIndex + 1}`}
+            >
+              <div className={styles.responseMetadataRow}>
+                <label className={styles.contractField}>
+                  <span className={styles.label}>{content.routeContract.responseStatusLabel}</span>
+                  <TextInput
+                    aria-label={`${content.routeContract.responseStatusLabel} ${responseIndex + 1}`}
+                    name={`response-${response.id}-status`}
+                    pattern="(?:default|[1-5][0-9]{2})"
+                    required
+                    tone="nested"
+                    value={response.status}
+                    onChange={(event) => updateResponse(response.id, {
+                      status: event.currentTarget.value,
+                    })}
+                  />
+                </label>
+                <label className={styles.contractField}>
+                  <span className={styles.label}>{content.routeContract.responseDescriptionLabel}</span>
+                  <TextInput
+                    aria-label={`${content.routeContract.responseDescriptionLabel} ${responseIndex + 1}`}
+                    name={`response-${response.id}-description`}
+                    required
+                    tone="nested"
+                    value={response.description}
+                    onChange={(event) => updateResponse(response.id, {
+                      description: event.currentTarget.value,
+                    })}
+                  />
+                </label>
+                <label className={styles.contractField}>
+                  <span className={styles.label}>{content.routeContract.contentTypesLabel}</span>
+                  <TextInput
+                    aria-label={`${content.routeContract.contentTypesLabel} ${responseIndex + 1}`}
+                    name={`response-${response.id}-content-types`}
+                    placeholder={content.routeContract.contentTypesHint}
+                    tone="nested"
+                    value={response.contentTypes}
+                    onChange={(event) => updateResponse(response.id, {
+                      contentTypes: event.currentTarget.value,
+                    })}
+                  />
+                </label>
+                <IconButton
+                  aria-label={`${content.routeContract.removeResponseLabel} ${responseIndex + 1}`}
+                  disabled={responses.length <= 1}
+                  onClick={() => removeResponse(response.id)}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </div>
+              <SchemaDefinitionEditor
+                ref={(handle) => {
+                  if (handle) responseRefs.current.set(response.id, handle);
+                  else responseRefs.current.delete(response.id);
+                }}
+                content={content}
+                existingSchemas={existingSchemas}
+                initialSchema={response.initialSchema}
+                kind="response"
+                onPaginationChange={(paginated) => updateResponse(response.id, {
+                  paginated,
+                })}
+                paginated={response.paginated}
+                required={responseIndex === 0
+                  && response.status !== "204"
+                  && routeMethod !== "HEAD"
+                  && routeMethod !== "OPTIONS"}
+                suggestedTypeName={responseIndex === 0
+                  && response.status !== "204"
+                  && routeMethod !== "HEAD"
+                  && routeMethod !== "OPTIONS"
+                  ? initialSuggestions.responseTypeName
+                  : ""}
+              />
+              <div className={styles.contractSubsectionHeader}>
+                <span className={styles.label}>{content.routeContract.responseHeadersLabel}</span>
+                <IconButton
+                  aria-label={`${content.routeContract.addResponseHeaderLabel} ${responseIndex + 1}`}
+                  onClick={() => addResponseHeader(response.id)}
+                >
+                  <PlusIcon />
+                </IconButton>
+              </div>
+              {response.headers.map((header, headerIndex) => (
+                <div key={header.id} className={styles.responseHeaderRow}>
+                  <TextInput
+                    aria-label={`${content.routeContract.responseHeaderNameLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+                    name={`response-${response.id}-header-${header.id}-name`}
+                    pattern="[A-Za-z][A-Za-z0-9_-]*"
+                    required
+                    tone="nested"
+                    value={header.name}
+                    onChange={(event) => updateResponseHeader(response.id, header.id, {
+                      name: event.currentTarget.value,
+                    })}
+                  />
+                  <SelectMenu
+                    height="large"
+                    label={`${content.routeContract.parameterTypeLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+                    options={apiParameterTypes.map((type) => ({
+                      id: type,
+                      kind: "action",
+                      label: content.routeContract.parameterTypeOptions[type],
+                      onSelect: () => updateResponseHeader(response.id, header.id, { type }),
+                    }))}
+                    rounded
+                    selectedId={header.type}
+                    width="field"
+                  />
+                  <TextInput
+                    aria-label={`${content.routeContract.responseHeaderDescriptionLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+                    name={`response-${response.id}-header-${header.id}-description`}
+                    tone="nested"
+                    value={header.description ?? ""}
+                    onChange={(event) => updateResponseHeader(response.id, header.id, {
+                      description: event.currentTarget.value,
+                    })}
+                  />
+                  <IconButton
+                    aria-label={`${content.routeContract.removeResponseHeaderLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+                    onClick={() => removeResponseHeader(response.id, header.id)}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </div>
+              ))}
+            </div>
+          ))}
+          {responseIssue ? <p className={styles.error} role="alert">{responseIssue}</p> : null}
+        </div>
       </ToggleSection>
     </form>
   );

@@ -799,13 +799,31 @@ test("persists request and paginated response sections and exports the wrapper",
   ), apiRoutesStorage.key)).toEqual([{
     id: 0,
     method: "GET",
+    operationId: "listSearch",
     paginated: true,
     path: "/search",
     request: {
       fields: [{ name: "query", optional: false, type: "string" }],
       typeName: "SearchRequest",
     },
+    requestBody: {
+      contentTypes: ["application/json"],
+      required: false,
+      schema: {
+        fields: [{ name: "query", optional: false, type: "string" }],
+        typeName: "SearchRequest",
+      },
+    },
     response: { fields: [], typeName: "SearchResult" },
+    responses: [{
+      contentTypes: ["application/json"],
+      description: "Successful response",
+      headers: [],
+      paginated: true,
+      schema: { fields: [], typeName: "SearchResult" },
+      status: "200",
+    }],
+    title: "List search",
   }]);
 
   const downloadPromise = page.waitForEvent("download");
@@ -815,7 +833,86 @@ test("persists request and paginated response sections and exports the wrapper",
   expect(skill).toContain("Response model: `SearchResultPage`");
   expect(skill).toContain("items: SearchResult[];");
   expect(skill).toContain("totalHits: number;");
+  expect(skill).toContain("limit: number;");
   expect(skill).toContain("totalPages: number;");
+});
+
+test("prefills a path contract and persists explicit parameters and behavior", async ({
+  page,
+}) => {
+  await page.goto(studioPath);
+  await page.getByRole("textbox", { name: "API endpoint path" })
+    .fill("users/{uuid}");
+  await page.getByRole("textbox", { name: "API endpoint path" }).press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+  const details = dialog.getByRole("region", { name: "Route details" });
+  await expect(details.getByRole("textbox", { name: "Title" }))
+    .toHaveValue("Get user");
+  await expect(details.getByRole("textbox", { name: "Operation ID" }))
+    .toHaveValue("getUserByUuid");
+  await expect(details.getByRole("textbox", { name: "Parameter name 1" }))
+    .toHaveValue("uuid");
+  await expect(details.getByRole("textbox", { name: "Format 1" }))
+    .toHaveValue("uuid");
+
+  await details.getByRole("button", { name: "Add parameter" }).click();
+  await details.getByRole("textbox", { name: "Parameter name 2" }).fill("limit");
+  await details.getByRole("button", { name: /^Parameter type 2 / }).click();
+  await details.getByRole("list", { name: "Parameter type 2" })
+    .getByRole("button", { name: "integer" }).click();
+  await details.getByRole("button", { name: /^Security scheme / }).click();
+  await details.getByRole("list", { name: "Security scheme" })
+    .getByRole("button", { name: "Bearer token" }).click();
+  await details.getByRole("button", { name: /^Cache policy / }).click();
+  await details.getByRole("list", { name: "Cache policy" })
+    .getByRole("button", { name: "Private" }).click();
+  await details.getByRole("textbox", { name: "Rate limit" }).fill("120/minute");
+
+  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+  await expect(dialog.getByRole("textbox", { name: "Response type" }))
+    .toHaveValue("UserResponse");
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  await expect.poll(() => page.evaluate((key) => JSON.parse(
+    window.localStorage.getItem(key) ?? "[]",
+  ), apiRoutesStorage.key)).toHaveLength(1);
+  const [route] = await page.evaluate((key) => JSON.parse(
+    window.localStorage.getItem(key) ?? "[]",
+  ) as ApiRouteContract[], apiRoutesStorage.key);
+  expect(route).toMatchObject({
+    behavior: { cache: "private", rateLimit: "120/minute" },
+    operationId: "getUserByUuid",
+    parameters: [
+      {
+        format: "uuid",
+        location: "path",
+        name: "uuid",
+        required: true,
+        type: "string",
+      },
+      {
+        location: "query",
+        name: "limit",
+        required: false,
+        type: "integer",
+      },
+    ],
+    security: { scheme: "bearer" },
+    title: "Get user",
+  });
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download" }).click();
+  const skill = await readDownload(await downloadPromise);
+  expect(skill).toContain("Operation ID: `getUserByUuid`");
+  expect(skill).toContain("`limit` in query: integer, optional");
+  expect(skill).toContain("Security: bearer");
+  expect(skill).toContain("Cache policy: private");
+  expect(skill).toContain("Rate limit: 120/minute");
 });
 
 test("blocks contract download when stored routes are invalid", async ({

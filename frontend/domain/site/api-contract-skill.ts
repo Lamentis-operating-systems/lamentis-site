@@ -1,7 +1,11 @@
 import {
+  apiRouteRequestSchema,
+  apiRouteResponses,
   apiRouteIdentity,
   httpMethods,
   type ApiRouteContract,
+  type ApiRouteParameter,
+  type ApiRouteResponse,
   type HttpMethod,
 } from "./api-route";
 import { parseApiRoutePath } from "./api-route-path";
@@ -26,9 +30,19 @@ type CanonicalRouteGroup = {
 type ApiResponseSchemaOrNone = ApiResponseSchema | null;
 
 type CanonicalRouteVariant = {
+  behavior: ApiRouteContract["behavior"];
+  deprecated: boolean;
+  description: string | null;
+  operationId: string | null;
   paginated: boolean;
+  parameters: ApiRouteParameter[];
   request: ApiResponseSchemaOrNone;
+  requestBody: ApiRouteContract["requestBody"] | null;
   response: ApiResponseSchemaOrNone;
+  responses: ApiRouteResponse[];
+  security: ApiRouteContract["security"] | null;
+  tags: string[];
+  title: string | null;
 };
 
 type ResponseModelGroup = {
@@ -62,11 +76,7 @@ function responseSignature(schema: ApiResponseSchemaOrNone): string {
 }
 
 function routeVariantSignature(variant: CanonicalRouteVariant): string {
-  return JSON.stringify({
-    paginated: variant.paginated,
-    request: responseSignature(variant.request),
-    response: responseSignature(variant.response),
-  });
+  return JSON.stringify(variant);
 }
 
 function paginationSchema(response: ApiResponseSchema): ApiResponseSchema {
@@ -81,6 +91,7 @@ function paginationSchema(response: ApiResponseSchema): ApiResponseSchema {
       },
       { name: "totalHits", optional: false, type: "number" },
       { name: "page", optional: false, type: "number" },
+      { name: "limit", optional: false, type: "number" },
       { name: "totalPages", optional: false, type: "number" },
     ],
     typeName: `${response.typeName}Page`,
@@ -88,10 +99,13 @@ function paginationSchema(response: ApiResponseSchema): ApiResponseSchema {
 }
 
 function responseModelName(variant: CanonicalRouteVariant): string | null {
-  if (!variant.response) return null;
-  return variant.paginated
-    ? paginationSchema(variant.response).typeName
-    : variant.response.typeName;
+  const primary = variant.responses.find((response) => (
+    response.schema && /^2[0-9]{2}$/.test(response.status)
+  )) ?? variant.responses.find((response) => response.schema);
+  if (!primary?.schema) return null;
+  return primary.paginated
+    ? paginationSchema(primary.schema).typeName
+    : primary.schema.typeName;
 }
 
 function canonicalRouteGroups(
@@ -113,13 +127,34 @@ function canonicalRouteGroups(
       sourceCount: 0,
     };
     const variant: CanonicalRouteVariant = {
+      behavior: route.behavior,
+      deprecated: route.deprecated === true,
+      description: route.description ?? null,
+      operationId: route.operationId ?? null,
       paginated: route.paginated === true,
-      request: route.request
-        ? canonicalizeApiResponseSchema(route.request)
+      parameters: route.parameters ?? [],
+      request: apiRouteRequestSchema(route)
+        ? canonicalizeApiResponseSchema(apiRouteRequestSchema(route)!)
         : null,
+      requestBody: route.requestBody ?? (route.request
+        ? {
+            contentTypes: ["application/json"],
+            required: false,
+            schema: canonicalizeApiResponseSchema(route.request),
+          }
+        : null),
       response: route.response
         ? canonicalizeApiResponseSchema(route.response)
         : null,
+      responses: apiRouteResponses(route).map((response) => ({
+        ...response,
+        ...(response.schema
+          ? { schema: canonicalizeApiResponseSchema(response.schema) }
+          : {}),
+      })),
+      security: route.security ?? null,
+      tags: route.tags ?? [],
+      title: route.title ?? null,
     };
 
     group.sourceCount += 1;
@@ -145,11 +180,14 @@ function responseModelGroups(
   const groups = new Map<string, Map<string, ApiResponseSchema>>();
 
   for (const route of routes) {
+    const responseSchemas = apiRouteResponses(route).flatMap((response) => (
+      response.schema
+        ? [response.paginated ? paginationSchema(response.schema) : response.schema]
+        : []
+    ));
     const rootSchemas = [
-      route.request,
-      route.response
-        ? (route.paginated ? paginationSchema(route.response) : route.response)
-        : undefined,
+      apiRouteRequestSchema(route),
+      ...responseSchemas,
     ].filter((schema): schema is ApiResponseSchema => Boolean(schema));
 
     for (const responseSchema of rootSchemas.flatMap(collectApiResponseSchemas)) {
@@ -227,11 +265,7 @@ function renderInventory(groups: readonly CanonicalRouteGroup[]): string {
       : variant?.request?.typeName ?? "Not specified";
     const response = group.variants.length > 1
       ? "**BLOCKED: conflicting response definitions**"
-      : responseModelName(variant ?? {
-          paginated: false,
-          request: null,
-          response: null,
-        }) ?? "Not specified";
+      : variant ? responseModelName(variant) ?? "Not specified" : "Not specified";
 
     return `| ${group.method} | \`${group.path}\` | ${
       parameters.length > 0
@@ -278,16 +312,75 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
     );
   } else {
     const variant = group.variants[0];
-    lines.push(variant?.request
-      ? `- Request model: \`${variant.request.typeName}\``
-      : "- Request body: Not specified. Do not invent one.");
-    const responseName = variant ? responseModelName(variant) : null;
-    lines.push(responseName
-      ? `- Response model: \`${responseName}\``
-      : "- Response: Not specified. Do not invent a response body.");
-    if (variant?.paginated && variant.response) {
+    if (variant) {
       lines.push(
-        `- Pagination: \`${responseName}\` wraps \`${variant.response.typeName}\` in \`items\` and includes \`totalHits\`, \`page\`, and \`totalPages\`.`,
+        `- Title: ${variant.title ? variant.title : "Not specified"}`,
+        `- Operation ID: ${variant.operationId ? `\`${variant.operationId}\`` : "Not specified"}`,
+        `- Description: ${variant.description ?? "Not specified"}`,
+        `- Tags: ${variant.tags.length > 0 ? variant.tags.map((tag) => `\`${tag}\``).join(", ") : "None"}`,
+        `- Deprecated: ${variant.deprecated ? "Yes" : "No"}`,
+      );
+      if (variant.parameters.length === 0) {
+        lines.push("- Parameters: None specified.");
+      } else {
+        lines.push(
+          "- Parameters:",
+          ...variant.parameters.map((parameter) => (
+            `  - \`${parameter.name}\` in ${parameter.location}: ${parameter.type}${
+              parameter.format ? ` (${parameter.format})` : ""
+            }, ${parameter.required ? "required" : "optional"}${
+              parameter.description ? ` — ${parameter.description}` : ""
+            }`
+          )),
+        );
+      }
+      lines.push(variant.requestBody
+        ? `- Request body: ${variant.requestBody.required ? "required" : "optional"}; ${
+            variant.requestBody.contentTypes.map((type) => `\`${type}\``).join(", ") || "no content type"
+          }; model ${variant.requestBody.schema ? `\`${variant.requestBody.schema.typeName}\`` : "not specified"}`
+        : "- Request body: Not specified. Do not invent one.");
+      lines.push(
+        `- Request model: ${variant.request ? `\`${variant.request.typeName}\`` : "Not specified"}`,
+        `- Response model: ${responseModelName(variant) ? `\`${responseModelName(variant)}\`` : "Not specified"}`,
+      );
+      if (variant.responses.length === 0) {
+        lines.push("- Responses: Not specified. Do not invent response behavior.");
+      } else {
+        lines.push(
+          "- Responses:",
+          ...variant.responses.flatMap((response) => {
+            const responseName = response.schema
+              ? response.paginated
+                ? paginationSchema(response.schema).typeName
+                : response.schema.typeName
+              : null;
+            return [
+              `  - \`${response.status}\`: ${response.description}; model ${
+                responseName ? `\`${responseName}\`` : "not specified"
+              }; content ${
+                response.contentTypes.map((type) => `\`${type}\``).join(", ") || "none"
+              }`,
+              ...(response.headers ?? []).map((header) => (
+                `    - Header \`${header.name}\`: ${header.type}${
+                  header.description ? ` — ${header.description}` : ""
+                }`
+              )),
+              ...(response.paginated && response.schema
+                ? [`    - Pagination wraps \`${response.schema.typeName}\` in \`items\` and includes \`totalHits\`, \`page\`, \`limit\`, and \`totalPages\`.`]
+                : []),
+            ];
+          }),
+        );
+      }
+      lines.push(
+        `- Security: ${variant.security && variant.security.scheme !== "none"
+          ? `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
+              variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
+            }`
+          : "None"}`,
+        `- Cache policy: ${variant.behavior?.cache ?? "Unspecified"}`,
+        `- Idempotency: ${variant.behavior?.idempotency ?? "Unspecified"}`,
+        `- Rate limit: ${variant.behavior?.rateLimit ?? "Unspecified"}`,
       );
     }
   }

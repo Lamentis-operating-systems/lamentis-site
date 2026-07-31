@@ -4,6 +4,7 @@ import type {
   ApiRouteContract,
   HttpMethod,
 } from "@/domain/site/api-route";
+import { apiRouteResponses } from "@/domain/site/api-route";
 import { ApiRoutePath } from "./api-route-display";
 import { HttpMethodSelector } from "./http-method-selector";
 import { RouteActionsMenu } from "./route-actions-menu";
@@ -41,6 +42,9 @@ export function ApiRouteRow({
   onMethodChange,
   route,
 }: ApiRouteRowProps) {
+  const responseTypeName = apiRouteResponses(route).find((response) => (
+    response.schema && /^2[0-9]{2}$/.test(response.status)
+  ))?.schema?.typeName ?? route.response?.typeName;
   return (
     <div
       className={`${styles.row} ${className ?? ""}`.trim()}
@@ -66,9 +70,9 @@ export function ApiRouteRow({
         onEdit={onEdit}
         path={route.path}
       />
-      {route.response ? (
+      {responseTypeName ? (
         <VisuallyHidden>
-          {content.responseTypeLabel}: {route.response.typeName}
+          {content.responseTypeLabel}: {responseTypeName}
         </VisuallyHidden>
       ) : null}
     </div>

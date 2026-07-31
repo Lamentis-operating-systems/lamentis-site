@@ -321,6 +321,7 @@ describe("API-contract agent skill", () => {
     expect(skill).toContain("items: UserResponse[];");
     expect(skill).toContain("totalHits: number;");
     expect(skill).toContain("page: number;");
+    expect(skill).toContain("limit: number;");
     expect(skill).toContain("totalPages: number;");
     expect(typeScriptDiagnostics(typeScriptBlocks(skill))).toEqual([]);
   });

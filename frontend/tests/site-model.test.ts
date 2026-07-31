@@ -166,6 +166,16 @@ describe("site route authority", () => {
         .filter((path) => english[path] === german[path])
         .sort(),
     ).toEqual([
+      "apiCreatorStudio.responseEditor.routeContract.formatLabel",
+      "apiCreatorStudio.responseEditor.routeContract.idempotencyOptions.idempotent",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.array",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.boolean",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.integer",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.number",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.string",
+      "apiCreatorStudio.responseEditor.routeContract.securitySchemeOptions.basic",
+      "apiCreatorStudio.responseEditor.routeContract.securitySchemeOptions.oauth2",
+      "apiCreatorStudio.responseEditor.routeContract.tagsLabel",
       "apiCreatorStudio.responseEditor.routeLabel",
       "apiCreatorStudio.responseEditor.typeOptions.array",
       "apiCreatorStudio.responseEditor.typeOptions.boolean",

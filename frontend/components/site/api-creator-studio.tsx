@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import {
+  apiRouteSchemas,
   hasApiRouteIdentity,
   httpMethods,
   nextApiRouteId,
@@ -160,9 +161,7 @@ export function ApiCreatorStudio({
           existingSchemas={routeSnapshot.flatMap(
             (candidateRoute) => (
               candidateRoute.id !== route.id
-                ? [candidateRoute.request, candidateRoute.response].filter(
-                    (schema): schema is NonNullable<typeof schema> => Boolean(schema),
-                  )
+                ? apiRouteSchemas(candidateRoute)
                 : []
             ),
           )}
@@ -186,9 +185,7 @@ export function ApiCreatorStudio({
               const transition = transitionApiRouteWorkspaceSave(
                 currentRoutes,
                 {
-                  paginated: contract.paginated === true,
-                  request: contract.request,
-                  response: contract.response!,
+                  ...contract,
                   route: nextRoute,
                   routeId: route.id,
                 },

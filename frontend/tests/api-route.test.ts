@@ -55,6 +55,60 @@ describe("API-route persistence schema", () => {
     }])).toBe(false);
   });
 
+  it("accepts a fully documented route and rejects unsynchronized path parameters", () => {
+    const richRoute: ApiRouteContract = {
+      behavior: {
+        cache: "private",
+        idempotency: "idempotent",
+        rateLimit: "120/minute",
+      },
+      description: "Fetch one user.",
+      id: 8,
+      method: "GET",
+      operationId: "getUserByUuid",
+      parameters: [
+        {
+          format: "uuid",
+          location: "path",
+          name: "uuid",
+          required: true,
+          type: "string",
+        },
+        {
+          location: "query",
+          name: "include",
+          required: false,
+          type: "array",
+        },
+      ],
+      path: "/users/{uuid}",
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "The user.",
+        headers: [{ name: "ETag", type: "string" }],
+        schema: validRoute.response,
+        status: "200",
+      }],
+      security: { scheme: "bearer" },
+      tags: ["users"],
+      title: "Get user",
+    };
+
+    expect(isApiRouteContractList([richRoute])).toBe(true);
+    expect(isApiRouteContractList([{
+      ...richRoute,
+      parameters: richRoute.parameters?.filter(({ location }) => location !== "path"),
+    }])).toBe(false);
+    expect(isApiRouteContractList([{
+      ...richRoute,
+      responses: [richRoute.responses![0]!, richRoute.responses![0]!],
+    }])).toBe(false);
+    expect(isApiRouteContractList([
+      richRoute,
+      { ...richRoute, id: 9, operationId: richRoute.operationId, path: "/profiles" },
+    ])).toBe(false);
+  });
+
   it.each([
     { value: [{ ...validRoute, id: -1 }] },
     { value: [{ ...validRoute, method: "TRACE" }] },
