@@ -16,7 +16,7 @@
 
 .prefix {
   flex: 0 0 auto;
-  color: var(--color-text);
+  color: var(--control-foreground, var(--color-text));
   font-size: var(--text-body);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-body);
@@ -35,7 +35,7 @@
   display: flex;
   align-items: center;
   overflow: hidden;
-  color: var(--color-text);
+  color: var(--control-foreground, var(--color-text));
   font-size: var(--text-body);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-body);
@@ -50,13 +50,13 @@
 }
 
 .bracedSegment {
-  color: var(--color-text-muted);
+  color: var(--control-muted-foreground, var(--color-text-muted));
 }
 
 .field .input {
   position: relative;
   color: transparent;
-  caret-color: var(--color-text);
+  caret-color: var(--control-caret, var(--color-text));
   word-spacing: var(--space-1);
 }
 

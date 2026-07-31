@@ -5,7 +5,8 @@
   padding: 0;
   outline: none;
   background: transparent;
-  color: var(--color-text);
+  color: var(--control-foreground, var(--color-text));
+  caret-color: var(--control-caret, var(--color-text));
   font: inherit;
   font-size: var(--text-body);
   font-weight: var(--font-weight-regular);

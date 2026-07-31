@@ -9,11 +9,11 @@
 }
 
 .trigger {
-  border: var(--control-border-width) solid transparent;
+  border: 0;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-text-muted);
-  transition-property: background-color, border-color, color, transform;
+  transition-property: background-color, color, transform;
 }
 
 .trigger:hover {
@@ -23,7 +23,6 @@
 }
 
 .trigger[aria-expanded="true"] {
-  border-color: var(--color-border);
   background: var(--color-field-menu-background);
   color: var(--color-text);
 }

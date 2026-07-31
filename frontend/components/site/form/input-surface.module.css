@@ -1,4 +1,9 @@
 .surface {
+  --control-caret: var(--color-text);
+  --control-foreground: var(--color-text);
+  --control-muted-foreground: var(--color-text-muted);
+  --control-placeholder: var(--color-field-placeholder);
+
   display: flex;
   width: 100%;
   min-width: 0;
@@ -8,19 +13,20 @@
   padding-inline: var(--space-5);
   border-radius: var(--radius-full);
   background: var(--color-field-background);
-  box-shadow: var(--shadow-control-border-transparent);
   color: var(--color-text-muted);
-  transition-property: box-shadow;
+  transition-property: background-color, color;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--motion-easing);
 }
 
-.surface:hover {
-  box-shadow: var(--shadow-control-border);
-}
-
 .surface:focus-within {
-  box-shadow: var(--shadow-control-focus);
+  --control-caret: var(--color-focus-foreground);
+  --control-foreground: var(--color-focus-foreground);
+  --control-muted-foreground: var(--color-focus-foreground);
+  --control-placeholder: var(--color-focus-foreground);
+
+  background: var(--color-focus-background);
+  color: var(--color-focus-foreground);
 }
 
 .surfaceNested {
@@ -38,13 +44,16 @@
 }
 
 .surface input::placeholder {
-  color: var(--color-field-placeholder);
+  color: var(--control-placeholder);
   opacity: 1;
 }
 
 @media (forced-colors: active) {
   .surface:focus-within {
-    outline: var(--focus-ring-width) solid CanvasText;
+    outline:
+      var(--focus-ring-width)
+      solid
+      var(--color-forced-focus-outline);
     outline-offset: var(--focus-ring-offset);
   }
 }

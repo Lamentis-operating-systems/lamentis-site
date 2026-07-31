@@ -21,14 +21,13 @@
   border-radius: var(--control-radius);
   padding-inline: var(--space-4);
   background: var(--color-field-menu-background);
-  box-shadow: var(--shadow-control-border-transparent);
   color: var(--color-text-secondary);
   cursor: pointer;
   font: inherit;
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-compact);
-  transition-property: box-shadow, color;
+  transition-property: background-color, color;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--motion-easing);
 }
@@ -54,12 +53,13 @@
 }
 
 .trigger:hover:not(:disabled) {
-  box-shadow: var(--shadow-control-border);
+  color: var(--color-text);
   transform: none;
 }
 
 .trigger[aria-expanded="true"] {
-  box-shadow: var(--shadow-control-border);
+  background-color: var(--color-field-focus-background);
+  color: var(--color-text);
 }
 
 .trigger svg {

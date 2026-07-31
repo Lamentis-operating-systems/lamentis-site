@@ -81,10 +81,6 @@
   --connector-line-width: 2px;
   --shadow-control-border:
     inset 0 0 0 var(--control-border-width) var(--color-border);
-  --shadow-control-border-transparent:
-    inset 0 0 0 var(--control-border-width) transparent;
-  --shadow-control-focus:
-    0 0 0 var(--focus-ring-width) var(--color-focus);
   --shadow-popover:
     0 var(--space-3) var(--space-8) var(--color-shadow);
   --shadow-overlay:
@@ -112,7 +108,9 @@
   --color-text-muted: rgb(102 102 102);
   --color-danger: rgb(190 30 45);
   --color-border: rgb(0 0 0 / 12%);
-  --color-focus: var(--color-text);
+  --color-focus-background: rgb(102 102 102);
+  --color-focus-foreground: rgb(255 255 255);
+  --color-forced-focus-outline: CanvasText;
   --color-inverse-background: rgb(0 0 0);
   --color-inverse-text: rgb(255 255 255);
   --color-shadow: rgb(0 0 0 / 16%);
@@ -148,6 +146,7 @@
     --color-text-muted: rgb(255 255 255 / 60%);
     --color-danger: rgb(255 105 115);
     --color-border: rgb(255 255 255 / 14%);
+    --color-focus-background: rgb(110 110 110);
     --color-inverse-background: rgb(255 255 255);
     --color-inverse-text: rgb(0 0 0);
     --color-shadow: rgb(0 0 0 / 36%);
