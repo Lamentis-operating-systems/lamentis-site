@@ -744,13 +744,19 @@ test("persists request and paginated response sections and exports the wrapper",
     name: "Add a data structure to this route",
   });
   const requestToggle = dialog.getByRole("button", {
-    name: "Request type: Expand",
+    name: /^Request type:/,
   });
   const responseToggle = dialog.getByRole("button", {
     name: "Response type: Expand",
   });
   await expect(requestToggle).toHaveAttribute("aria-expanded", "false");
   await expect(responseToggle).toHaveAttribute("aria-expanded", "false");
+  const requestChevron = requestToggle.locator("svg");
+  await expect(requestChevron).toHaveCSS(
+    "transform",
+    "matrix(0, -1, 1, 0, 0, 0)",
+  );
+  await expect(requestChevron).toHaveCSS("transition-duration", "0.12s");
   await requestToggle.hover();
   await expect(requestToggle).toHaveCSS("box-shadow", "none");
   await expect(requestToggle).toHaveCSS(
@@ -765,6 +771,10 @@ test("persists request and paginated response sections and exports the wrapper",
   );
 
   await requestToggle.click();
+  await expect(requestChevron).toHaveCSS(
+    "transform",
+    "matrix(1, 0, 0, 1, 0, 0)",
+  );
   const requestRegion = dialog.getByRole("region", { name: "Request type" });
   await requestRegion.getByRole("textbox", { name: "Request type" })
     .fill("SearchRequest");

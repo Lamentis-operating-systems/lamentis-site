@@ -117,11 +117,14 @@
   height: var(--icon-size-control);
   justify-self: end;
   color: var(--color-text-muted);
+  transform: rotate(-90deg);
   transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
 }
 
 .sectionToggle[aria-expanded="true"] > svg {
-  transform: var(--transform-chevron-open);
+  transform: rotate(0deg);
 }
 
 .propertyList {
