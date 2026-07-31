@@ -51,6 +51,301 @@ async function expandResponseType(dialog: Locator) {
   if (await toggle.count()) await toggle.click();
 }
 
+const methodSuggestionScenarios = [
+  {
+    method: "GET",
+    operationId: "getProductByUuid",
+    requestType: "",
+    responseStatus: "200",
+    responseType: "ProductResponse",
+    title: "Get product",
+  },
+  {
+    method: "POST",
+    operationId: "createProductByUuid",
+    requestType: "CreateProductRequest",
+    responseStatus: "201",
+    responseType: "ProductResponse",
+    title: "Create product",
+  },
+  {
+    method: "PUT",
+    operationId: "replaceProductByUuid",
+    requestType: "ReplaceProductRequest",
+    responseStatus: "200",
+    responseType: "ProductResponse",
+    title: "Replace product",
+  },
+  {
+    method: "PATCH",
+    operationId: "updateProductByUuid",
+    requestType: "UpdateProductRequest",
+    responseStatus: "200",
+    responseType: "ProductResponse",
+    title: "Update product",
+  },
+  {
+    method: "DELETE",
+    operationId: "deleteProductByUuid",
+    requestType: "",
+    responseStatus: "204",
+    responseType: "",
+    title: "Delete product",
+  },
+  {
+    method: "HEAD",
+    operationId: "inspectProductByUuid",
+    requestType: "",
+    responseStatus: "200",
+    responseType: "",
+    title: "Inspect product",
+  },
+  {
+    method: "OPTIONS",
+    operationId: "describeProductByUuid",
+    requestType: "",
+    responseStatus: "200",
+    responseType: "",
+    title: "Describe product",
+  },
+] as const;
+
+for (const scenario of methodSuggestionScenarios) {
+  test(`${scenario.method} materializes a complete editable route contract`, async ({
+    page,
+  }) => {
+    await page.goto(studioPath);
+    if (scenario.method !== "GET") {
+      await page.getByRole("button", { name: "HTTP method GET" }).click();
+      await page.getByRole("list", { name: "HTTP method" })
+        .getByRole("button", { name: scenario.method }).click();
+    }
+    const routeInput = page.getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    await routeInput.fill("products/{uuid}");
+    await routeInput.press("Enter");
+
+    const dialog = page.getByRole("dialog", {
+      name: "Add a data structure to this route",
+    });
+    await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+    const details = dialog.getByRole("region", { name: "Route details" });
+    await expect(details.getByRole("textbox", { name: "Title" }))
+      .toHaveValue(scenario.title);
+    await expect(details.getByRole("textbox", { name: "Operation ID" }))
+      .toHaveValue(scenario.operationId);
+    await expect(details.getByRole("textbox", { name: "Parameter name 1" }))
+      .toHaveValue("uuid");
+    await expect(details.getByRole("textbox", { name: "Format 1" }))
+      .toHaveValue("uuid");
+    await expect(details.getByRole("button", { name: "Remove parameter 1" }))
+      .toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "Request type: Expand" }).click();
+    await expect(dialog.getByRole("textbox", { name: "Request type" }))
+      .toHaveValue(scenario.requestType);
+    await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+    const response = dialog.getByRole("region", { name: "Response type" });
+    await expect(response.getByRole("textbox", { name: "HTTP status 1" }))
+      .toHaveValue(scenario.responseStatus);
+    await expect(response.getByRole("textbox", { name: "Response type" }))
+      .toHaveValue(scenario.responseType);
+    await expect(response.getByRole("button", { name: "Paginated response" }))
+      .toHaveCount(scenario.responseType ? 1 : 0);
+    await expect(response.getByRole("button", { name: "Remove response 1" }))
+      .toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+}
+
+test("keeps response and header removal on the trailing edge in a narrow overlay", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto(studioPath);
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  await routeInput.fill("layoutaudit");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+  const response = dialog.getByRole("region", { name: "Response type" });
+  await response.getByRole("button", {
+    name: "Add response",
+    exact: true,
+  }).click();
+  await response.getByRole("button", { name: "Add response header 1" }).click();
+
+  const trailingActions = [
+    response.getByRole("button", { name: "Remove response 1" }),
+    response.getByRole("button", { name: "Remove response 2" }),
+    response.getByRole("button", { name: "Remove response header 1.1" }),
+  ];
+  const actionBoxes = await Promise.all(trailingActions.map((action) => (
+    action.boundingBox()
+  )));
+  expect(actionBoxes.every(Boolean)).toBe(true);
+  const rightEdges = actionBoxes.map((box) => box!.x + box!.width);
+  expect(Math.max(...rightEdges) - Math.min(...rightEdges)).toBeLessThan(2);
+  await expect.poll(() => dialog.evaluate((element) => (
+    element.scrollWidth <= element.clientWidth
+  ))).toBe(true);
+});
+
+test("keeps every route-detail selector inside a valid editable state", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto(studioPath);
+  await page.getByRole("button", { name: "HTTP method GET" }).click();
+  await page.getByRole("list", { name: "HTTP method" })
+    .getByRole("button", { name: "HEAD" }).click();
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  await routeInput.fill("controlmatrix");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+  const details = dialog.getByRole("region", { name: "Route details" });
+  await details.getByRole("button", { name: "Add parameter" }).click();
+  await details.getByRole("textbox", { name: "Parameter name 1" })
+    .fill("filter");
+
+  await details.getByRole("button", { name: "Parameter location 1 query" }).click();
+  let menu = details.getByRole("list", { name: "Parameter location 1" });
+  await expect(menu.getByRole("button", { name: "path" })).toBeDisabled();
+  await expect(menu.getByRole("button")).toHaveCount(4);
+  await menu.getByRole("button", { name: "header" }).click();
+  await details.getByRole("button", { name: "Parameter location 1 header" }).click();
+  await details.getByRole("list", { name: "Parameter location 1" })
+    .getByRole("button", { name: "cookie" }).click();
+  await details.getByRole("button", { name: "Parameter location 1 cookie" }).click();
+  await details.getByRole("list", { name: "Parameter location 1" })
+    .getByRole("button", { name: "query" }).click();
+
+  const parameterTypes = ["string", "number", "integer", "boolean", "array"];
+  for (const type of parameterTypes) {
+    await details.getByRole("button", { name: /^Parameter type 1 / }).click();
+    menu = details.getByRole("list", { name: "Parameter type 1" });
+    await expect(menu.getByRole("button")).toHaveCount(parameterTypes.length);
+    await menu.getByRole("button", { name: type }).click();
+    await expect(details.getByRole("button", {
+      name: `Parameter type 1 ${type}`,
+    })).toBeVisible();
+  }
+
+  async function chooseSecurity(label: string) {
+    await details.getByRole("button", { name: /^Security scheme / }).click();
+    await details.getByRole("list", { name: "Security scheme" })
+      .getByRole("button", { name: label }).click();
+  }
+
+  await chooseSecurity("API key");
+  await expect(details.getByRole("textbox", { name: "Credential name" }))
+    .toHaveAttribute("required", "");
+  await details.getByRole("button", { name: /^Credential location / }).click();
+  const apiKeyLocationMenu = details.getByRole("list", {
+    name: "Credential location",
+  });
+  await expect(apiKeyLocationMenu.getByRole("button")).toHaveCount(3);
+  await apiKeyLocationMenu.getByRole("button", { name: "header" }).click();
+
+  await chooseSecurity("Cookie session");
+  await expect(details.getByRole("textbox", { name: "Credential name" }))
+    .toHaveAttribute("required", "");
+  await details.getByRole("button", { name: "Credential location cookie" }).click();
+  await expect(details.getByRole("list", { name: "Credential location" })
+    .getByRole("button")).toHaveCount(1);
+  await details.getByRole("list", { name: "Credential location" })
+    .getByRole("button", { name: "cookie" }).click();
+
+  await chooseSecurity("OAuth 2");
+  await expect(details.getByRole("textbox", { name: "OAuth scopes" }))
+    .toBeVisible();
+  await expect(details.getByRole("textbox", { name: "Credential name" }))
+    .toHaveCount(0);
+  await chooseSecurity("Bearer token");
+  await expect(details.getByRole("textbox", { name: "OAuth scopes" }))
+    .toHaveCount(0);
+  await chooseSecurity("HTTP Basic");
+  await chooseSecurity("None");
+
+  await details.getByRole("button", { name: "Cache policy Unspecified" }).click();
+  await expect(details.getByRole("list", { name: "Cache policy" })
+    .getByRole("button")).toHaveCount(4);
+  await details.getByRole("list", { name: "Cache policy" })
+    .getByRole("button", { name: "Public" }).click();
+  await details.getByRole("button", { name: "Idempotency Unspecified" }).click();
+  await expect(details.getByRole("list", { name: "Idempotency" })
+    .getByRole("button")).toHaveCount(4);
+  await details.getByRole("list", { name: "Idempotency" })
+    .getByRole("button", { name: "Requires idempotency key" }).click();
+  await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
+test("keeps multi-response validation and header actions recoverable", async ({
+  page,
+}) => {
+  await page.goto(studioPath);
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  await routeInput.fill("multistatus");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", {
+    name: "Add a data structure to this route",
+  });
+  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+  const response = dialog.getByRole("region", { name: "Response type" });
+  await response.getByRole("button", {
+    name: "Add response",
+    exact: true,
+  }).click();
+  await expect(response.getByRole("textbox", { name: "HTTP status 2" }))
+    .toHaveValue("400");
+
+  await response.getByRole("textbox", { name: "HTTP status 2" }).fill("200");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(response.getByRole("alert")).toHaveText(
+    "Response status codes must be unique.",
+  );
+  await expect(dialog).toBeVisible();
+  await response.getByRole("textbox", { name: "HTTP status 2" }).fill("400");
+  await expect(response.getByRole("alert")).toHaveCount(0);
+
+  await response.getByRole("button", { name: "Add response header 1" }).click();
+  await response.getByRole("textbox", {
+    name: "Response header name 1.1",
+  }).fill("X-RateLimit-Remaining");
+  await response.getByRole("button", { name: "Parameter type 1.1 string" }).click();
+  await response.getByRole("list", { name: "Parameter type 1.1" })
+    .getByRole("button", { name: "integer" }).click();
+  await response.getByRole("textbox", {
+    name: "Header description 1.1",
+  }).fill("Requests remaining in the current window");
+  await response.getByRole("button", {
+    name: "Remove response header 1.1",
+  }).click();
+  await expect(response.getByRole("textbox", {
+    name: "Response header name 1.1",
+  })).toHaveCount(0);
+
+  await response.getByRole("button", { name: "Remove response 2" }).click();
+  await expect(response.getByRole("button", { name: "Remove response 1" }))
+    .toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
 test("adds and persists a route while restoring focus after Escape", {
   tag: "@cross-browser-smoke",
 }, async ({ page }) => {
@@ -265,6 +560,48 @@ test("keeps edit-route changes atomic until Save", async ({ page }) => {
       apiRoutesStorage.key,
     ),
   ).toEqual([originalRoute]);
+});
+
+test("preserves a materialized response when changing a route to DELETE", async ({
+  page,
+}) => {
+  await seedRoutes(page, [{
+    id: 8,
+    method: "GET",
+    path: "/accounts/{uuid}",
+    response: {
+      fields: [{ name: "id", optional: false, type: "string" }],
+      typeName: "AccountView",
+    },
+  }]);
+  await page.goto(studioPath);
+  await page.getByRole("button", {
+    name: "Route actions /accounts/{uuid}",
+  }).click();
+  await page.getByRole("list", {
+    name: "Route actions /accounts/{uuid}",
+  }).getByRole("button", { name: "Edit /accounts/{uuid}" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Edit this route" });
+  await dialog.getByRole("button", { name: "HTTP method GET" }).click();
+  await dialog.getByRole("list", { name: "HTTP method" })
+    .getByRole("button", { name: "DELETE" }).click();
+  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+  const response = dialog.getByRole("region", { name: "Response type" });
+  await expect(response.getByRole("textbox", { name: "HTTP status 1" }))
+    .toHaveValue("200");
+  await expect(response.getByRole("textbox", { name: "Content types 1" }))
+    .toHaveValue("application/json");
+  await expect(response.getByRole("textbox", { name: "Response type" }))
+    .toHaveValue("AccountView");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => page.evaluate((key) => JSON.parse(
+    window.localStorage.getItem(key) ?? "[]",
+  ), apiRoutesStorage.key)).toMatchObject([{
+    method: "DELETE",
+    responses: [{ status: "200" }],
+  }]);
 });
 
 test("synchronizes the canonical route snapshot across tabs", {
@@ -861,9 +1198,30 @@ test("prefills a path contract and persists explicit parameters and behavior", a
   await expect(details.getByRole("button", {
     name: "Remove parameter 1",
   })).toHaveCount(0);
+  await details.getByRole("button", { name: "Parameter location 1 path" }).click();
+  const pathLocationMenu = details.getByRole("list", {
+    name: "Parameter location 1",
+  });
+  await expect(pathLocationMenu.getByRole("button", { name: "query" }))
+    .toBeDisabled();
+  await expect(pathLocationMenu.getByRole("button", { name: "header" }))
+    .toBeDisabled();
+  await expect(pathLocationMenu.getByRole("button", { name: "cookie" }))
+    .toBeDisabled();
+  await pathLocationMenu.getByRole("button", { name: "path" }).click();
 
   await details.getByRole("button", { name: "Add parameter" }).click();
   await details.getByRole("textbox", { name: "Parameter name 2" }).fill("limit");
+  await details.getByRole("button", { name: "Parameter location 2 query" }).click();
+  const locationMenu = details.getByRole("list", {
+    name: "Parameter location 2",
+  });
+  await expect(locationMenu.getByRole("button", { name: "path" }))
+    .toBeDisabled();
+  await locationMenu.getByRole("button", { name: "header" }).click();
+  await details.getByRole("button", { name: "Parameter location 2 header" }).click();
+  await details.getByRole("list", { name: "Parameter location 2" })
+    .getByRole("button", { name: "query" }).click();
   await details.getByRole("button", { name: /^Parameter type 2 / }).click();
   await details.getByRole("list", { name: "Parameter type 2" })
     .getByRole("button", { name: "integer" }).click();

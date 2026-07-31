@@ -118,6 +118,12 @@
   height: var(--control-height);
 }
 
+.responseActionSpacer {
+  width: var(--control-height);
+  height: var(--control-height);
+  justify-self: end;
+}
+
 .responseMetadataRow {
   display: grid;
   min-width: 0;
@@ -140,6 +146,11 @@
     var(--control-height);
   align-items: center;
   gap: var(--space-3);
+}
+
+.responseMetadataRow > button:last-child,
+.responseHeaderRow > button:last-child {
+  justify-self: end;
 }
 
 .responseCard {

@@ -302,7 +302,9 @@ export const RouteContractDetailsEditor = forwardRef<
                   id: location,
                   kind: "action",
                   label: content.parameterLocationOptions[location],
-                  disabled: pathParameter && location !== "path",
+                  disabled: pathParameter
+                    ? location !== "path"
+                    : location === "path",
                   onSelect: () => updateParameter(parameter.id, {
                     location,
                     required: location === "path" ? true : parameter.required,
@@ -391,7 +393,7 @@ export const RouteContractDetailsEditor = forwardRef<
           selectedId={securityScheme}
           width="field"
         />
-        {securityScheme === "apiKey" ? (
+        {securityNeedsName ? (
           <LabeledInput
             hint={content.securityNameHint}
             label={content.authNameLabel}
@@ -405,7 +407,9 @@ export const RouteContractDetailsEditor = forwardRef<
           <SelectMenu
             height="large"
             label={content.authLocationLabel}
-            options={(["query", "header", "cookie"] as const).map((location) => ({
+            options={(securityScheme === "cookie"
+              ? (["cookie"] as const)
+              : (["query", "header", "cookie"] as const)).map((location) => ({
               id: location,
               kind: "action",
               label: content.parameterLocationOptions[location],

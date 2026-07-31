@@ -225,9 +225,20 @@ const SchemaDefinitionEditor = forwardRef<
       )) {
         dispatchDraft({ type: "set-type-name", typeName: next });
         suggestionOwnedRef.current = next.length > 0;
+        if (kind === "response" && next.length === 0 && paginated) {
+          onPaginationChange?.(false);
+        }
       }
     },
-  }), [draftSchema, isDraftSchemaValid, schemaIsRequired, typeName]);
+  }), [
+    draftSchema,
+    isDraftSchemaValid,
+    kind,
+    onPaginationChange,
+    paginated,
+    schemaIsRequired,
+    typeName,
+  ]);
 
   useLayoutEffect(() => {
     const input = typeInputRef.current;
@@ -296,6 +307,9 @@ const SchemaDefinitionEditor = forwardRef<
 
   function prefillSchema(schema?: ApiResponseSchema) {
     suggestionOwnedRef.current = false;
+    if (kind === "response" && !schema && paginated) {
+      onPaginationChange?.(false);
+    }
     dispatchDraft({
       fields: allocateDraftFields(schema?.fields ?? []),
       selectedTemplateTypeName: schema?.typeName ?? "",
@@ -580,7 +594,7 @@ const SchemaDefinitionEditor = forwardRef<
           aria-describedby={hasInvalidTypeName || hasSchemaConflict
             ? validationErrorId
             : undefined}
-          trailingControl={kind === "response" ? (
+          trailingControl={kind === "response" && normalizedTypeName ? (
             <IconButton
               className={styles.paginationToggle}
               variant="transparent"
@@ -594,6 +608,13 @@ const SchemaDefinitionEditor = forwardRef<
           ) : undefined}
           onChange={(event) => {
             suggestionOwnedRef.current = false;
+            if (
+              kind === "response"
+              && event.currentTarget.value.trim().length === 0
+              && paginated
+            ) {
+              onPaginationChange?.(false);
+            }
             dispatchDraft({
               type: "set-type-name",
               typeName: event.currentTarget.value,
@@ -794,12 +815,17 @@ export function ResponseSchemaEditor({
     );
     const firstResponse = responses[0];
     if (firstResponse) {
+      const firstResponseHasSchema = Boolean(
+        responseRefs.current.get(firstResponse.id)?.getSchema()
+        ?? firstResponse.initialSchema,
+      );
       responseRefs.current.get(firstResponse.id)?.updateSuggestedTypeName(
         previous.responseTypeName,
         next.responseTypeName,
       );
       setResponses((current) => current.map((response, index) => (
         index === 0 && response.status === previous.responseStatus
+          && !(next.responseStatus === "204" && firstResponseHasSchema)
           ? {
               ...response,
               contentTypes: next.responseStatus === "204"
@@ -1109,13 +1135,19 @@ export function ResponseSchemaEditor({
                     })}
                   />
                 </label>
-                <IconButton
-                  aria-label={`${content.routeContract.removeResponseLabel} ${responseIndex + 1}`}
-                  disabled={responses.length <= 1}
-                  onClick={() => removeResponse(response.id)}
-                >
-                  <CloseIcon />
-                </IconButton>
+                {responses.length > 1 ? (
+                  <IconButton
+                    aria-label={`${content.routeContract.removeResponseLabel} ${responseIndex + 1}`}
+                    onClick={() => removeResponse(response.id)}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className={styles.responseActionSpacer}
+                  />
+                )}
               </div>
               <SchemaDefinitionEditor
                 ref={(handle) => {

@@ -1305,6 +1305,111 @@ describe("search page", () => {
     }, { method: "POST", path: "/search" });
   });
 
+  it("requires cookie credential names and only exposes actionable response removal", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="cookie-security-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{ id: 13, method: "HEAD", path: "/sessions" }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Route details: Expand",
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Parameter location 1 query",
+    }));
+    expect(within(screen.getByRole("list", {
+      name: "Parameter location 1",
+    })).getByRole("button", { name: "path" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Remove parameter 1",
+    }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Security scheme None",
+    }));
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "Security scheme",
+    })).getByRole("button", { name: "Cookie session" }));
+
+    const credentialName = screen.getByRole("textbox", {
+      name: "Credential name",
+    });
+    expect(credentialName).toBeRequired();
+    expect(screen.getByRole("button", {
+      name: "Credential location cookie",
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Credential location cookie",
+    }));
+    const cookieLocationMenu = screen.getByRole("list", {
+      name: "Credential location",
+    });
+    expect(within(cookieLocationMenu).getAllByRole("button"))
+      .toHaveLength(1);
+    expect(within(cookieLocationMenu).queryByRole("button", { name: "query" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(within(cookieLocationMenu).getByRole("button", {
+      name: "cookie",
+    }));
+    fireEvent.change(credentialName, { target: { value: "session_id" } });
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Response type: Expand",
+    }));
+    const optionalResponseType = screen.getByRole("textbox", {
+      name: "Response type",
+    });
+    expect(screen.queryByRole("button", {
+      name: "Paginated response",
+    })).not.toBeInTheDocument();
+    fireEvent.change(optionalResponseType, {
+      target: { value: "SessionMetadata" },
+    });
+    fireEvent.click(screen.getByRole("button", {
+      name: "Paginated response",
+    }));
+    fireEvent.change(optionalResponseType, { target: { value: "" } });
+    expect(screen.queryByRole("button", {
+      name: "Paginated response",
+    })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {
+      name: "Remove response 1",
+    })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add response" }));
+    expect(screen.getAllByRole("button", {
+      name: /Remove response /,
+    })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", {
+      name: "Remove response 2",
+    }));
+    expect(screen.queryByRole("button", {
+      name: "Remove response 1",
+    })).not.toBeInTheDocument();
+
+    fireEvent.submit(document.querySelector("#cookie-security-form")!);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      security: {
+        location: "cookie",
+        name: "session_id",
+        scheme: "cookie",
+      },
+    }), { method: "HEAD", path: "/sessions" });
+  });
+
   it("prefills reusable response types and requires a new name for schema edits", async () => {
     const onSave = vi.fn(() => "saved" as const);
     const existingResponseSchemas = [
