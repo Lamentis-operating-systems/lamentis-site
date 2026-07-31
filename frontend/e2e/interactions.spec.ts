@@ -2,6 +2,39 @@ import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
+test("the page scrollbar is hidden without disabling scrolling", {
+  tag: "@cross-browser-smoke",
+}, async ({ browserName, page }) => {
+  await page.setViewportSize({ width: 390, height: 480 });
+  await page.goto("/en/search");
+
+  const root = page.locator("html");
+  const scrollbarStyle = browserName === "webkit"
+    ? await root.evaluate(
+      (element) => getComputedStyle(element, "::-webkit-scrollbar").display,
+    )
+    : await root.evaluate(
+      (element) => getComputedStyle(element).scrollbarWidth,
+    );
+  expect(scrollbarStyle).toBe("none");
+
+  const scrollRange = await page.evaluate(() => {
+    const scroller = document.scrollingElement;
+    if (!scroller) {
+      throw new Error("The page must expose a scrolling element.");
+    }
+
+    return scroller.scrollHeight - scroller.clientHeight;
+  });
+  expect(scrollRange).toBeGreaterThan(0);
+
+  await page.mouse.move(195, 240);
+  await page.mouse.wheel(0, 480);
+  await expect.poll(
+    () => page.evaluate(() => document.scrollingElement?.scrollTop ?? 0),
+  ).toBeGreaterThan(0);
+});
+
 test("mobile navigation owns focus and releases scroll lock", {
   tag: "@cross-browser-smoke",
 }, async ({ page }) => {
