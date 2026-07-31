@@ -79,8 +79,7 @@
 
 .menuButton,
 .dialogCloseButton {
-  color: var(--color-text);
-  transition-property: background-color, transform;
+  --icon-button-foreground: var(--color-text);
 }
 
 .menuButton {
@@ -116,12 +115,6 @@
 
 .dialogCloseButton {
   display: inline-flex;
-}
-
-.menuButton:hover,
-.dialogCloseButton:hover {
-  background: var(--color-field-focus-background);
-  transform: var(--transform-button-hover);
 }
 
 .mobileDialogContent {

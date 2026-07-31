@@ -175,7 +175,7 @@ test("search focus uses the shared border without changing its surface", async (
   }
 });
 
-test("search focus uses the system outline only in forced colors", async ({ page }) => {
+test("control focus uses the system outline only in forced colors", async ({ page }) => {
   await page.emulateMedia({ forcedColors: "active" });
   await page.goto("/en/search");
 
@@ -187,9 +187,19 @@ test("search focus uses the system outline only in forced colors", async ({ page
   await expect(searchRegion).toHaveCSS("outline-width", "2px");
   await expect(searchRegion).toHaveCSS("outline-offset", "4px");
   await expect(searchRegion).toHaveCSS("box-shadow", "none");
+
+  await page.goto("/en");
+  const navigationTrigger = page.getByRole("button", {
+    name: "Open primary navigation",
+  });
+  await navigationTrigger.focus();
+  await expect(navigationTrigger).toHaveCSS("outline-style", "solid");
+  await expect(navigationTrigger).toHaveCSS("outline-width", "2px");
+  await expect(navigationTrigger).toHaveCSS("outline-offset", "4px");
+  await expect(navigationTrigger).toHaveCSS("box-shadow", "none");
 });
 
-test("shared fields use borders while other buttons keep focus fills", async ({
+test("shared controls use border-only interaction states", async ({
   page,
 }) => {
   await page.goto("/en/api-creator-studio");
@@ -245,14 +255,30 @@ test("shared fields use borders while other buttons keep focus fills", async ({
   const navigationTrigger = page.getByRole("button", {
     name: "Open primary navigation",
   });
-  await navigationTrigger.focus();
-  await expect(navigationTrigger).toHaveCSS("outline-style", "none");
-  await expect(navigationTrigger).toHaveCSS("box-shadow", "none");
+  const navigationBackground = await navigationTrigger.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await navigationTrigger.hover();
   await expect(navigationTrigger).toHaveCSS(
     "background-color",
-    "rgb(102, 102, 102)",
+    navigationBackground,
   );
-  await expect(navigationTrigger).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect.poll(
+    () => navigationTrigger.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
+  await navigationTrigger.focus();
+  await expect(navigationTrigger).toHaveCSS("outline-style", "none");
+  await expect(navigationTrigger).toHaveCSS(
+    "background-color",
+    navigationBackground,
+  );
+  await expect.poll(
+    () => navigationTrigger.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
 
   const download = page.getByRole("button", { name: "Download" });
   await download.focus();
@@ -261,6 +287,17 @@ test("shared fields use borders while other buttons keep focus fills", async ({
   await expect(download).toHaveCSS("color", "rgb(255, 255, 255)");
 
   await routeInput.fill("bordered");
+  const addRoute = page.getByRole("button", { name: "Add API route" });
+  const addRouteBackground = await addRoute.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await addRoute.focus();
+  await expect(addRoute).toHaveCSS("background-color", addRouteBackground);
+  await expect.poll(
+    () => addRoute.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
   await routeInput.press("Enter");
   const responseDialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
@@ -276,7 +313,12 @@ test("shared fields use borders while other buttons keep focus fills", async ({
   await expect(routeActions).toHaveAttribute("aria-expanded", "true");
   await expect(routeActions).toHaveCSS("border-style", "none");
   await expect(routeActions).toHaveCSS("outline-style", "none");
-  await expect(routeActions).toHaveCSS("box-shadow", "none");
+  await expect(routeActions).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect.poll(
+    () => routeActions.evaluate(
+      (element) => getComputedStyle(element).boxShadow,
+    ),
+  ).toMatch(/1px inset/);
 });
 
 test("sticky navigation stays above page select popovers", async ({ page }) => {

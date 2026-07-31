@@ -63,17 +63,11 @@
 }
 
 .addProperty {
+  --icon-button-background: var(--color-field-menu-background);
+  --icon-button-foreground: var(--color-text-secondary);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--color-field-menu-background);
-  color: var(--color-text-secondary);
-  transition-property: background-color, color, transform;
-}
-
-.addProperty:hover {
-  background: var(--color-field-focus-background);
-  color: var(--color-text);
-  transform: var(--transform-button-hover);
 }
 
 .addProperty svg,
@@ -231,39 +225,27 @@
 }
 
 .optionalToggle {
+  --icon-button-foreground: var(--color-text);
+
   margin-inline-end: calc(-1 * var(--space-3));
   border: 0;
-  background: transparent;
-  color: var(--color-text);
   opacity: var(--opacity-toggle-inactive);
   transition-property: color, opacity;
 }
 
 .optionalToggle:hover {
-  background: transparent;
-  color: var(--color-text);
   opacity: var(--opacity-option-muted);
-  transform: none;
 }
 
 .optionalToggle[aria-pressed="true"] {
-  background: transparent;
-  color: var(--color-text);
   opacity: 1;
 }
 
 .removeProperty {
+  --icon-button-foreground: var(--color-text-muted);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--color-text-muted);
-  transition-property: background-color, color, transform;
-}
-
-.removeProperty:hover {
-  background: var(--color-field-focus-background);
-  color: var(--color-text);
-  transform: var(--transform-button-hover);
 }
 
 .error {

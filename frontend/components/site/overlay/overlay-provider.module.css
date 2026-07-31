@@ -96,17 +96,10 @@
 }
 
 .closeButton {
+  --icon-button-foreground: var(--color-text-secondary);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--color-text-secondary);
-  transition-property: background-color, color, transform;
-}
-
-.closeButton:hover {
-  background: var(--color-field-focus-background);
-  color: var(--color-text);
-  transform: var(--transform-button-hover);
 }
 
 .body {

@@ -65,26 +65,17 @@
 }
 
 .action {
+  --icon-button-background: var(--color-route-action-background);
+  --icon-button-foreground: var(--color-route-action-foreground);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--color-route-action-background);
-  color: var(--color-route-action-foreground);
-  transition-property:
-    background-color,
-    box-shadow,
-    color,
-    filter,
-    transform;
 }
 
 .action:disabled {
-  background: transparent;
-  box-shadow: var(--shadow-control-border);
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
+  --icon-button-background: transparent;
+  --icon-button-foreground: var(--color-text-muted);
 
-.action:hover:not(:disabled) {
-  filter: var(--effect-hover-brightness);
-  transform: var(--transform-button-hover);
+  box-shadow: var(--shadow-control-border);
+  cursor: not-allowed;
 }

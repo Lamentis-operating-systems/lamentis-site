@@ -1,4 +1,7 @@
 :where(.button) {
+  --icon-button-background: transparent;
+  --icon-button-foreground: inherit;
+
   display: grid;
   width: var(--control-height);
   height: var(--control-height);
@@ -8,15 +11,39 @@
   border: 0;
   border-radius: var(--radius-full);
   padding: 0;
-  background: transparent;
-  color: inherit;
+  background: var(--icon-button-background);
+  color: var(--icon-button-foreground);
   cursor: pointer;
   font: inherit;
+  transition-property: box-shadow, color;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--motion-easing);
+}
+
+.button:hover:not(:disabled),
+.button:active:not(:disabled),
+.button:focus-visible:not(:disabled),
+.button[aria-expanded="true"],
+.button[aria-pressed="true"] {
+  background: var(--icon-button-background);
+  box-shadow: var(--shadow-control-border);
+  color: var(--icon-button-foreground);
+  filter: none;
+  transform: none;
 }
 
 :where(.button) svg {
   width: var(--icon-size-control);
   height: var(--icon-size-control);
+}
+
+@media (forced-colors: active) {
+  .button:focus-visible:not(:disabled) {
+    box-shadow: none;
+    outline:
+      var(--focus-ring-width)
+      solid
+      var(--color-forced-focus-outline);
+    outline-offset: var(--focus-ring-offset);
+  }
 }
