@@ -28,14 +28,14 @@
   background: transparent;
   text-align: start;
   cursor: pointer;
-  transition-property: box-shadow, color;
+  transition-property: color;
 }
 
 .sectionToggle:hover:not(:disabled),
 .sectionToggle:active:not(:disabled),
 .sectionToggle:focus-visible:not(:disabled) {
   background: transparent;
-  box-shadow: var(--shadow-control-border);
+  box-shadow: none;
   color: inherit;
   transform: none;
 }

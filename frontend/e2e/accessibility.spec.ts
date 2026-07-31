@@ -78,6 +78,9 @@ test("the materialized nested object editor has contextual accessible names", as
   const responseDialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
+  await responseDialog.getByRole("button", {
+    name: "Response type: Expand",
+  }).click();
   await responseDialog.getByRole("button", { name: "Add property" }).click();
   const rootProperty = responseDialog.getByRole("textbox", {
     name: "Property name 1",

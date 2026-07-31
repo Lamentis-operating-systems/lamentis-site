@@ -751,6 +751,18 @@ test("persists request and paginated response sections and exports the wrapper",
   });
   await expect(requestToggle).toHaveAttribute("aria-expanded", "false");
   await expect(responseToggle).toHaveAttribute("aria-expanded", "false");
+  await requestToggle.hover();
+  await expect(requestToggle).toHaveCSS("box-shadow", "none");
+  await expect(requestToggle).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await requestToggle.focus();
+  await expect(requestToggle).toHaveCSS("box-shadow", "none");
+  await expect(requestToggle).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
 
   await requestToggle.click();
   const requestRegion = dialog.getByRole("region", { name: "Request type" });
