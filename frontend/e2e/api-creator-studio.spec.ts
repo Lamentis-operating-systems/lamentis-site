@@ -858,11 +858,21 @@ test("prefills a path contract and persists explicit parameters and behavior", a
     .toHaveValue("uuid");
   await expect(details.getByRole("textbox", { name: "Format 1" }))
     .toHaveValue("uuid");
-  const requiredBounds = await details.getByRole("checkbox", {
+  await expect(details.getByRole("button", {
+    name: "Remove parameter 1",
+  })).toHaveCount(0);
+
+  await details.getByRole("button", { name: "Add parameter" }).click();
+  await details.getByRole("textbox", { name: "Parameter name 2" }).fill("limit");
+  await details.getByRole("button", { name: /^Parameter type 2 / }).click();
+  await details.getByRole("list", { name: "Parameter type 2" })
+    .getByRole("button", { name: "integer" }).click();
+  const queryParameter = details.getByRole("group", { name: "Parameters 2" });
+  const requiredBounds = await queryParameter.getByRole("checkbox", {
     name: "Required",
   }).boundingBox();
-  const removeBounds = await details.getByRole("button", {
-    name: "Remove parameter 1",
+  const removeBounds = await queryParameter.getByRole("button", {
+    name: "Remove parameter 2",
   }).boundingBox();
   expect(requiredBounds).not.toBeNull();
   expect(removeBounds).not.toBeNull();
@@ -870,12 +880,6 @@ test("prefills a path contract and persists explicit parameters and behavior", a
     requiredBounds!.y + requiredBounds!.height / 2
       - (removeBounds!.y + removeBounds!.height / 2),
   )).toBeLessThan(2);
-
-  await details.getByRole("button", { name: "Add parameter" }).click();
-  await details.getByRole("textbox", { name: "Parameter name 2" }).fill("limit");
-  await details.getByRole("button", { name: /^Parameter type 2 / }).click();
-  await details.getByRole("list", { name: "Parameter type 2" })
-    .getByRole("button", { name: "integer" }).click();
   await details.getByRole("button", { name: /^Security scheme / }).click();
   await details.getByRole("list", { name: "Security scheme" })
     .getByRole("button", { name: "Bearer token" }).click();

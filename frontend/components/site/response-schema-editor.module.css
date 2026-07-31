@@ -113,6 +113,11 @@
   display: contents;
 }
 
+.parameterActionSpacer {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
 .responseMetadataRow {
   display: grid;
   min-width: 0;

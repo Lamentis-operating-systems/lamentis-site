@@ -354,13 +354,19 @@ export const RouteContractDetailsEditor = forwardRef<
                     required: event.currentTarget.checked,
                   })}
                 />
-                <IconButton
-                  aria-label={`${content.removeParameterLabel} ${position}`}
-                  disabled={pathParameter}
-                  onClick={() => removeParameter(parameter.id)}
-                >
-                  <CloseIcon />
-                </IconButton>
+                {pathParameter ? (
+                  <span
+                    aria-hidden="true"
+                    className={styles.parameterActionSpacer}
+                  />
+                ) : (
+                  <IconButton
+                    aria-label={`${content.removeParameterLabel} ${position}`}
+                    onClick={() => removeParameter(parameter.id)}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
               </div>
             </div>
           );
