@@ -1,0 +1,22 @@
+.skipLink {
+  position: fixed;
+  z-index: calc(var(--layer-dialog) + 1);
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  border-radius: var(--radius-full);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-inverse-background);
+  color: var(--color-inverse-text);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-compact);
+  text-decoration: none;
+  transform: translateY(calc(-100% - var(--space-4)));
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.skipLink:focus-visible {
+  transform: translateY(0);
+}

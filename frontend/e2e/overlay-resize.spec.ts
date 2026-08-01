@@ -129,6 +129,9 @@ test("all overlay edges and corners preserve their opposite axes", async ({
   const responseName = dialog.getByRole("textbox", {
     name: "Response type",
   });
+  await dialog.getByRole("button", {
+    name: "Response type: Expand",
+  }).click();
   await responseName.fill("ResizableResponse");
   await expect(responseName).toHaveValue("ResizableResponse");
   await dialog.getByRole("button", {

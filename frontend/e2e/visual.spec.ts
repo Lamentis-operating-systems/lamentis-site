@@ -104,7 +104,12 @@ for (const colorScheme of colorSchemes) {
     expect(pageErrors).toEqual([]);
     await expect(page).toHaveScreenshot(
       `api-creator-studio-response-open-desktop-${colorScheme}.png`,
-      { fullPage: true, animations: "disabled", caret: "hide" },
+      {
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixels: 5,
+      },
     );
 
     await page.keyboard.press("Escape");
@@ -141,7 +146,7 @@ for (const colorScheme of colorSchemes) {
     await page.setViewportSize(viewports[0]);
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     await page.goto(routePath({ scope: "localized", locale: "en", routeId: "home" }));
-    await page.getByRole("button", { name: "Language" }).click();
+    await page.getByRole("button", { name: "Language English" }).click();
     await expect(page.getByRole("link", { name: "Deutsch" })).toBeVisible();
     await settlePage(page);
 

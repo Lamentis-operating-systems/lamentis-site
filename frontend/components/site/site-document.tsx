@@ -1,8 +1,10 @@
 import localFont from "next/font/local";
 import type { SiteChromeModel } from "@/domain/site/content";
-import type { Locale } from "@/domain/site/routes";
+import { localeCatalog, type Locale } from "@/domain/site/routes";
 import { SiteFooter } from "./footer/site-footer";
 import { SiteNavigation } from "./navigation/site-navigation";
+import { mainContentId } from "./page-main";
+import styles from "./site-document.module.css";
 
 const inter = localFont({
   src: "../../fonts/inter-latin-variable.woff2",
@@ -24,8 +26,15 @@ export function SiteDocument({
   locale,
 }: SiteDocumentProps) {
   return (
-    <html lang={locale} className={inter.variable}>
+    <html
+      lang={locale}
+      dir={localeCatalog[locale].direction}
+      className={inter.variable}
+    >
       <body>
+        <a className={styles.skipLink} href={`#${mainContentId}`}>
+          {chrome.navigation.skipToContentLabel}
+        </a>
         <SiteNavigation content={chrome.navigation} />
         {children}
         <SiteFooter

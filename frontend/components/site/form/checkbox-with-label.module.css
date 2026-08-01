@@ -47,7 +47,9 @@
 }
 
 .input:focus-visible + .indicator {
-  box-shadow: var(--shadow-control-focus);
+  background: var(--color-focus-background);
+  background-image: none;
+  color: var(--color-focus-foreground);
 }
 
 .input:disabled {
@@ -66,5 +68,13 @@
 @media (forced-colors: active) {
   .indicator {
     border: var(--control-border-width) solid CanvasText;
+  }
+
+  .input:focus-visible + .indicator {
+    outline:
+      var(--focus-ring-width)
+      solid
+      var(--color-forced-focus-outline);
+    outline-offset: var(--focus-ring-offset);
   }
 }

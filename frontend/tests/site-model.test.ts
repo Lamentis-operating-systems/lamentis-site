@@ -116,6 +116,8 @@ describe("site route authority", () => {
 
   it("keeps locale and site facts in their dedicated catalogs", () => {
     expect(supportedLocales).toEqual(Object.keys(localeCatalog));
+    expect(Object.values(localeCatalog).map((locale) => locale.direction))
+      .toEqual(["ltr", "ltr"]);
     expect(Object.keys(siteConfig)).toEqual(["brandName", "origin", "externalLinks"]);
     expect(new URL(siteConfig.origin).protocol).toBe("https:");
     for (const href of Object.values(siteConfig.externalLinks)) {
@@ -164,6 +166,18 @@ describe("site route authority", () => {
         .filter((path) => english[path] === german[path])
         .sort(),
     ).toEqual([
+      "apiCreatorStudio.responseEditor.routeContract.formatLabel",
+      "apiCreatorStudio.responseEditor.routeContract.idempotencyOptions.idempotent",
+      "apiCreatorStudio.responseEditor.routeContract.maximumLabel",
+      "apiCreatorStudio.responseEditor.routeContract.minimumLabel",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.array",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.boolean",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.integer",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.number",
+      "apiCreatorStudio.responseEditor.routeContract.parameterTypeOptions.string",
+      "apiCreatorStudio.responseEditor.routeContract.securitySchemeOptions.basic",
+      "apiCreatorStudio.responseEditor.routeContract.securitySchemeOptions.oauth2",
+      "apiCreatorStudio.responseEditor.routeContract.tagsLabel",
       "apiCreatorStudio.responseEditor.routeLabel",
       "apiCreatorStudio.responseEditor.typeOptions.array",
       "apiCreatorStudio.responseEditor.typeOptions.boolean",
@@ -201,6 +215,7 @@ describe("site route authority", () => {
       label: "Download",
       errorLabel: "Download failed",
     });
+    expect(navigation.skipToContentLabel).toBe("Skip to main content");
     for (const section of footer.sections) {
       const internalRouteIds = section.links.flatMap((link) => (
         link.kind === "internal" ? [link.routeId] : []
@@ -219,6 +234,7 @@ describe("site route authority", () => {
     expect(getGlobalSiteChromeModel("de").navigation).toMatchObject({
       locale: "de",
       ariaLabel: "Hauptnavigation",
+      skipToContentLabel: "Zum Hauptinhalt",
       action: { label: "Website hinzufügen" },
       actionOverrides: {
         apiCreatorStudio: {

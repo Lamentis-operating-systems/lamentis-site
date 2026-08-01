@@ -20,6 +20,7 @@ export function LocaleMenu({ label, locale, options, pathname }: LocaleMenuProps
     id: option.code,
     kind: "link",
     label: option.label,
+    lang: option.code,
   }));
 
   return (

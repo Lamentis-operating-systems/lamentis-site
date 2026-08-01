@@ -1,7 +1,12 @@
 html {
   min-height: 100%;
+  scrollbar-width: none;
   font-size: 100%;
   background: var(--color-background);
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 body {
@@ -47,14 +52,36 @@ select {
   font: inherit;
 }
 
-a:focus-visible,
-button:focus-visible {
-  outline: var(--control-border-width) solid var(--color-border);
-  outline-offset: calc(-1 * var(--control-border-width));
+:where(a, button, input, textarea, select):focus-visible {
+  outline: none;
+}
+
+a:focus-visible {
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.125em;
+  text-underline-offset: 0.2em;
+}
+
+button:focus-visible:not(:disabled) {
+  background-color: var(--color-focus-background);
+  background-image: none;
+  color: var(--color-focus-foreground);
 }
 
 button:hover:not(:disabled) {
   transform: var(--transform-button-hover);
+}
+
+@media (forced-colors: active) {
+  a:focus-visible,
+  button:focus-visible:not(:disabled) {
+    background-image: none;
+    outline:
+      var(--focus-ring-width)
+      solid
+      var(--color-forced-focus-outline);
+    outline-offset: var(--focus-ring-offset);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

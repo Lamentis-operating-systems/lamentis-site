@@ -16,6 +16,164 @@
   gap: var(--space-4);
 }
 
+.sectionToggle {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) var(--control-height);
+  align-items: center;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+  transition-property: color;
+}
+
+.sectionToggle:hover:not(:disabled),
+.sectionToggle:active:not(:disabled),
+.sectionToggle:focus-visible:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  transform: none;
+}
+
+.schemaDefinition {
+  display: grid;
+  min-width: 0;
+  padding-block-start: var(--space-4);
+  gap: var(--space-4);
+}
+
+.contractDefinition {
+  display: grid;
+  min-width: 0;
+  padding-block-start: var(--space-4);
+  gap: var(--space-5);
+}
+
+.contractFieldGrid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.contractField {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.contractWideField {
+  grid-column: 1 / -1;
+}
+
+.contractSubsectionHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.contractSubsectionHeader svg,
+.parameterRow svg,
+.responseMetadataRow svg,
+.responseHeaderRow svg {
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+}
+
+.contractRows {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.parameterRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns:
+    minmax(8rem, 1.3fr)
+    minmax(7rem, 0.8fr)
+    minmax(7rem, 0.8fr)
+    minmax(7rem, 0.8fr)
+    minmax(10rem, 1.5fr)
+    auto
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.parameterActions {
+  display: contents;
+}
+
+.parameterConstraintGrid {
+  display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  gap: var(--space-3);
+}
+
+.parameterActionSpacer {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+.responseActionSpacer {
+  width: var(--control-height);
+  height: var(--control-height);
+  justify-self: end;
+}
+
+.responseMetadataRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns:
+    minmax(6rem, 0.4fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    var(--control-height);
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.responseHeaderRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(7rem, 0.6fr)
+    minmax(0, 1fr)
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.responseMetadataRow > button:last-child,
+.responseHeaderRow > button:last-child {
+  justify-self: end;
+}
+
+.responseCard {
+  display: grid;
+  min-width: 0;
+  border-block-start: var(--control-border-width) solid var(--color-border);
+  padding-block-start: var(--space-4);
+  gap: var(--space-4);
+}
+
+.responseCard:first-child {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+
 .fieldGroup {
   display: grid;
   min-width: 0;
@@ -55,6 +213,11 @@
   margin: 0;
 }
 
+.sectionToggle:hover .sectionTitle,
+.sectionToggle:focus-visible .sectionTitle {
+  color: var(--color-text-secondary);
+}
+
 .sectionDescription {
   margin: 0;
   color: var(--color-text-muted);
@@ -63,23 +226,32 @@
 }
 
 .addProperty {
+  --icon-button-background: var(--color-field-menu-background);
+  --icon-button-foreground: var(--color-text-secondary);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--color-field-menu-background);
-  color: var(--color-text-secondary);
-  transition-property: background-color, color, transform;
-}
-
-.addProperty:hover {
-  background: var(--color-field-focus-background);
-  color: var(--color-text);
-  transform: var(--transform-button-hover);
 }
 
 .addProperty svg,
 .removeProperty svg {
   width: var(--icon-size-control);
   height: var(--icon-size-control);
+}
+
+.sectionToggle > svg {
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+  justify-self: end;
+  color: var(--color-text-muted);
+  transform: rotate(-90deg);
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.sectionToggle[aria-expanded="true"] > svg {
+  transform: rotate(0deg);
 }
 
 .propertyList {
@@ -144,7 +316,7 @@
 .propertyList > .propertyCard:not(:last-child)::after {
   inset-block:
     calc(var(--control-height-large) / 2)
-    calc(-1 * var(--space-3));
+    0;
 }
 
 .propertyGrid {
@@ -214,6 +386,14 @@
   gap: var(--space-3);
 }
 
+.propertyConstraintGrid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  padding-inline-start: var(--space-4);
+  gap: var(--space-3);
+}
+
 .objectTemplateControl {
   min-width: 0;
   flex: 1 1 auto;
@@ -231,43 +411,40 @@
 }
 
 .optionalToggle {
+  --icon-button-foreground: var(--color-text);
+
   margin-inline-end: calc(-1 * var(--space-3));
   border: 0;
-  background: transparent;
-  color: var(--color-text);
   opacity: var(--opacity-toggle-inactive);
   transition-property: color, opacity;
 }
 
-.optionalToggle:hover {
-  background: transparent;
-  color: var(--color-text);
-  opacity: var(--opacity-option-muted);
-  transform: none;
+.paginationToggle {
+  --icon-button-foreground: var(--color-text-muted);
+
+  margin-inline-end: calc(-1 * var(--space-3));
+  border: 0;
+  opacity: var(--opacity-toggle-inactive);
 }
 
-.optionalToggle:focus-visible {
-  outline: none;
+.paginationToggle:hover,
+.paginationToggle[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.optionalToggle:hover {
+  opacity: var(--opacity-option-muted);
 }
 
 .optionalToggle[aria-pressed="true"] {
-  background: transparent;
-  color: var(--color-text);
   opacity: 1;
 }
 
 .removeProperty {
+  --icon-button-foreground: var(--color-text-muted);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--color-text-muted);
-  transition-property: background-color, color, transform;
-}
-
-.removeProperty:hover {
-  background: var(--color-field-focus-background);
-  color: var(--color-text);
-  transform: var(--transform-button-hover);
 }
 
 .error {
@@ -277,7 +454,44 @@
   line-height: var(--line-body);
 }
 
+@container (width <= 50rem) {
+  .contractFieldGrid,
+  .parameterConstraintGrid,
+  .propertyConstraintGrid,
+  .parameterRow,
+  .responseMetadataRow,
+  .responseHeaderRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contractWideField {
+    grid-column: auto;
+  }
+
+  .parameterActions {
+    display: flex;
+    min-width: 0;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+}
+
 @media (width <= 40rem) {
+  .contractFieldGrid,
+  .parameterConstraintGrid,
+  .propertyConstraintGrid,
+  .parameterRow,
+  .responseMetadataRow,
+  .responseHeaderRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contractWideField {
+    grid-column: auto;
+  }
+
   .responseTypeControls[data-has-template="true"] {
     grid-template-columns: minmax(0, 1fr) var(--control-height);
   }

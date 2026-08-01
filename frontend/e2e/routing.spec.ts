@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { assetManifest, assetPath } from "../domain/site/assets";
 import {
-  contentByLocale,
   getFooterContent,
   getNavigationContent,
   getRouteCopy,
 } from "../domain/site/content";
+import { getNotFoundContent } from "../domain/site/not-found-content";
 import {
   defaultLocale,
   indexableRouteIds,
@@ -109,7 +109,12 @@ for (const route of publicRouteVariants) {
 
     const documentLocale = route.scope === "localized" ? route.locale : defaultLocale;
     const copy = getRouteCopy(documentLocale, route.routeId);
+    await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.locator("html")).toHaveAttribute("lang", documentLocale);
+    await expect(page.locator("html")).toHaveAttribute(
+      "dir",
+      localeCatalog[documentLocale].direction,
+    );
     await expect(page).toHaveTitle(new RegExp(copy.title));
     await expect(page.locator('meta[name="description"]')).toHaveAttribute(
       "content",
@@ -155,6 +160,22 @@ for (const route of publicRouteVariants) {
   });
 }
 
+test("the localized skip link targets and focuses the shared main landmark", async ({
+  page,
+}) => {
+  await page.goto("/de");
+  const skipLink = page.getByRole("link", { name: "Zum Hauptinhalt" });
+  await expect(skipLink).toHaveAttribute("href", "#main-content");
+
+  await page.keyboard.press("Tab");
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  const main = page.locator("#main-content");
+  await expect(main).toHaveAttribute("tabindex", "-1");
+  await expect(main).toBeFocused();
+});
+
 for (const path of ["/fr", "/missing", "/unknown-route"]) {
   test(`${path} returns a noindex 404`, async ({ page }) => {
     const response = await page.goto(path);
@@ -171,9 +192,10 @@ for (const invalidRoute of [
   { path: "/de/add-site", locale: "de" },
 ] as const) {
   test(`${invalidRoute.path} uses the localized noindex 404`, async ({ page }) => {
-    const copy = contentByLocale[invalidRoute.locale].notFound;
+    const copy = getNotFoundContent(invalidRoute.locale);
     const response = await page.goto(invalidRoute.path);
     expect(response?.status()).toBe(404);
+    await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.locator("html")).toHaveAttribute("lang", invalidRoute.locale);
     await expect(page.getByRole("heading", { name: copy.title })).toBeVisible();
     await expect(page).toHaveTitle(new RegExp(copy.title));

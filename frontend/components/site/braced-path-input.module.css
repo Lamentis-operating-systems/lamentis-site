@@ -16,7 +16,7 @@
 
 .prefix {
   flex: 0 0 auto;
-  color: var(--color-text);
+  color: var(--control-foreground, var(--color-text));
   font-size: var(--text-body);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-body);
@@ -35,7 +35,7 @@
   display: flex;
   align-items: center;
   overflow: hidden;
-  color: var(--color-text);
+  color: var(--control-foreground, var(--color-text));
   font-size: var(--text-body);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-body);
@@ -50,13 +50,13 @@
 }
 
 .bracedSegment {
-  color: var(--color-text-muted);
+  color: var(--control-muted-foreground, var(--color-text-muted));
 }
 
 .field .input {
   position: relative;
   color: transparent;
-  caret-color: var(--color-text);
+  caret-color: var(--control-caret, var(--color-text));
   word-spacing: var(--space-1);
 }
 
@@ -65,26 +65,18 @@
 }
 
 .action {
+  --icon-button-background: var(--color-route-action-background);
+  --icon-button-foreground: var(--color-route-action-foreground);
+  --icon-button-interaction-background: var(--color-route-action-background);
+
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--color-route-action-background);
-  color: var(--color-route-action-foreground);
-  transition-property:
-    background-color,
-    box-shadow,
-    color,
-    filter,
-    transform;
 }
 
 .action:disabled {
-  background: transparent;
-  box-shadow: var(--shadow-control-border);
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
+  --icon-button-background: transparent;
+  --icon-button-foreground: var(--color-text-muted);
 
-.action:hover:not(:disabled) {
-  filter: var(--effect-hover-brightness);
-  transform: var(--transform-button-hover);
+  box-shadow: var(--shadow-control-border);
+  cursor: not-allowed;
 }

@@ -23,9 +23,18 @@ export type ApiResponseArrayItemType =
 
 export type ApiResponseField = {
   arrayItemType?: ApiResponseArrayItemType;
+  defaultValue?: string;
+  description?: string;
+  enumValues?: string[];
+  example?: string;
+  maximum?: number;
+  maxLength?: number;
+  minimum?: number;
+  minLength?: number;
   name: string;
   objectSchema?: ApiResponseSchema;
   optional: boolean;
+  pattern?: string;
   type: ApiResponseFieldType;
 };
 
@@ -101,6 +110,18 @@ export function isValidTypeScriptTypeName(value: string): boolean {
   );
 }
 
+export function apiResponseFieldRequiresObjectSchema(
+  field: Pick<ApiResponseField, "arrayItemType" | "type">,
+): boolean {
+  return (
+    field.type === "object"
+    || (
+      field.type === "array"
+      && field.arrayItemType === "object"
+    )
+  );
+}
+
 function compareText(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
@@ -117,11 +138,20 @@ export function canonicalizeApiResponseSchema(
         ...(field.type === "array"
           ? { arrayItemType: field.arrayItemType }
           : {}),
+        ...(field.defaultValue ? { defaultValue: field.defaultValue } : {}),
+        ...(field.description ? { description: field.description } : {}),
+        ...(field.enumValues ? { enumValues: [...field.enumValues].sort(compareText) } : {}),
+        ...(field.example ? { example: field.example } : {}),
+        ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
+        ...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {}),
+        ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
+        ...(field.minLength !== undefined ? { minLength: field.minLength } : {}),
         name: field.name,
         ...(field.objectSchema
           ? { objectSchema: canonicalizeApiResponseSchema(field.objectSchema) }
           : {}),
         optional: field.optional,
+        ...(field.pattern ? { pattern: field.pattern } : {}),
         type: field.type,
       })),
     typeName: schema.typeName,
@@ -138,7 +168,70 @@ export function areApiResponseSchemasEquivalent(
   left: ApiResponseSchema,
   right: ApiResponseSchema,
 ): boolean {
-  return apiResponseSchemaSignature(left) === apiResponseSchemaSignature(right);
+  return areApiResponseSchemasEquivalentWithMemo(
+    left,
+    right,
+    new WeakMap(),
+  );
+}
+
+type SchemaPairMemo = WeakMap<
+  ApiResponseSchema,
+  WeakMap<ApiResponseSchema, boolean>
+>;
+
+function areApiResponseSchemasEquivalentWithMemo(
+  left: ApiResponseSchema,
+  right: ApiResponseSchema,
+  memo: SchemaPairMemo,
+): boolean {
+  if (left === right) return true;
+
+  const memoized = memo.get(left)?.get(right);
+  if (memoized !== undefined) return memoized;
+
+  const rightFieldsByName = new Map(
+    right.fields.map((field) => [field.name, field]),
+  );
+  let equivalent = (
+    left.typeName === right.typeName
+    && left.fields.length === right.fields.length
+  );
+
+  // Mark the pair provisionally so malformed cyclic runtime values cannot
+  // recurse forever. Persisted and authored schemas reject cycles separately.
+  const rightMemo = memo.get(left) ?? new WeakMap<ApiResponseSchema, boolean>();
+  rightMemo.set(right, true);
+  memo.set(left, rightMemo);
+
+  if (equivalent) {
+    for (const leftField of left.fields) {
+      const rightField = rightFieldsByName.get(leftField.name);
+      if (
+        !rightField
+        || leftField.optional !== rightField.optional
+        || leftField.type !== rightField.type
+        || leftField.arrayItemType !== rightField.arrayItemType
+        || Boolean(leftField.objectSchema)
+          !== Boolean(rightField.objectSchema)
+        || (
+          leftField.objectSchema
+          && rightField.objectSchema
+          && !areApiResponseSchemasEquivalentWithMemo(
+            leftField.objectSchema,
+            rightField.objectSchema,
+            memo,
+          )
+        )
+      ) {
+        equivalent = false;
+        break;
+      }
+    }
+  }
+
+  rightMemo.set(right, equivalent);
+  return equivalent;
 }
 
 export function hasIncompatibleApiResponseSchema(
@@ -156,6 +249,8 @@ export function hasIncompatibleApiResponseSchema(
     candidateSchemasByTypeName.set(schema.typeName, variants);
   }
 
+  const comparisonMemo: SchemaPairMemo = new WeakMap();
+
   return [...candidateSchemasByTypeName.entries()].some((
     [typeName, variants],
   ) => {
@@ -164,11 +259,19 @@ export function hasIncompatibleApiResponseSchema(
       source
       && (
         variants.some((variant) => (
-          !areApiResponseSchemasEquivalent(source, variant)
+          !areApiResponseSchemasEquivalentWithMemo(
+            source,
+            variant,
+            comparisonMemo,
+          )
         ))
         || existingSchemas.some((schema) => (
           schema.typeName === typeName
-          && !areApiResponseSchemasEquivalent(source, schema)
+          && !areApiResponseSchemasEquivalentWithMemo(
+            source,
+            schema,
+            comparisonMemo,
+          )
         ))
       )
     );
@@ -178,14 +281,23 @@ export function hasIncompatibleApiResponseSchema(
 export function collectApiResponseSchemas(
   schema: ApiResponseSchema,
 ): ApiResponseSchema[] {
-  return [
-    schema,
-    ...schema.fields.flatMap((field) => (
-      field.objectSchema
-        ? collectApiResponseSchemas(field.objectSchema)
-        : []
-    )),
-  ];
+  const collected: ApiResponseSchema[] = [];
+  const visited = new WeakSet<ApiResponseSchema>();
+  const pending = [schema];
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current || visited.has(current)) continue;
+
+    visited.add(current);
+    collected.push(current);
+    for (let index = current.fields.length - 1; index >= 0; index -= 1) {
+      const objectSchema = current.fields[index]?.objectSchema;
+      if (objectSchema) pending.push(objectSchema);
+    }
+  }
+
+  return collected;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -215,8 +327,7 @@ export function isValidApiResponseSchema(
 ): schema is ApiResponseSchema {
   if (!isValidApiResponseSchemaValue(schema, new Set(), false)) return false;
 
-  const schemas = collectApiResponseSchemas(schema);
-  return !hasIncompatibleApiResponseSchema([], schemas[0]!);
+  return !hasIncompatibleApiResponseSchema([], schema);
 }
 
 export function isValidPersistedApiResponseSchema(
@@ -224,8 +335,7 @@ export function isValidPersistedApiResponseSchema(
 ): schema is ApiResponseSchema {
   if (!isValidApiResponseSchemaValue(schema, new Set(), true)) return false;
 
-  const schemas = collectApiResponseSchemas(schema);
-  return !hasIncompatibleApiResponseSchema([], schemas[0]!);
+  return !hasIncompatibleApiResponseSchema([], schema);
 }
 
 function isValidApiResponseSchemaValue(
@@ -244,20 +354,17 @@ function isValidApiResponseSchemaValue(
 
   if (!isValidTypeScriptTypeName(schema.typeName)) return false;
 
-  const nextAncestors = new Set(ancestors);
-  nextAncestors.add(schema);
+  ancestors.add(schema);
   const propertyNames = new Set<string>();
+  let valid = true;
 
   for (const field of schema.fields) {
-    if (!isRecord(field)) return false;
+    if (!isRecord(field)) {
+      valid = false;
+      break;
+    }
 
-    const requiresObjectSchema = (
-      field.type === "object"
-      || (
-        field.type === "array"
-        && field.arrayItemType === "object"
-      )
-    );
+    const typedField = field as Partial<ApiResponseField>;
 
     if (
       typeof field.name !== "string"
@@ -273,30 +380,70 @@ function isValidApiResponseSchemaValue(
         field.type !== "array"
         && field.arrayItemType !== undefined
       )
-      || (
+      || (field.defaultValue !== undefined
+        && (typeof field.defaultValue !== "string" || !field.defaultValue.trim()))
+      || (field.description !== undefined
+        && (typeof field.description !== "string" || !field.description.trim()))
+      || (field.example !== undefined
+        && (typeof field.example !== "string" || !field.example.trim()))
+      || (field.pattern !== undefined
+        && (typeof field.pattern !== "string" || !field.pattern.trim()))
+      || (field.enumValues !== undefined && (
+        !Array.isArray(field.enumValues)
+        || field.enumValues.length === 0
+        || field.enumValues.some((item) => typeof item !== "string" || !item.trim())
+      ))
+      || (typedField.minimum !== undefined && !Number.isFinite(typedField.minimum))
+      || (typedField.maximum !== undefined && !Number.isFinite(typedField.maximum))
+      || (typedField.minLength !== undefined && (
+        !Number.isSafeInteger(typedField.minLength) || typedField.minLength < 0
+      ))
+      || (typedField.maxLength !== undefined && (
+        !Number.isSafeInteger(typedField.maxLength) || typedField.maxLength < 0
+      ))
+      || (typedField.minimum !== undefined && typedField.maximum !== undefined
+        && typedField.minimum > typedField.maximum)
+      || (typedField.minLength !== undefined && typedField.maxLength !== undefined
+        && typedField.minLength > typedField.maxLength)
+      || ((typedField.minimum !== undefined || typedField.maximum !== undefined)
+        && field.type !== "number")
+      || ((typedField.minLength !== undefined || typedField.maxLength !== undefined
+        || field.pattern !== undefined) && field.type !== "string")
+    ) {
+      valid = false;
+      break;
+    }
+
+    const completeField = field as ApiResponseField;
+    const requiresObjectSchema =
+      apiResponseFieldRequiresObjectSchema(completeField);
+    if (
+      (
         requiresObjectSchema
-        && field.objectSchema === undefined
+        && completeField.objectSchema === undefined
         && !allowLegacyOpaqueObject
       )
       || (
         requiresObjectSchema
-        && field.objectSchema !== undefined
+        && completeField.objectSchema !== undefined
         && !isValidApiResponseSchemaValue(
-          field.objectSchema,
-          nextAncestors,
+          completeField.objectSchema,
+          ancestors,
           allowLegacyOpaqueObject,
         )
       )
       || (
         !requiresObjectSchema
-        && field.objectSchema !== undefined
+        && completeField.objectSchema !== undefined
       )
     ) {
-      return false;
+      valid = false;
+      break;
     }
 
     propertyNames.add(field.name);
   }
 
-  return true;
+  ancestors.delete(schema);
+  return valid;
 }

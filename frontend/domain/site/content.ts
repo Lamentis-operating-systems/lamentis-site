@@ -16,6 +16,14 @@ import {
   type SiteRouteId,
 } from "./routes";
 import type { ApiResponseFieldType } from "./api-response-schema";
+import type {
+  ApiCachePolicy,
+  ApiIdempotencyPolicy,
+  ApiParameterLocation,
+  ApiParameterType,
+  ApiQueryArraySerialization,
+  ApiSecurityScheme,
+} from "./api-route";
 
 export type RouteCopy = {
   title: string;
@@ -32,15 +40,19 @@ export type ResponseSchemaEditorContent = {
   addPropertyLabel: string;
   arrayConnectorLabel: string;
   arrayItemTypeLabel: string;
+  collapseSectionLabel: string;
   duplicatePropertyError: string;
+  expandSectionLabel: string;
   identifierHint: string;
   incompleteSchemaError: string;
+  newSchemaTypeLabel: string;
   newResponseTypeLabel: string;
-  objectDefinitionLabel: string;
   objectTypeTemplateLabel: string;
   optionalLabel: string;
-  propertiesDescription: string;
+  paginationDescription: string;
+  paginationLabel: string;
   propertiesLabel: string;
+  propertiesLabelByKind: Record<"request" | "response", string>;
   propertyNameLabel: string;
   propertyNamePlaceholder: string;
   propertyTypeLabel: string;
@@ -50,20 +62,95 @@ export type ResponseSchemaEditorContent = {
   responseTypeLabel: string;
   responseTypePlaceholder: string;
   responseTypeTemplateLabel: string;
+  routeContract: {
+    addParameterLabel: string;
+    addResponseHeaderLabel: string;
+    addResponseLabel: string;
+    allowedValuesLabel: string;
+    authLocationLabel: string;
+    authNameLabel: string;
+    cacheLabel: string;
+    cacheOptions: Record<ApiCachePolicy, string>;
+    contentTypesHint: string;
+    contentTypesLabel: string;
+    defaultValueLabel: string;
+    defaultResponseDescription: string;
+    duplicateResponseStatusError: string;
+    deprecatedLabel: string;
+    descriptionLabel: string;
+    detailsDescription: string;
+    detailsLabel: string;
+    exampleHint: string;
+    exampleLabel: string;
+    requestExampleLabel: string;
+    responseExampleLabel: string;
+    formatLabel: string;
+    idempotencyLabel: string;
+    idempotencyOptions: Record<ApiIdempotencyPolicy, string>;
+    invalidContractError: string;
+    invalidExampleError: string;
+    maximumLabel: string;
+    maxLengthLabel: string;
+    minimumLabel: string;
+    minLengthLabel: string;
+    operationIdLabel: string;
+    parameterDescriptionLabel: string;
+    parameterLocationLabel: string;
+    parameterLocationOptions: Record<ApiParameterLocation, string>;
+    parameterNameLabel: string;
+    parameterSerializationLabel: string;
+    parameterSerializationOptions: Record<ApiQueryArraySerialization, string>;
+    parameterTypeLabel: string;
+    parameterTypeOptions: Record<ApiParameterType, string>;
+    parametersDescription: string;
+    parametersLabel: string;
+    patternLabel: string;
+    rateLimitLabel: string;
+    removeParameterLabel: string;
+    removeResponseHeaderLabel: string;
+    removeResponseLabel: string;
+    requestRequiredLabel: string;
+    requiredLabel: string;
+    responseDescriptionLabel: string;
+    responseHeaderDescriptionLabel: string;
+    responseHeaderNameLabel: string;
+    responseHeadersLabel: string;
+    responseStatusLabel: string;
+    securityBehaviorDescription: string;
+    securityBehaviorLabel: string;
+    securityNameHint: string;
+    securitySchemeLabel: string;
+    securitySchemeOptions: Record<ApiSecurityScheme, string>;
+    securityScopesLabel: string;
+    tagsHint: string;
+    tagsLabel: string;
+    titleLabel: string;
+  };
+  schemaTypeConflictError: string;
   routeLabel: string;
   saveLabel: string;
+  typeDescriptionByKind: Record<"request" | "response", string>;
+  typeLabelByKind: Record<"request" | "response", string>;
   typeOptions: Record<ApiResponseFieldType, string>;
+  typePlaceholderByKind: Record<"request" | "response", string>;
+  typeTemplateLabelByKind: Record<"request" | "response", string>;
 };
 
 export type ApiCreatorStudioContent = SearchContent & {
   actionLabel: string;
   closeEditRouteOverlayLabel: string;
   closeResponseOverlayLabel: string;
+  contractMetadata: {
+    basePathLabel: string;
+    description: string;
+    label: string;
+    titleLabel: string;
+    versionLabel: string;
+  };
   copyRouteErrorLabel: string;
   copyRouteLabel: string;
   deleteRouteLabel: string;
   duplicatePathError: string;
-  editPropertiesDescription: string;
   editResponseTypeDescription: string;
   editRouteLabel: string;
   editRouteTitle: string;
@@ -90,6 +177,7 @@ type LocalizedSiteContent = {
     downloadApiContractsErrorLabel: string;
     homeLabel: string;
     openMenuLabel: string;
+    skipToContentLabel: string;
   };
   footer: {
     sections: Record<FooterSectionId, { title: string }>;
@@ -97,11 +185,6 @@ type LocalizedSiteContent = {
     languageLabel: string;
     copyright: string;
     productionCredit: string;
-  };
-  notFound: {
-    title: string;
-    description: string;
-    homeLabel: string;
   };
 };
 
@@ -151,12 +234,17 @@ export const contentByLocale = {
       actionLabel: "Add API route",
       closeEditRouteOverlayLabel: "Close Edit this route",
       closeResponseOverlayLabel: "Close the response editor",
+      contractMetadata: {
+        basePathLabel: "Base path",
+        description: "Optional details that apply to every route in this contract.",
+        label: "API details",
+        titleLabel: "API title",
+        versionLabel: "API version",
+      },
       copyRouteErrorLabel: "The route could not be copied.",
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
       duplicatePathError: "This HTTP method and path already exist.",
-      editPropertiesDescription:
-        "Update the fields returned in this response.",
       editResponseTypeDescription:
         "Update this response type or use an existing one as an editable template.",
       editRouteLabel: "Edit",
@@ -170,30 +258,151 @@ export const contentByLocale = {
         addPropertyLabel: "Add property",
         arrayConnectorLabel: "of",
         arrayItemTypeLabel: "Array item type",
+        collapseSectionLabel: "Collapse",
         duplicatePropertyError: "Property names must be unique.",
+        expandSectionLabel: "Expand",
         identifierHint: "Use a valid TypeScript identifier.",
         incompleteSchemaError:
           "Complete every object type and property before saving.",
+        newSchemaTypeLabel: "New",
         newResponseTypeLabel: "New",
-        objectDefinitionLabel: "Object definition",
         objectTypeTemplateLabel: "Object type template",
         optionalLabel: "Optional",
-        propertiesDescription:
-          "Define the fields returned in this response.",
+        paginationDescription:
+          "Wrap the response in a paginated result with items, totalHits, page, limit, and totalPages.",
+        paginationLabel: "Paginated response",
         propertiesLabel: "Response properties",
+        propertiesLabelByKind: {
+          request: "Request properties",
+          response: "Response properties",
+        },
         propertyNameLabel: "Property name",
         propertyNamePlaceholder: "propertyName",
         propertyTypeLabel: "Property type",
         removePropertyLabel: "Remove property",
         responseTypeConflictError:
           "This response type already uses a different schema.",
+        schemaTypeConflictError:
+          "This type name already uses a different schema.",
         responseTypeDescription:
           "Create a response type or use an existing one as an editable template.",
         responseTypeLabel: "Response type",
         responseTypePlaceholder: "Name your response type",
         responseTypeTemplateLabel: "Response type template",
+        routeContract: {
+          addParameterLabel: "Add parameter",
+          addResponseHeaderLabel: "Add response header",
+          addResponseLabel: "Add response",
+          allowedValuesLabel: "Allowed values",
+          authLocationLabel: "Credential location",
+          authNameLabel: "Credential name",
+          cacheLabel: "Cache policy",
+          cacheOptions: {
+            unspecified: "Unspecified",
+            "no-store": "No store",
+            private: "Private",
+            public: "Public",
+          },
+          contentTypesHint: "Comma-separated media types",
+          contentTypesLabel: "Content types",
+          defaultValueLabel: "Default value",
+          defaultResponseDescription: "Successful response",
+          duplicateResponseStatusError:
+            "Response status codes must be unique.",
+          deprecatedLabel: "Deprecated route",
+          descriptionLabel: "Description",
+          detailsDescription:
+            "Document the operation with editable suggestions derived from its method and path.",
+          detailsLabel: "Route details",
+          exampleHint: "Valid JSON example",
+          exampleLabel: "Example",
+          requestExampleLabel: "Request example",
+          responseExampleLabel: "Response example",
+          formatLabel: "Format",
+          idempotencyLabel: "Idempotency",
+          idempotencyOptions: {
+            unspecified: "Unspecified",
+            idempotent: "Idempotent",
+            "non-idempotent": "Non-idempotent",
+            "idempotency-key": "Requires idempotency key",
+          },
+          invalidContractError:
+            "Complete every route contract field with a valid value before saving.",
+          invalidExampleError: "Examples must contain valid JSON.",
+          maximumLabel: "Maximum",
+          maxLengthLabel: "Maximum length",
+          minimumLabel: "Minimum",
+          minLengthLabel: "Minimum length",
+          operationIdLabel: "Operation ID",
+          parameterDescriptionLabel: "Parameter description",
+          parameterLocationLabel: "Parameter location",
+          parameterLocationOptions: {
+            path: "path",
+            query: "query",
+            header: "header",
+            cookie: "cookie",
+          },
+          parameterNameLabel: "Parameter name",
+          parameterSerializationLabel: "Array serialization",
+          parameterSerializationOptions: {
+            repeat: "Repeated (?tag=a&tag=b)",
+            comma: "Comma separated (?tag=a,b)",
+            space: "Space separated (?tag=a b)",
+            pipe: "Pipe separated (?tag=a|b)",
+          },
+          parameterTypeLabel: "Parameter type",
+          parameterTypeOptions: {
+            string: "string",
+            number: "number",
+            integer: "integer",
+            boolean: "boolean",
+            array: "array",
+          },
+          parametersDescription:
+            "Path parameters are synchronized from the route. Add query, header, or cookie parameters explicitly.",
+          parametersLabel: "Parameters",
+          patternLabel: "Pattern",
+          rateLimitLabel: "Rate limit",
+          removeParameterLabel: "Remove parameter",
+          removeResponseHeaderLabel: "Remove response header",
+          removeResponseLabel: "Remove response",
+          requestRequiredLabel: "Request body required",
+          requiredLabel: "Required",
+          responseDescriptionLabel: "Response description",
+          responseHeaderDescriptionLabel: "Header description",
+          responseHeaderNameLabel: "Response header name",
+          responseHeadersLabel: "Response headers",
+          responseStatusLabel: "HTTP status",
+          securityBehaviorDescription:
+            "Define authentication and transport-independent operational behavior.",
+          securityBehaviorLabel: "Security and behavior",
+          securityNameHint: "Header, query parameter, or cookie name",
+          securitySchemeLabel: "Security scheme",
+          securitySchemeOptions: {
+            none: "None",
+            bearer: "Bearer token",
+            basic: "HTTP Basic",
+            apiKey: "API key",
+            cookie: "Cookie session",
+            oauth2: "OAuth 2",
+          },
+          securityScopesLabel: "OAuth scopes",
+          tagsHint: "Comma-separated tags",
+          tagsLabel: "Tags",
+          titleLabel: "Title",
+        },
         routeLabel: "Route",
         saveLabel: "Save",
+        typeDescriptionByKind: {
+          request:
+            "Create a request type or use an existing one as an editable template.",
+          response:
+            "Create a response type or use an existing one as an editable template.",
+        },
+        typeLabelByKind: {
+          request: "Request type",
+          response: "Response type",
+        },
         typeOptions: {
           string: "string",
           number: "number",
@@ -202,6 +411,14 @@ export const contentByLocale = {
           array: "array",
           null: "null",
           unknown: "unknown",
+        },
+        typePlaceholderByKind: {
+          request: "Name your request type",
+          response: "Name your response type",
+        },
+        typeTemplateLabelByKind: {
+          request: "Request type template",
+          response: "Response type template",
         },
       },
       responseOverlayTitle: "Add a data structure to this route",
@@ -220,6 +437,7 @@ export const contentByLocale = {
       downloadApiContractsErrorLabel: "Download failed",
       homeLabel: "Lamentis home",
       openMenuLabel: "Open primary navigation",
+      skipToContentLabel: "Skip to main content",
     },
     footer: {
       sections: {
@@ -231,11 +449,6 @@ export const contentByLocale = {
       languageLabel: "Language",
       copyright: "© 2026 Lamentis.",
       productionCredit: "A production by Elias Papavlassopoulos.",
-    },
-    notFound: {
-      title: "Page not found",
-      description: "The requested page does not exist.",
-      homeLabel: "Back to Lamentis",
     },
   },
   de: {
@@ -284,13 +497,18 @@ export const contentByLocale = {
       closeEditRouteOverlayLabel: "Route bearbeiten schließen",
       closeResponseOverlayLabel:
         "Datenstruktur für diese Route schließen",
+      contractMetadata: {
+        basePathLabel: "Basispfad",
+        description: "Optionale Angaben, die für alle Routen dieses Vertrags gelten.",
+        label: "API-Angaben",
+        titleLabel: "API-Titel",
+        versionLabel: "API-Version",
+      },
       copyRouteErrorLabel: "Die Route konnte nicht kopiert werden.",
       copyRouteLabel: "Kopieren",
       deleteRouteLabel: "Löschen",
       duplicatePathError:
         "Diese HTTP-Methode und dieser Pfad sind bereits vorhanden.",
-      editPropertiesDescription:
-        "Bearbeite die Felder, die in dieser Antwort zurückgegeben werden.",
       editResponseTypeDescription:
         "Bearbeite diesen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
       editRouteLabel: "Bearbeiten",
@@ -305,30 +523,151 @@ export const contentByLocale = {
         addPropertyLabel: "Eigenschaft hinzufügen",
         arrayConnectorLabel: "aus",
         arrayItemTypeLabel: "Array-Elementtyp",
+        collapseSectionLabel: "Einklappen",
         duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
+        expandSectionLabel: "Ausklappen",
         identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
         incompleteSchemaError:
           "Vervollständige jeden Objekttyp und jede Eigenschaft vor dem Speichern.",
+        newSchemaTypeLabel: "Neu",
         newResponseTypeLabel: "Neu",
-        objectDefinitionLabel: "Objektdefinition",
         objectTypeTemplateLabel: "Objekttyp-Vorlage",
         optionalLabel: "Optionales Feld",
-        propertiesDescription:
-          "Definiere die Felder, die in dieser Antwort zurückgegeben werden.",
+        paginationDescription:
+          "Hülle die Antwort in ein paginiertes Ergebnis mit items, totalHits, page, limit und totalPages.",
+        paginationLabel: "Paginierte Antwort",
         propertiesLabel: "Antwort-Eigenschaften",
+        propertiesLabelByKind: {
+          request: "Anfrage-Eigenschaften",
+          response: "Antwort-Eigenschaften",
+        },
         propertyNameLabel: "Eigenschaftsname",
         propertyNamePlaceholder: "eigenschaftName",
         propertyTypeLabel: "Eigenschaftstyp",
         removePropertyLabel: "Eigenschaft entfernen",
         responseTypeConflictError:
           "Dieser Antworttyp verwendet bereits ein anderes Schema.",
+        schemaTypeConflictError:
+          "Dieser Typname verwendet bereits ein anderes Schema.",
         responseTypeDescription:
           "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
         responseTypeLabel: "Antworttyp",
         responseTypePlaceholder: "Benenne deinen Antworttyp",
         responseTypeTemplateLabel: "Antworttyp-Vorlage",
+        routeContract: {
+          addParameterLabel: "Parameter hinzufügen",
+          addResponseHeaderLabel: "Antwort-Header hinzufügen",
+          addResponseLabel: "Antwort hinzufügen",
+          allowedValuesLabel: "Erlaubte Werte",
+          authLocationLabel: "Zugangsdaten-Ort",
+          authNameLabel: "Zugangsdaten-Name",
+          cacheLabel: "Cache-Richtlinie",
+          cacheOptions: {
+            unspecified: "Nicht angegeben",
+            "no-store": "Nicht speichern",
+            private: "Privat",
+            public: "Öffentlich",
+          },
+          contentTypesHint: "Kommagetrennte Medientypen",
+          contentTypesLabel: "Inhaltstypen",
+          defaultValueLabel: "Standardwert",
+          defaultResponseDescription: "Erfolgreiche Antwort",
+          duplicateResponseStatusError:
+            "HTTP-Statuscodes der Antworten müssen eindeutig sein.",
+          deprecatedLabel: "Veraltete Route",
+          descriptionLabel: "Beschreibung",
+          detailsDescription:
+            "Dokumentiere die Operation mit bearbeitbaren Vorschlägen aus Methode und Pfad.",
+          detailsLabel: "Routendetails",
+          exampleHint: "Gültiges JSON-Beispiel",
+          exampleLabel: "Beispiel",
+          requestExampleLabel: "Request-Beispiel",
+          responseExampleLabel: "Response-Beispiel",
+          formatLabel: "Format",
+          idempotencyLabel: "Idempotenz",
+          idempotencyOptions: {
+            unspecified: "Nicht angegeben",
+            idempotent: "Idempotent",
+            "non-idempotent": "Nicht idempotent",
+            "idempotency-key": "Idempotenzschlüssel erforderlich",
+          },
+          invalidContractError:
+            "Vervollständige vor dem Speichern alle Felder des Routenvertrags mit gültigen Werten.",
+          invalidExampleError: "Beispiele müssen gültiges JSON enthalten.",
+          maximumLabel: "Maximum",
+          maxLengthLabel: "Maximale Länge",
+          minimumLabel: "Minimum",
+          minLengthLabel: "Minimale Länge",
+          operationIdLabel: "Operations-ID",
+          parameterDescriptionLabel: "Parameterbeschreibung",
+          parameterLocationLabel: "Parameterort",
+          parameterLocationOptions: {
+            path: "Pfad",
+            query: "Query",
+            header: "Header",
+            cookie: "Cookie",
+          },
+          parameterNameLabel: "Parametername",
+          parameterSerializationLabel: "Array-Serialisierung",
+          parameterSerializationOptions: {
+            repeat: "Wiederholt (?tag=a&tag=b)",
+            comma: "Kommagetrennt (?tag=a,b)",
+            space: "Leerzeichengetrennt (?tag=a b)",
+            pipe: "Pipe-getrennt (?tag=a|b)",
+          },
+          parameterTypeLabel: "Parametertyp",
+          parameterTypeOptions: {
+            string: "string",
+            number: "number",
+            integer: "integer",
+            boolean: "boolean",
+            array: "array",
+          },
+          parametersDescription:
+            "Pfadparameter werden mit der Route synchronisiert. Query-, Header- und Cookie-Parameter werden explizit ergänzt.",
+          parametersLabel: "Parameter",
+          patternLabel: "Muster",
+          rateLimitLabel: "Ratenbegrenzung",
+          removeParameterLabel: "Parameter entfernen",
+          removeResponseHeaderLabel: "Antwort-Header entfernen",
+          removeResponseLabel: "Antwort entfernen",
+          requestRequiredLabel: "Anfragekörper erforderlich",
+          requiredLabel: "Erforderlich",
+          responseDescriptionLabel: "Antwortbeschreibung",
+          responseHeaderDescriptionLabel: "Headerbeschreibung",
+          responseHeaderNameLabel: "Antwort-Headername",
+          responseHeadersLabel: "Antwort-Header",
+          responseStatusLabel: "HTTP-Status",
+          securityBehaviorDescription:
+            "Definiere Authentifizierung und transportunabhängiges Betriebsverhalten.",
+          securityBehaviorLabel: "Sicherheit und Verhalten",
+          securityNameHint: "Header-, Query-Parameter- oder Cookie-Name",
+          securitySchemeLabel: "Sicherheitsschema",
+          securitySchemeOptions: {
+            none: "Keine",
+            bearer: "Bearer-Token",
+            basic: "HTTP Basic",
+            apiKey: "API-Schlüssel",
+            cookie: "Cookie-Sitzung",
+            oauth2: "OAuth 2",
+          },
+          securityScopesLabel: "OAuth-Bereiche",
+          tagsHint: "Kommagetrennte Tags",
+          tagsLabel: "Tags",
+          titleLabel: "Titel",
+        },
         routeLabel: "Route",
         saveLabel: "Speichern",
+        typeDescriptionByKind: {
+          request:
+            "Erstelle einen Anfragetyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
+          response:
+            "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
+        },
+        typeLabelByKind: {
+          request: "Anfragetyp",
+          response: "Antworttyp",
+        },
         typeOptions: {
           string: "string",
           number: "number",
@@ -337,6 +676,14 @@ export const contentByLocale = {
           array: "array",
           null: "null",
           unknown: "unknown",
+        },
+        typePlaceholderByKind: {
+          request: "Benenne deinen Anfragetyp",
+          response: "Benenne deinen Antworttyp",
+        },
+        typeTemplateLabelByKind: {
+          request: "Anfragetyp-Vorlage",
+          response: "Antworttyp-Vorlage",
         },
       },
       responseOverlayTitle:
@@ -356,6 +703,7 @@ export const contentByLocale = {
       downloadApiContractsErrorLabel: "Download fehlgeschlagen",
       homeLabel: "Lamentis-Startseite",
       openMenuLabel: "Hauptnavigation öffnen",
+      skipToContentLabel: "Zum Hauptinhalt",
     },
     footer: {
       sections: {
@@ -367,11 +715,6 @@ export const contentByLocale = {
       languageLabel: "Sprache",
       copyright: "© 2026 Lamentis.",
       productionCredit: "Eine Produktion von Elias Papavlassopoulos.",
-    },
-    notFound: {
-      title: "Seite nicht gefunden",
-      description: "Die angeforderte Seite existiert nicht.",
-      homeLabel: "Zurück zu Lamentis",
     },
   },
 } as const satisfies Record<Locale, LocalizedSiteContent>;
@@ -402,6 +745,7 @@ export type NavigationContent = {
   items: NavigationItem[];
   locale: Locale;
   openMenuLabel: string;
+  skipToContentLabel: string;
 };
 
 export type FooterLink = (
@@ -489,6 +833,7 @@ export function getNavigationContent(locale: Locale): NavigationContent {
     homeLabel: content.navigation.homeLabel,
     homeHref: routePath(homeRef),
     openMenuLabel: content.navigation.openMenuLabel,
+    skipToContentLabel: content.navigation.skipToContentLabel,
     items: primaryNavigationRouteIds.map((routeId) => ({
       ...createInternalLink(locale, routeId, `navigation-${routeId}`),
       label: getRouteCopy(locale, routeId).title,

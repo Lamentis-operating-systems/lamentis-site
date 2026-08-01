@@ -8,15 +8,21 @@ import {
   useState,
 } from "react";
 import {
-  hasApiResponseSchemaConflict,
+  apiSecuritySchemes,
+  apiRouteSchemas,
   hasApiRouteIdentity,
   httpMethods,
   nextApiRouteId,
   type ApiRouteContract,
   type HttpMethod,
 } from "@/domain/site/api-route";
-import { parseApiRoutePath } from "@/domain/site/api-route-path";
+import { apiContractMetadataStorage } from "@/domain/site/api-contract-metadata-storage";
 import { apiRoutesStorage } from "@/domain/site/api-route-storage";
+import {
+  apiRouteWorkspaceValidationReason,
+  disabledApiRouteMethods,
+  transitionApiRouteWorkspaceSave,
+} from "@/domain/site/api-route-workspace";
 import type { ApiCreatorStudioContent } from "@/domain/site/content";
 import {
   ApiRouteRow,
@@ -24,11 +30,14 @@ import {
 } from "./api-route-row";
 import { ApiRouteInputBar } from "./api-route-input-bar";
 import { CheckIcon } from "./icons/check-icon";
+import { ChevronIcon } from "./icons/chevron-icon";
+import { TextInput } from "./form/text-input";
+import { SelectMenu } from "./select-menu";
 import { useOverlay } from "./overlay/overlay-provider";
 import { ResponseSchemaEditor } from "./response-schema-editor";
 import { SearchSurface } from "./search-surface";
 import { useLocalStorageState } from "./use-local-storage-state";
-import styles from "./search-page.module.css";
+import styles from "./api-creator-studio.module.css";
 
 const studioOverlaySize = "var(--overlay-size-large)";
 const studioOverlayResize = {
@@ -70,11 +79,11 @@ export function ApiCreatorStudio({
   actionLabel,
   closeEditRouteOverlayLabel,
   closeResponseOverlayLabel,
+  contractMetadata,
   copyRouteErrorLabel,
   copyRouteLabel,
   deleteRouteLabel,
   duplicatePathError,
-  editPropertiesDescription,
   editResponseTypeDescription,
   editRouteLabel,
   editRouteTitle,
@@ -93,11 +102,19 @@ export function ApiCreatorStudio({
   const { closeOverlay, openOverlay } = useOverlay();
   const [method, setMethod] = useState<HttpMethod>("GET");
   const [copyFailed, setCopyFailed] = useState(false);
-  const [routes, setRoutes, storageStatus] = useLocalStorageState(
-    apiRoutesStorage,
-  );
+  const [metadataOpen, setMetadataOpen] = useState(false);
+  const [metadata, setMetadata, metadataStorageStatus] =
+    useLocalStorageState(apiContractMetadataStorage);
+  const [
+    routes,
+    setRoutes,
+    storageStatus,
+    transactRoutes,
+  ] = useLocalStorageState(apiRoutesStorage);
   const routesRef = useRef(routes);
   const responseFormId = useId();
+  const metadataHeadingId = useId();
+  const metadataPanelId = useId();
   const routeInputRef = useRef<HTMLInputElement>(null);
   const focusRouteInputAfterMutation = useRef(false);
   const methodsByPath = useMemo(() => {
@@ -135,19 +152,15 @@ export function ApiCreatorStudio({
     mode: "create" | "edit",
     routeSnapshot: readonly ApiRouteContract[],
   ) {
-    const disabledMethods = httpMethods.filter((candidateMethod) => (
-      candidateMethod !== route.method
-      && routeSnapshot.some((candidateRoute) => (
-        candidateRoute.id !== route.id
-        && candidateRoute.path === route.path
-        && candidateRoute.method === candidateMethod
-      ))
-    ));
+    const disabledMethods = disabledApiRouteMethods(routeSnapshot, route);
     const editorContent = mode === "edit"
       ? {
           ...responseEditor,
-          propertiesDescription: editPropertiesDescription,
           responseTypeDescription: editResponseTypeDescription,
+          typeDescriptionByKind: {
+            ...responseEditor.typeDescriptionByKind,
+            response: editResponseTypeDescription,
+          },
         }
       : responseEditor;
 
@@ -156,65 +169,48 @@ export function ApiCreatorStudio({
         <ResponseSchemaEditor
           content={editorContent}
           disabledRouteMethods={disabledMethods}
-          existingResponseSchemas={routeSnapshot.flatMap(
+          existingSchemas={routeSnapshot.flatMap(
             (candidateRoute) => (
-              candidateRoute.id !== route.id && candidateRoute.response
-                ? [candidateRoute.response]
+              candidateRoute.id !== route.id
+                ? apiRouteSchemas(candidateRoute)
                 : []
             ),
           )}
           formId={responseFormId}
-          getRouteValidationReason={(nextMethod, nextPath) => {
-            if (!parseApiRoutePath(nextPath)) return "syntax";
-
-            return hasApiRouteIdentity(
+          getRouteValidationReason={(nextMethod, nextPath) => (
+            apiRouteWorkspaceValidationReason(
               routesRef.current,
               { method: nextMethod, path: nextPath },
               route.id,
             )
-              ? "duplicate"
-              : null;
-          }}
-          initialSchema={mode === "edit" ? route.response : undefined}
-          onRouteMethodChange={(nextMethod) => {
-            updateRouteMethod(route.id, nextMethod);
-          }}
-          onSave={(response, nextRoute) => {
-            let didSave = false;
-            setRoutes((currentRoutes) => {
-              if (
-                !currentRoutes.some((candidateRoute) => (
-                  candidateRoute.id === route.id
-                ))
-                || hasApiRouteIdentity(
-                  currentRoutes,
-                  nextRoute,
-                  route.id,
-                )
-                || hasApiResponseSchemaConflict(
-                  currentRoutes,
-                  response,
-                  route.id,
-                )
-              ) {
-                return currentRoutes;
+          )}
+          {...(mode === "create"
+            ? {
+                onRouteMethodChange: (nextMethod: HttpMethod) => {
+                  updateRouteMethod(route.id, nextMethod);
+                },
               }
-
-              didSave = true;
-              return currentRoutes.map((candidateRoute) => (
-                candidateRoute.id === route.id
-                  ? {
-                      ...candidateRoute,
-                      ...nextRoute,
-                      response,
-                    }
-                  : candidateRoute
-              ));
+            : {})}
+          onSave={(contract, nextRoute) => {
+            const { result } = transactRoutes((currentRoutes) => {
+              const transition = transitionApiRouteWorkspaceSave(
+                currentRoutes,
+                {
+                  ...contract,
+                  route: nextRoute,
+                  routeId: route.id,
+                },
+              );
+              return {
+                result: transition.result,
+                value: transition.routes,
+              };
             });
-            if (!didSave) return false;
 
-            closeOverlay();
-            return true;
+            if (result === "saved" || result === "route-missing") {
+              closeOverlay();
+            }
+            return result;
           }}
           route={route}
           routeInputContent={{
@@ -245,27 +241,31 @@ export function ApiCreatorStudio({
   }
 
   function addRoute(path: string) {
-    let createdRouteId: number | undefined;
-    let routesAtCreation = routes;
-    setRoutes((currentRoutes) => {
-      routesAtCreation = currentRoutes;
+    const { result } = transactRoutes((currentRoutes) => {
       if (hasApiRouteIdentity(currentRoutes, { method, path })) {
-        return currentRoutes;
+        return { result: null, value: currentRoutes };
       }
 
-      createdRouteId = nextApiRouteId(currentRoutes);
-      return [
+      const createdRoute = {
+        id: nextApiRouteId(currentRoutes),
+        method,
+        path,
+      };
+      const nextRoutes = [
         ...currentRoutes,
-        { id: createdRouteId, method, path },
+        createdRoute,
       ];
+      return {
+        result: { createdRoute, routes: nextRoutes },
+        value: nextRoutes,
+      };
     });
-    if (createdRouteId === undefined) return;
-    const routeId = createdRouteId;
-    const createdRoute = { id: routeId, method, path };
+    if (!result) return;
+
     openResponseEditor(
-      createdRoute,
+      result.createdRoute,
       "create",
-      [...routesAtCreation, createdRoute],
+      result.routes,
     );
   }
 
@@ -320,11 +320,14 @@ export function ApiCreatorStudio({
     storageStatus === "invalid"
     || storageStatus === "unavailable"
     || storageStatus === "volatile"
+    || metadataStorageStatus === "invalid"
+    || metadataStorageStatus === "unavailable"
+    || metadataStorageStatus === "volatile"
   ) ? (
-      <p className={styles.persistenceWarning} role="status">
-        {storageErrorLabel}
-      </p>
-    ) : null;
+    <p className={styles.persistenceWarning} role="status">
+      {storageErrorLabel}
+    </p>
+  ) : null;
 
   const routeList = (
     <>
@@ -371,33 +374,164 @@ export function ApiCreatorStudio({
       contentAfter={routeList}
       heading={heading}
       label={label}
-      role="group"
       surface={(
-        <ApiRouteInputBar
-          actionLabel={actionLabel}
-          getValidationReason={(candidateMethod, path) => {
-            if (!parseApiRoutePath(path)) return "syntax";
-
-            return hasApiRouteIdentity(
-              routes,
-              { method: candidateMethod, path },
-            )
-              ? "duplicate"
-              : null;
-          }}
-          inputRef={routeInputRef}
-          label={label}
-          method={method}
-          methodSelectorLabel={methodSelectorLabel}
-          onAdd={addRoute}
-          onMethodChange={setMethod}
-          placeholder={placeholder}
-          prefixHint={pathPrefixHint}
-          validationMessages={{
-            duplicate: duplicatePathError,
-            syntax: invalidPathError,
-          }}
-        />
+        <div className={styles.studioControls}>
+          <section className={styles.metadataSection} aria-labelledby={metadataHeadingId}>
+            <button
+              type="button"
+              className={styles.metadataToggle}
+              aria-controls={metadataPanelId}
+              aria-expanded={metadataOpen}
+              onClick={() => setMetadataOpen((current) => !current)}
+            >
+              <span>
+                <span id={metadataHeadingId} className={styles.metadataTitle}>
+                  {contractMetadata.label}
+                </span>
+                <span className={styles.metadataDescription}>
+                  {contractMetadata.description}
+                </span>
+              </span>
+              <ChevronIcon />
+            </button>
+            <div
+              id={metadataPanelId}
+              className={styles.metadataFields}
+              hidden={!metadataOpen}
+            >
+              <TextInput
+                aria-label={contractMetadata.titleLabel}
+                placeholder={contractMetadata.titleLabel}
+                tone="nested"
+                value={metadata.title ?? ""}
+                onChange={(event) => setMetadata((current) => ({
+                  ...current,
+                  title: event.currentTarget.value || undefined,
+                }))}
+              />
+              <TextInput
+                aria-label={contractMetadata.versionLabel}
+                placeholder={contractMetadata.versionLabel}
+                tone="nested"
+                value={metadata.version ?? ""}
+                onChange={(event) => setMetadata((current) => ({
+                  ...current,
+                  version: event.currentTarget.value || undefined,
+                }))}
+              />
+              <TextInput
+                aria-label={contractMetadata.basePathLabel}
+                pattern="/.*"
+                placeholder="/api/v1"
+                tone="nested"
+                value={metadata.basePath ?? ""}
+                onChange={(event) => setMetadata((current) => ({
+                  ...current,
+                  basePath: event.currentTarget.value || undefined,
+                }))}
+              />
+              <SelectMenu
+                height="large"
+                label={responseEditor.routeContract.securitySchemeLabel}
+                options={apiSecuritySchemes.map((scheme) => ({
+                  id: scheme,
+                  kind: "action" as const,
+                  label: responseEditor.routeContract.securitySchemeOptions[scheme],
+                  onSelect: () => setMetadata((current) => ({
+                    ...current,
+                    security: scheme === "none" ? undefined : {
+                      scheme,
+                      ...(scheme === "apiKey"
+                        ? { location: "header" as const, name: "X-API-Key" }
+                        : {}),
+                      ...(scheme === "cookie"
+                        ? { location: "cookie" as const, name: "session" }
+                        : {}),
+                    },
+                  })),
+                }))}
+                rounded
+                selectedId={metadata.security?.scheme ?? "none"}
+                width="field"
+              />
+              {metadata.security?.scheme === "apiKey"
+                || metadata.security?.scheme === "cookie" ? (
+                  <TextInput
+                    aria-label={responseEditor.routeContract.authNameLabel}
+                    placeholder={responseEditor.routeContract.securityNameHint}
+                    required
+                    tone="nested"
+                    value={metadata.security.name ?? ""}
+                    onChange={(event) => setMetadata((current) => ({
+                      ...current,
+                      security: current.security
+                        ? { ...current.security, name: event.currentTarget.value }
+                        : undefined,
+                    }))}
+                  />
+                ) : null}
+              {metadata.security?.scheme === "apiKey" ? (
+                <SelectMenu
+                  height="large"
+                  label={responseEditor.routeContract.authLocationLabel}
+                  options={(["query", "header", "cookie"] as const).map((location) => ({
+                    id: location,
+                    kind: "action" as const,
+                    label: responseEditor.routeContract.parameterLocationOptions[location],
+                    onSelect: () => setMetadata((current) => ({
+                      ...current,
+                      security: current.security?.scheme === "apiKey"
+                        ? { ...current.security, location }
+                        : current.security,
+                    })),
+                  }))}
+                  rounded
+                  selectedId={metadata.security.location ?? "header"}
+                  width="field"
+                />
+              ) : null}
+              {metadata.security?.scheme === "oauth2" ? (
+                <TextInput
+                  aria-label={responseEditor.routeContract.securityScopesLabel}
+                  placeholder={responseEditor.routeContract.securityScopesLabel}
+                  tone="nested"
+                  value={(metadata.security.scopes ?? []).join(", ")}
+                  onChange={(event) => setMetadata((current) => ({
+                    ...current,
+                    security: current.security ? {
+                      ...current.security,
+                      scopes: event.currentTarget.value
+                        .split(",")
+                        .map((scope) => scope.trim())
+                        .filter(Boolean),
+                    } : undefined,
+                  }))}
+                />
+              ) : null}
+            </div>
+          </section>
+          <ApiRouteInputBar
+            actionLabel={actionLabel}
+            getValidationReason={(candidateMethod, path) => (
+              apiRouteWorkspaceValidationReason(
+                routes,
+                { method: candidateMethod, path },
+              )
+            )}
+            inputRef={routeInputRef}
+            label={label}
+            method={method}
+            methodSelectorLabel={methodSelectorLabel}
+            onAdd={addRoute}
+            onMethodChange={setMethod}
+            placeholder={placeholder}
+            prefixHint={pathPrefixHint}
+            validationMessages={{
+              duplicate: duplicatePathError,
+              syntax: invalidPathError,
+            }}
+          />
+        </div>
       )}
     />
   );

@@ -164,6 +164,25 @@ const enterPrioritySelector = [
   "[role='combobox']",
   "[role='listbox']",
 ].join(",");
+const formValidityAttributeFilter = [
+  "aria-invalid",
+  "checked",
+  "disabled",
+  "form",
+  "max",
+  "maxlength",
+  "min",
+  "minlength",
+  "multiple",
+  "name",
+  "pattern",
+  "readonly",
+  "required",
+  "selected",
+  "step",
+  "type",
+  "value",
+];
 const OverlayContext = createContext<OverlayService | null>(null);
 
 function parsePixelValue(value: string) {
@@ -310,6 +329,7 @@ function OverlayHost({
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const preferredPanelRectRef = useRef<PositionedOverlayRect | null>(null);
   const resizeSessionRef = useRef<OverlayResizeSession | null>(null);
+  const resizeListenerCleanupRef = useRef<(() => void) | null>(null);
   const [positionedPanelRect, setPositionedPanelRect] =
     useState<PositionedOverlayRect | null>(null);
   const [boundFormValidity, setBoundFormValidity] =
@@ -367,10 +387,17 @@ function OverlayHost({
     request?.initialFocus,
   ]);
 
+  const clearResizeSessionListeners = useCallback(() => {
+    const cleanup = resizeListenerCleanupRef.current;
+    resizeListenerCleanupRef.current = null;
+    cleanup?.();
+  }, []);
+
   const finishResize = useCallback((
     outcome: "commit" | "discard" | "revert",
   ) => {
     const session = resizeSessionRef.current;
+    clearResizeSessionListeners();
     if (!session) return;
 
     resizeSessionRef.current = null;
@@ -405,7 +432,7 @@ function OverlayHost({
         rect: session.startRect,
       });
     }
-  }, []);
+  }, [clearResizeSessionListeners]);
 
   useEffect(() => {
     if (!resizeEnabled || !request?.resizable || !overlayOwner) {
@@ -505,7 +532,11 @@ function OverlayHost({
     resizeEnabled,
   ]);
 
-  useEffect(() => {
+  const attachResizeSessionListeners = useCallback((
+    limits: OverlayResizeLimits,
+  ) => {
+    clearResizeSessionListeners();
+
     function moveResize(event: PointerEvent) {
       const session = resizeSessionRef.current;
       if (!session || event.pointerId !== session.pointerId) return;
@@ -516,7 +547,7 @@ function OverlayHost({
         deltaX: event.clientX - session.startClientX,
         deltaY: event.clientY - session.startClientY,
         direction: session.direction,
-        limits: request?.resizable,
+        limits,
         rect: session.startRect,
       });
       session.lastRect = nextRect;
@@ -552,15 +583,14 @@ function OverlayHost({
     window.addEventListener("blur", cancelResize);
     window.addEventListener("keydown", cancelResizeOnEscape, true);
 
-    return () => {
-      finishResize("discard");
+    resizeListenerCleanupRef.current = () => {
       window.removeEventListener("pointermove", moveResize);
       window.removeEventListener("pointerup", commitResize);
       window.removeEventListener("pointercancel", cancelResize);
       window.removeEventListener("blur", cancelResize);
       window.removeEventListener("keydown", cancelResizeOnEscape, true);
     };
-  }, [finishResize, request?.resizable]);
+  }, [clearResizeSessionListeners, finishResize]);
 
   useEffect(() => {
     if (!submitFormId || !overlayOwner) return undefined;
@@ -601,6 +631,7 @@ function OverlayHost({
 
     const observer = new MutationObserver(updateValidity);
     observer.observe(activeForm, {
+      attributeFilter: formValidityAttributeFilter,
       attributes: true,
       childList: true,
       subtree: true,
@@ -673,6 +704,7 @@ function OverlayHost({
       startClientY: event.clientY,
       startRect: activePanelRect,
     };
+    attachResizeSessionListeners(request.resizable);
   }
 
   const panelStyle: OverlayPanelStyle = {

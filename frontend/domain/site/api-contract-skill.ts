@@ -1,7 +1,11 @@
 import {
+  apiRouteRequestSchema,
+  apiRouteResponses,
   apiRouteIdentity,
   httpMethods,
   type ApiRouteContract,
+  type ApiRouteParameter,
+  type ApiRouteResponse,
   type HttpMethod,
 } from "./api-route";
 import { parseApiRoutePath } from "./api-route-path";
@@ -12,6 +16,7 @@ import {
   type ApiResponseField,
   type ApiResponseSchema,
 } from "./api-response-schema";
+import type { ApiContractMetadata } from "./api-contract-metadata";
 
 export const apiContractsAgentSkillFileName =
   "api-contracts-agent-skill.md";
@@ -20,10 +25,26 @@ type CanonicalRouteGroup = {
   method: HttpMethod;
   path: string;
   sourceCount: number;
-  variants: ApiResponseSchemaOrNone[];
+  variants: CanonicalRouteVariant[];
 };
 
 type ApiResponseSchemaOrNone = ApiResponseSchema | null;
+
+type CanonicalRouteVariant = {
+  behavior: ApiRouteContract["behavior"];
+  deprecated: boolean;
+  description: string | null;
+  operationId: string | null;
+  paginated: boolean;
+  parameters: ApiRouteParameter[];
+  request: ApiResponseSchemaOrNone;
+  requestBody: ApiRouteContract["requestBody"] | null;
+  response: ApiResponseSchemaOrNone;
+  responses: ApiRouteResponse[];
+  security: ApiRouteContract["security"] | null;
+  tags: string[];
+  title: string | null;
+};
 
 type ResponseModelGroup = {
   typeName: string;
@@ -55,13 +76,46 @@ function responseSignature(schema: ApiResponseSchemaOrNone): string {
   return apiResponseSchemaSignature(schema);
 }
 
+function routeVariantSignature(variant: CanonicalRouteVariant): string {
+  return JSON.stringify(variant);
+}
+
+function paginationSchema(response: ApiResponseSchema): ApiResponseSchema {
+  return {
+    fields: [
+      {
+        arrayItemType: "object",
+        name: "items",
+        objectSchema: response,
+        optional: false,
+        type: "array",
+      },
+      { name: "totalHits", optional: false, type: "number" },
+      { name: "page", optional: false, type: "number" },
+      { name: "limit", optional: false, type: "number" },
+      { name: "totalPages", optional: false, type: "number" },
+    ],
+    typeName: `${response.typeName}Page`,
+  };
+}
+
+function responseModelName(variant: CanonicalRouteVariant): string | null {
+  const primary = variant.responses.find((response) => (
+    response.schema && /^2[0-9]{2}$/.test(response.status)
+  )) ?? variant.responses.find((response) => response.schema);
+  if (!primary?.schema) return null;
+  return primary.paginated
+    ? paginationSchema(primary.schema).typeName
+    : primary.schema.typeName;
+}
+
 function canonicalRouteGroups(
   routes: readonly ApiRouteContract[],
 ): CanonicalRouteGroup[] {
   const groups = new Map<string, {
     method: HttpMethod;
     path: string;
-    responses: Map<string, ApiResponseSchemaOrNone>;
+    variants: Map<string, CanonicalRouteVariant>;
     sourceCount: number;
   }>();
 
@@ -70,15 +124,42 @@ function canonicalRouteGroups(
     const group = groups.get(identity) ?? {
       method: route.method,
       path: route.path,
-      responses: new Map<string, ApiResponseSchemaOrNone>(),
+      variants: new Map<string, CanonicalRouteVariant>(),
       sourceCount: 0,
     };
-    const response = route.response
-      ? canonicalizeApiResponseSchema(route.response)
-      : null;
+    const variant: CanonicalRouteVariant = {
+      behavior: route.behavior,
+      deprecated: route.deprecated === true,
+      description: route.description ?? null,
+      operationId: route.operationId ?? null,
+      paginated: route.paginated === true,
+      parameters: route.parameters ?? [],
+      request: apiRouteRequestSchema(route)
+        ? canonicalizeApiResponseSchema(apiRouteRequestSchema(route)!)
+        : null,
+      requestBody: route.requestBody ?? (route.request
+        ? {
+            contentTypes: ["application/json"],
+            required: false,
+            schema: canonicalizeApiResponseSchema(route.request),
+          }
+        : null),
+      response: route.response
+        ? canonicalizeApiResponseSchema(route.response)
+        : null,
+      responses: apiRouteResponses(route).map((response) => ({
+        ...response,
+        ...(response.schema
+          ? { schema: canonicalizeApiResponseSchema(response.schema) }
+          : {}),
+      })),
+      security: route.security ?? null,
+      tags: route.tags ?? [],
+      title: route.title ?? null,
+    };
 
     group.sourceCount += 1;
-    group.responses.set(responseSignature(response), response);
+    group.variants.set(routeVariantSignature(variant), variant);
     groups.set(identity, group);
   }
 
@@ -87,9 +168,9 @@ function canonicalRouteGroups(
       method: group.method,
       path: group.path,
       sourceCount: group.sourceCount,
-      variants: [...group.responses.entries()]
+      variants: [...group.variants.entries()]
         .sort(([left], [right]) => compareText(left, right))
-        .map(([, response]) => response),
+        .map(([, variant]) => variant),
     }))
     .sort(compareRoutes);
 }
@@ -100,9 +181,17 @@ function responseModelGroups(
   const groups = new Map<string, Map<string, ApiResponseSchema>>();
 
   for (const route of routes) {
-    if (!route.response) continue;
+    const responseSchemas = apiRouteResponses(route).flatMap((response) => (
+      response.schema
+        ? [response.paginated ? paginationSchema(response.schema) : response.schema]
+        : []
+    ));
+    const rootSchemas = [
+      apiRouteRequestSchema(route),
+      ...responseSchemas,
+    ].filter((schema): schema is ApiResponseSchema => Boolean(schema));
 
-    for (const responseSchema of collectApiResponseSchemas(route.response)) {
+    for (const responseSchema of rootSchemas.flatMap(collectApiResponseSchemas)) {
       const schema = canonicalizeApiResponseSchema(responseSchema);
       const variants = groups.get(schema.typeName)
         ?? new Map<string, ApiResponseSchema>();
@@ -161,6 +250,35 @@ function renderTypeScriptModel(schema: ApiResponseSchema): string {
   ].join("\n");
 }
 
+function renderSchemaFieldRules(schema: ApiResponseSchema): string[] {
+  return schema.fields.flatMap((field) => {
+    const rules = [
+      field.description ? `description: ${field.description}` : null,
+      field.enumValues?.length
+        ? `allowed values: ${field.enumValues.map((value) => `\`${value}\``).join(", ")}`
+        : null,
+      field.defaultValue ? `default: \`${field.defaultValue}\`` : null,
+      field.example ? `example: \`${field.example}\`` : null,
+      field.minimum !== undefined ? `minimum: ${field.minimum}` : null,
+      field.maximum !== undefined ? `maximum: ${field.maximum}` : null,
+      field.minLength !== undefined ? `minimum length: ${field.minLength}` : null,
+      field.maxLength !== undefined ? `maximum length: ${field.maxLength}` : null,
+      field.pattern ? `pattern: \`${field.pattern}\`` : null,
+    ].filter((rule): rule is string => Boolean(rule));
+    return rules.length > 0
+      ? [`- \`${field.name}\`: ${rules.join("; ")}`]
+      : [];
+  });
+}
+
+function renderJsonExample(example: unknown, indent = ""): string[] {
+  return [
+    `${indent}\`\`\`json`,
+    ...JSON.stringify(example, null, 2).split("\n").map((line) => `${indent}${line}`),
+    `${indent}\`\`\``,
+  ];
+}
+
 function renderInventory(groups: readonly CanonicalRouteGroup[]): string {
   if (groups.length === 0) {
     return [
@@ -171,25 +289,32 @@ function renderInventory(groups: readonly CanonicalRouteGroup[]): string {
 
   const rows = groups.map((group) => {
     const parameters = pathParameters(group.path);
+    const variant = group.variants[0];
+    const request = group.variants.length > 1
+      ? "**BLOCKED: conflicting definitions**"
+      : variant?.request?.typeName ?? "Not specified";
     const response = group.variants.length > 1
       ? "**BLOCKED: conflicting response definitions**"
-      : group.variants[0]?.typeName ?? "Not specified";
+      : variant ? responseModelName(variant) ?? "Not specified" : "Not specified";
 
     return `| ${group.method} | \`${group.path}\` | ${
       parameters.length > 0
         ? parameters.map((parameter) => `\`${parameter}\``).join(", ")
         : "None"
-    } | ${response} |`;
+    } | ${request} | ${response} |`;
   });
 
   return [
-    "| Method | Path | Path parameters | Response |",
-    "| --- | --- | --- | --- |",
+    "| Method | Path | Path parameters | Request | Response |",
+    "| --- | --- | --- | --- | --- |",
     ...rows,
   ].join("\n");
 }
 
-function renderRouteContract(group: CanonicalRouteGroup): string {
+function renderRouteContract(
+  group: CanonicalRouteGroup,
+  hasDefaultSecurity: boolean,
+): string {
   const parameters = pathParameters(group.path);
   const lines = [
     `### \`${group.method} ${group.path}\``,
@@ -200,7 +325,6 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
         ? parameters.map((parameter) => `\`${parameter}\``).join(", ")
         : "None"
     }`,
-    "- Request body: Not specified. Do not invent one.",
   ];
 
   if (group.variants.length > 1) {
@@ -208,17 +332,109 @@ function renderRouteContract(group: CanonicalRouteGroup): string {
       "- Response: **BLOCKED**. Multiple incompatible response definitions exist.",
       "- Required action: resolve this conflict with the contract owner before implementation.",
       "",
-      "Conflicting response variants:",
+      "Conflicting contract variants:",
       ...group.variants.map((variant, index) => (
-        `- Variant ${index + 1}: ${
-          variant ? `\`${variant.typeName}\`` : "No response specified"
+        `- Variant ${index + 1}: request ${
+          variant.request ? `\`${variant.request.typeName}\`` : "not specified"
+        }, response ${
+          responseModelName(variant)
+            ? `\`${responseModelName(variant)}\``
+            : "not specified"
         }`
       )),
     );
-  } else if (group.variants[0]) {
-    lines.push(`- Response model: \`${group.variants[0].typeName}\``);
   } else {
-    lines.push("- Response: Not specified. Do not invent a response body.");
+    const variant = group.variants[0];
+    if (variant) {
+      lines.push(
+        `- Title: ${variant.title ? variant.title : "Not specified"}`,
+        `- Operation ID: ${variant.operationId ? `\`${variant.operationId}\`` : "Not specified"}`,
+        `- Description: ${variant.description ?? "Not specified"}`,
+        `- Tags: ${variant.tags.length > 0 ? variant.tags.map((tag) => `\`${tag}\``).join(", ") : "None"}`,
+        `- Deprecated: ${variant.deprecated ? "Yes" : "No"}`,
+      );
+      if (variant.parameters.length === 0) {
+        lines.push("- Parameters: None specified.");
+      } else {
+        lines.push(
+          "- Parameters:",
+          ...variant.parameters.map((parameter) => (
+            `  - \`${parameter.name}\` in ${parameter.location}: ${parameter.type}${
+              parameter.format ? ` (${parameter.format})` : ""
+            }, ${parameter.required ? "required" : "optional"}${
+              parameter.description ? ` — ${parameter.description}` : ""
+            }${parameter.serialization ? `; serialization ${parameter.serialization}` : ""}${
+              parameter.enumValues?.length
+                ? `; allowed values ${parameter.enumValues.map((value) => `\`${value}\``).join(", ")}`
+                : ""
+            }${parameter.defaultValue ? `; default \`${parameter.defaultValue}\`` : ""}${
+              parameter.example ? `; example \`${parameter.example}\`` : ""
+            }${parameter.minimum !== undefined ? `; minimum ${parameter.minimum}` : ""}${
+              parameter.maximum !== undefined ? `; maximum ${parameter.maximum}` : ""
+            }${parameter.minLength !== undefined ? `; minimum length ${parameter.minLength}` : ""}${
+              parameter.maxLength !== undefined ? `; maximum length ${parameter.maxLength}` : ""
+            }${parameter.pattern ? `; pattern \`${parameter.pattern}\`` : ""}`
+          )),
+        );
+      }
+      lines.push(variant.requestBody
+        ? `- Request body: ${variant.requestBody.required ? "required" : "optional"}; ${
+            variant.requestBody.contentTypes.map((type) => `\`${type}\``).join(", ") || "no content type"
+          }; model ${variant.requestBody.schema ? `\`${variant.requestBody.schema.typeName}\`` : "not specified"}`
+        : "- Request body: Not specified. Do not invent one.");
+      if (variant.requestBody?.example !== undefined) {
+        lines.push("- Request example:", ...renderJsonExample(
+          variant.requestBody.example,
+          "  ",
+        ));
+      }
+      lines.push(
+        `- Request model: ${variant.request ? `\`${variant.request.typeName}\`` : "Not specified"}`,
+        `- Response model: ${responseModelName(variant) ? `\`${responseModelName(variant)}\`` : "Not specified"}`,
+      );
+      if (variant.responses.length === 0) {
+        lines.push("- Responses: Not specified. Do not invent response behavior.");
+      } else {
+        lines.push(
+          "- Responses:",
+          ...variant.responses.flatMap((response) => {
+            const responseName = response.schema
+              ? response.paginated
+                ? paginationSchema(response.schema).typeName
+                : response.schema.typeName
+              : null;
+            return [
+              `  - \`${response.status}\`: ${response.description}; model ${
+                responseName ? `\`${responseName}\`` : "not specified"
+              }; content ${
+                response.contentTypes.map((type) => `\`${type}\``).join(", ") || "none"
+              }`,
+              ...(response.headers ?? []).map((header) => (
+                `    - Header \`${header.name}\`: ${header.type}${
+                  header.description ? ` — ${header.description}` : ""
+                }`
+              )),
+              ...(response.paginated && response.schema
+                ? [`    - Pagination wraps \`${response.schema.typeName}\` in \`items\` and includes \`totalHits\`, \`page\`, \`limit\`, and \`totalPages\`.`]
+                : []),
+              ...(response.example !== undefined
+                ? ["    - Example:", ...renderJsonExample(response.example, "      ")]
+                : []),
+            ];
+          }),
+        );
+      }
+      lines.push(
+        `- Security: ${variant.security && variant.security.scheme !== "none"
+          ? `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
+              variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
+            }`
+          : hasDefaultSecurity ? "Inherit API default" : "None"}`,
+        `- Cache policy: ${variant.behavior?.cache ?? "Unspecified"}`,
+        `- Idempotency: ${variant.behavior?.idempotency ?? "Unspecified"}`,
+        `- Rate limit: ${variant.behavior?.rateLimit ?? "Unspecified"}`,
+      );
+    }
   }
 
   if (group.sourceCount > 1 && group.variants.length === 1) {
@@ -237,12 +453,14 @@ function renderResponseModels(groups: readonly ResponseModelGroup[]): string {
 
   return groups.map((group) => {
     if (group.variants.length === 1 && group.variants[0]) {
+      const rules = renderSchemaFieldRules(group.variants[0]);
       return [
         `### \`${group.typeName}\``,
         "",
         "```ts",
         renderTypeScriptModel(group.variants[0]),
         "```",
+        ...(rules.length > 0 ? ["", "Field rules:", ...rules] : []),
       ].join("\n");
     }
 
@@ -266,11 +484,15 @@ function renderResponseModels(groups: readonly ResponseModelGroup[]): string {
 
 export function generateApiContractsAgentSkill(
   routes: readonly ApiRouteContract[],
+  metadata: ApiContractMetadata = {},
 ): string {
   const routeGroups = canonicalRouteGroups(routes);
   const modelGroups = responseModelGroups(routes);
   const contracts = routeGroups.length > 0
-    ? routeGroups.map(renderRouteContract).join("\n\n")
+    ? routeGroups.map((group) => renderRouteContract(
+        group,
+        Boolean(metadata.security),
+      )).join("\n\n")
     : "No route contracts are available.";
 
   return [
@@ -290,11 +512,24 @@ export function generateApiContractsAgentSkill(
     "1. Treat `METHOD + path` as the only canonical route identity.",
     "2. Inventory the target repository before editing. Map every contract to an existing handler, router, controller, service, model, and test when present.",
     "3. Reuse an existing implementation for the same canonical identity. Never register a second handler for it.",
-    "4. Keep every response model in one canonical TypeScript definition. Reuse it wherever referenced.",
+    "4. Keep every request and response model in one canonical TypeScript definition. Reuse it wherever referenced.",
     "5. Preserve parameter names exactly as written in the path.",
     "6. Do not invent authentication, authorization, request bodies, status codes, persistence, errors, or response fields that are not specified here.",
     "7. Treat every `BLOCKED` conflict as a stop condition. Ask the contract owner to resolve it before implementation.",
     "8. Follow the target project's validation, formatting, test, and build commands.",
+    "",
+    "## API details",
+    "",
+    `- Title: ${metadata.title ?? "Not specified"}`,
+    `- Version: ${metadata.version ?? "Not specified"}`,
+    `- Base path: ${metadata.basePath ? `\`${metadata.basePath}\`` : "Not specified"}`,
+    `- Default security: ${metadata.security
+      ? `${metadata.security.scheme}${metadata.security.name ? ` (\`${metadata.security.name}\`)` : ""}${
+          metadata.security.location ? ` in ${metadata.security.location}` : ""
+        }${metadata.security.scopes?.length
+          ? `; scopes ${metadata.security.scopes.map((scope) => `\`${scope}\``).join(", ")}`
+          : ""}`
+      : "None specified"}`,
     "",
     "## Required workflow",
     "",
@@ -313,7 +548,7 @@ export function generateApiContractsAgentSkill(
     "",
     contracts,
     "",
-    "## Canonical TypeScript response models",
+    "## Canonical TypeScript request and response models",
     "",
     renderResponseModels(modelGroups),
     "",
@@ -322,7 +557,7 @@ export function generateApiContractsAgentSkill(
     "- [ ] Every listed `METHOD + path` exists exactly once in the runtime router.",
     "- [ ] No unlisted route, request field, response field, or status behavior was invented.",
     "- [ ] Path parameter names match this document exactly.",
-    "- [ ] Each response model has one canonical TypeScript definition.",
+    "- [ ] Each request and response model has one canonical TypeScript definition.",
     "- [ ] Conflicts marked `BLOCKED` were resolved by the contract owner before implementation.",
     "- [ ] Focused route tests and the target repository's required gates pass.",
     "- [ ] The final report distinguishes implemented, reused, deduplicated, blocked, and unspecified work.",

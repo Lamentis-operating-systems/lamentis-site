@@ -265,6 +265,48 @@ function SameIdFormReplacementHarness() {
   );
 }
 
+function DynamicConstraintForm() {
+  const [isRequired, setIsRequired] = useState(false);
+
+  return (
+    <form id="dynamic-constraint-form">
+      <label>
+        Dynamic field
+        <input aria-label="Dynamic field" required={isRequired} />
+      </label>
+      <button
+        type="button"
+        onClick={() => setIsRequired((current) => !current)}
+      >
+        {isRequired ? "Make optional" : "Make required"}
+      </button>
+    </form>
+  );
+}
+
+function DynamicConstraintOverlayHarness() {
+  const { openOverlay } = useOverlay();
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        openOverlay({
+          body: <DynamicConstraintForm />,
+          closeLabel: "Close dynamic constraint overlay",
+          submitAction: {
+            formId: "dynamic-constraint-form",
+            label: "Save dynamic form",
+          },
+          title: "Dynamic constraint overlay",
+        });
+      }}
+    >
+      Open dynamic constraint overlay
+    </button>
+  );
+}
+
 function OverlayUnmountHarness({ onDismiss }: { onDismiss: () => void }) {
   const { openOverlay } = useOverlay();
 
@@ -285,10 +327,15 @@ function OverlayUnmountHarness({ onDismiss }: { onDismiss: () => void }) {
 }
 
 describe("empty pages", () => {
-  it("keeps an accessible main landmark without visible placeholder content", () => {
+  it("keeps a named main landmark and document heading without visible copy", () => {
     render(<EmptyPage label="Today" />);
     const main = screen.getByRole("main", { name: "Today" });
-    expect(main).toBeEmptyDOMElement();
+    expect(main).toHaveAttribute("id", "main-content");
+    expect(main).toHaveAttribute("tabindex", "-1");
+    expect(within(main).getByRole("heading", {
+      level: 1,
+      name: "Today",
+    })).toBeInTheDocument();
   });
 });
 
@@ -517,6 +564,31 @@ describe("overlay provider", () => {
     await waitFor(() => expect(replacementSave).toBeEnabled());
   });
 
+  it("rechecks bound form validity after a constraint attribute changes", async () => {
+    renderWithOverlay(<DynamicConstraintOverlayHarness />);
+    fireEvent.click(screen.getByRole("button", {
+      name: "Open dynamic constraint overlay",
+    }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Dynamic constraint overlay",
+    });
+    const save = within(dialog).getByRole("button", {
+      name: "Save dynamic form",
+    });
+    await waitFor(() => expect(save).toBeEnabled());
+
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Make required",
+    }));
+    await waitFor(() => expect(save).toBeDisabled());
+
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Make optional",
+    }));
+    await waitFor(() => expect(save).toBeEnabled());
+  });
+
   it("dismisses the active owner exactly once when the provider unmounts", async () => {
     const onDismiss = vi.fn();
     const view = renderWithOverlay(
@@ -650,7 +722,7 @@ describe("search page", () => {
   it("selects an HTTP method from an accessible overlay", async () => {
     renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
-    const trigger = screen.getByRole("button", { name: "HTTP method" });
+    const trigger = screen.getByRole("button", { name: "HTTP method GET" });
     expect(trigger).toHaveTextContent("GET");
     fireEvent.click(trigger);
     await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "true"));
@@ -710,6 +782,18 @@ describe("search page", () => {
     const responseDialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    const requestToggle = within(responseDialog).getByRole("button", {
+      name: "Request type: Expand",
+    });
+    const responseToggle = within(responseDialog).getByRole("button", {
+      name: "Response type: Expand",
+    });
+    expect(requestToggle).toHaveAttribute("aria-expanded", "false");
+    expect(responseToggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(responseDialog).queryByRole("textbox", {
+      name: "Response type",
+    })).not.toBeInTheDocument();
+    fireEvent.click(responseToggle);
     const responsePanel = responseDialog.querySelector("section");
     expect(responseDialog).toHaveAttribute("data-placement", "bottom-right");
     expect(responsePanel?.style.getPropertyValue("--overlay-width")).toBe(
@@ -718,11 +802,6 @@ describe("search page", () => {
     expect(responsePanel?.style.getPropertyValue("--overlay-height")).toBe(
       "var(--overlay-size-large)",
     );
-    await waitFor(() => {
-      expect(within(responseDialog).getByRole("textbox", {
-        name: "Response type",
-      })).toHaveFocus();
-    });
     expect(responseDialog.querySelector("header")).toHaveTextContent(
       "Add a data structure to this route",
     );
@@ -730,7 +809,7 @@ describe("search page", () => {
       name: "API endpoint path",
     });
     const routeMethod = within(routeContext).getByRole("button", {
-      name: "HTTP method",
+      name: "HTTP method POST",
     });
     const overlayPathInput = within(routeContext).getByRole("textbox", {
       name: "API endpoint path",
@@ -770,10 +849,9 @@ describe("search page", () => {
     })).toHaveAccessibleDescription(
       "Create a response type or use an existing one as an editable template.",
     );
-    expect(within(responseDialog).getByRole("heading", {
-      level: 3,
-      name: "Response type",
-    })).toBeInTheDocument();
+    expect(within(responseDialog).getByRole("button", {
+      name: "Response type: Collapse",
+    })).toHaveAttribute("aria-expanded", "true");
     expect(within(responseDialog).queryByRole("heading", {
       name: "Response properties",
     })).not.toBeInTheDocument();
@@ -790,7 +868,10 @@ describe("search page", () => {
     });
     expect(saveResponse.firstElementChild?.querySelector("svg")).not.toBeNull();
     expect(saveResponse.lastElementChild).toHaveTextContent("Save");
-    await waitFor(() => expect(saveResponse).toBeDisabled());
+    await waitFor(() => expect(saveResponse).toBeEnabled());
+    expect(within(responseDialog).getByRole("textbox", {
+      name: "Response type",
+    })).toHaveValue("PostResponse");
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Response type" }),
@@ -810,19 +891,19 @@ describe("search page", () => {
     await waitFor(() => expect(saveResponse).toBeDisabled());
 
     fireEvent.change(
-      screen.getByRole("textbox", { name: "Property name" }),
+      screen.getByRole("textbox", { name: /^Property name / }),
       { target: { value: "items" } },
     );
     await waitFor(() => expect(saveResponse).toBeEnabled());
 
     const propertyType = screen.getByRole("button", {
-      name: "Property type",
+      name: /^Property type 1 string$/,
     });
     const responseTypeInput = screen.getByRole("textbox", {
       name: "Response type",
     });
     const propertyNameInput = screen.getByRole("textbox", {
-      name: "Property name",
+      name: /^Property name /,
     });
     expect(within(responseDialog).queryByText(
       "Property name",
@@ -843,7 +924,7 @@ describe("search page", () => {
     );
     fireEvent.click(propertyType);
     const propertyTypeMenu = screen.getByRole("list", {
-      name: "Property type",
+      name: /^Property type 1$/,
     });
     expect(propertyType).toHaveAttribute("aria-expanded", "true");
     expect(
@@ -861,16 +942,16 @@ describe("search page", () => {
     expect(within(responseDialog).getByText("of")).toBeInTheDocument();
 
     const arrayItemType = screen.getByRole("button", {
-      name: "Array item type",
+      name: /^Array item type 1 string$/,
     });
     fireEvent.click(arrayItemType);
     fireEvent.click(
-      within(screen.getByRole("list", { name: "Array item type" }))
+      within(screen.getByRole("list", { name: /^Array item type 1$/ }))
         .getByRole("button", { name: "number" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Add property" }));
     const propertyNameInputs = screen.getAllByRole("textbox", {
-      name: "Property name",
+      name: /^Property name /,
     });
     fireEvent.change(propertyNameInputs[1], {
       target: { value: "status" },
@@ -883,8 +964,9 @@ describe("search page", () => {
     ).not.toBeInTheDocument();
     expect(within(responseDialog).getAllByText("of")).toHaveLength(1);
     const optionalToggle = screen.getAllByRole("button", {
-      name: "Optional",
+      name: /^Optional /,
     })[0];
+    expect(optionalToggle).toHaveAttribute("data-variant", "transparent");
     expect(optionalToggle).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(optionalToggle);
     expect(optionalToggle).toHaveAttribute("aria-pressed", "true");
@@ -923,7 +1005,7 @@ describe("search page", () => {
     });
 
     const savedMethod = screen.getByRole("button", {
-      name: "HTTP method /users/{uuid}/posts",
+      name: "HTTP method /users/{uuid}/posts PATCH",
     });
     expect(savedMethod).toHaveTextContent("PATCH");
     fireEvent.click(savedMethod);
@@ -1011,6 +1093,9 @@ describe("search page", () => {
     const editDialog = await screen.findByRole("dialog", {
       name: "Edit this route",
     });
+    fireEvent.click(within(editDialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     expect(editDialog.querySelector("header")).toHaveTextContent(
       "Edit this route",
     );
@@ -1025,7 +1110,7 @@ describe("search page", () => {
       "Update the fields returned in this response.",
     )).not.toBeInTheDocument();
     expect(within(editDialog).getByRole("button", {
-      name: "HTTP method",
+      name: "HTTP method PATCH",
     })).toHaveTextContent("PATCH");
     expect(within(editDialog).getByRole("textbox", {
       name: "API endpoint path",
@@ -1033,22 +1118,17 @@ describe("search page", () => {
     expect(within(editDialog).getByRole("textbox", {
       name: "Response type",
     })).toHaveValue("UserResponse");
-    await waitFor(() => {
-      expect(within(editDialog).getByRole("textbox", {
-        name: "Response type",
-      })).toHaveFocus();
-    });
     expect(within(editDialog).getAllByRole("textbox", {
-      name: "Property name",
+      name: /^Property name /,
     })).toHaveLength(2);
     expect(within(editDialog).getAllByRole("textbox", {
-      name: "Property name",
+      name: /^Property name /,
     })[0]).toHaveValue("items");
     expect(within(editDialog).getAllByRole("button", {
-      name: "Property type",
+      name: /^Property type /,
     })[0]).toHaveTextContent("array");
     expect(within(editDialog).getByRole("button", {
-      name: "Array item type",
+      name: /^Array item type 1 number$/,
     })).toHaveTextContent("number");
     await waitFor(() => expect(saveRoute).toBeEnabled());
     fireEvent.click(saveRoute);
@@ -1089,6 +1169,9 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Response type" }),
@@ -1102,7 +1185,7 @@ describe("search page", () => {
     );
 
     const propertyNames = within(dialog).getAllByRole("textbox", {
-      name: "Property name",
+      name: /^Property name /,
     });
     fireEvent.change(propertyNames[0]!, { target: { value: "id" } });
     fireEvent.change(propertyNames[1]!, { target: { value: "id" } });
@@ -1144,8 +1227,191 @@ describe("search page", () => {
     });
   });
 
+  it("authors request and paginated response contracts from collapsed sections", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="request-pagination-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{ id: 12, method: "POST", path: "/search" }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    const requestRegion = screen.getByRole("region", { name: "Request type" });
+    const responseRegion = screen.getByRole("region", { name: "Response type" });
+    fireEvent.click(within(requestRegion).getByRole("button", {
+      name: "Request type: Expand",
+    }));
+    fireEvent.change(within(requestRegion).getByRole("textbox", {
+      name: "Request type",
+    }), { target: { value: "SearchRequest" } });
+    fireEvent.click(within(requestRegion).getByRole("button", {
+      name: "Add property",
+    }));
+    fireEvent.change(within(requestRegion).getByRole("textbox", {
+      name: /^Property name /,
+    }), { target: { value: "query" } });
+
+    fireEvent.click(within(responseRegion).getByRole("button", {
+      name: "Response type: Expand",
+    }));
+    fireEvent.change(within(responseRegion).getByRole("textbox", {
+      name: "Response type",
+    }), { target: { value: "SearchResult" } });
+    const pagination = within(responseRegion).getByRole("button", {
+      name: "Paginated response",
+    });
+    expect(pagination).toHaveAttribute("data-variant", "transparent");
+    expect(pagination).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(pagination);
+    expect(pagination).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.submit(document.querySelector("#request-pagination-form")!);
+    expect(onSave).toHaveBeenCalledWith({
+      operationId: "createSearch",
+      paginated: true,
+      request: {
+        fields: [{ name: "query", optional: false, type: "string" }],
+        typeName: "SearchRequest",
+      },
+      requestBody: {
+        contentTypes: ["application/json"],
+        required: false,
+        schema: {
+          fields: [{ name: "query", optional: false, type: "string" }],
+          typeName: "SearchRequest",
+        },
+      },
+      response: { fields: [], typeName: "SearchResult" },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        paginated: true,
+        schema: { fields: [], typeName: "SearchResult" },
+        status: "201",
+      }],
+      title: "Create search",
+    }, { method: "POST", path: "/search" });
+  });
+
+  it("requires cookie credential names and only exposes actionable response removal", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="cookie-security-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{ id: 13, method: "HEAD", path: "/sessions" }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Route details: Expand",
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Parameter location 1 query",
+    }));
+    expect(within(screen.getByRole("list", {
+      name: "Parameter location 1",
+    })).getByRole("button", { name: "path" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Remove parameter 1",
+    }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Security scheme None",
+    }));
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "Security scheme",
+    })).getByRole("button", { name: "Cookie session" }));
+
+    const credentialName = screen.getByRole("textbox", {
+      name: "Credential name",
+    });
+    expect(credentialName).toBeRequired();
+    expect(screen.getByRole("button", {
+      name: "Credential location cookie",
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {
+      name: "Credential location cookie",
+    }));
+    const cookieLocationMenu = screen.getByRole("list", {
+      name: "Credential location",
+    });
+    expect(within(cookieLocationMenu).getAllByRole("button"))
+      .toHaveLength(1);
+    expect(within(cookieLocationMenu).queryByRole("button", { name: "query" }))
+      .not.toBeInTheDocument();
+    fireEvent.click(within(cookieLocationMenu).getByRole("button", {
+      name: "cookie",
+    }));
+    fireEvent.change(credentialName, { target: { value: "session_id" } });
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Response type: Expand",
+    }));
+    const optionalResponseType = screen.getByRole("textbox", {
+      name: "Response type",
+    });
+    expect(screen.queryByRole("button", {
+      name: "Paginated response",
+    })).not.toBeInTheDocument();
+    fireEvent.change(optionalResponseType, {
+      target: { value: "SessionMetadata" },
+    });
+    fireEvent.click(screen.getByRole("button", {
+      name: "Paginated response",
+    }));
+    fireEvent.change(optionalResponseType, { target: { value: "" } });
+    expect(screen.queryByRole("button", {
+      name: "Paginated response",
+    })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {
+      name: "Remove response 1",
+    })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add response" }));
+    expect(screen.getAllByRole("button", {
+      name: /Remove response /,
+    })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", {
+      name: "Remove response 2",
+    }));
+    expect(screen.queryByRole("button", {
+      name: "Remove response 1",
+    })).not.toBeInTheDocument();
+
+    fireEvent.submit(document.querySelector("#cookie-security-form")!);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      security: {
+        location: "cookie",
+        name: "session_id",
+        scheme: "cookie",
+      },
+    }), { method: "HEAD", path: "/sessions" });
+  });
+
   it("prefills reusable response types and requires a new name for schema edits", async () => {
-    const onSave = vi.fn(() => true);
+    const onSave = vi.fn(() => "saved" as const);
     const existingResponseSchemas = [
       {
         fields: [
@@ -1177,7 +1443,7 @@ describe("search page", () => {
       <>
         <ResponseSchemaEditor
           content={apiCreatorStudioProps.responseEditor}
-          existingResponseSchemas={existingResponseSchemas}
+          existingSchemas={existingResponseSchemas}
           formId="response-prefill-form"
           getRouteValidationReason={() => null}
           onRouteMethodChange={vi.fn()}
@@ -1202,6 +1468,10 @@ describe("search page", () => {
       </>,
     );
 
+    fireEvent.click(screen.getByRole("button", {
+      name: "Response type: Expand",
+    }));
+
     const form = document.querySelector<HTMLFormElement>(
       "#response-prefill-form",
     );
@@ -1210,7 +1480,7 @@ describe("search page", () => {
       name: "Response type",
     });
     const responseTypeTemplate = screen.getByRole("button", {
-      name: "Response type template",
+      name: "Response type template New",
     });
     expect(responseTypeTemplate).toHaveTextContent(
       "New",
@@ -1234,31 +1504,52 @@ describe("search page", () => {
     await waitFor(() => {
       expect(responseType).toHaveValue("UserResponse");
       expect(screen.getByRole("textbox", {
-        name: "Property name",
+        name: /^Property name /,
       })).toHaveValue("id");
       expect(form).toBeValid();
     });
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      fields: [
-        {
-          name: "id",
-          optional: false,
-          type: "string",
+      operationId: "listAccount",
+      paginated: undefined,
+      response: {
+        fields: [
+          {
+            name: "id",
+            optional: false,
+            type: "string",
+          },
+        ],
+        typeName: "UserResponse",
+      },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        schema: {
+          fields: [
+            {
+              name: "id",
+              optional: false,
+              type: "string",
+            },
+          ],
+          typeName: "UserResponse",
         },
-      ],
-      typeName: "UserResponse",
+        status: "200",
+      }],
+      title: "List accounts",
     }, {
       method: "GET",
       path: "/accounts",
     });
 
     const propertyType = screen.getByRole("button", {
-      name: "Property type",
+      name: /^Property type 1 string$/,
     });
     fireEvent.click(propertyType);
     fireEvent.click(
-      within(screen.getByRole("list", { name: "Property type" }))
+      within(screen.getByRole("list", { name: /^Property type 1$/ }))
         .getByRole("button", { name: "number" }),
     );
     await waitFor(() => {
@@ -1284,10 +1575,27 @@ describe("search page", () => {
 
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      fields: [
-        { name: "id", optional: false, type: "number" },
-      ],
-      typeName: "AccountResponse",
+      operationId: "listAccount",
+      paginated: undefined,
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "number" },
+        ],
+        typeName: "AccountResponse",
+      },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        schema: {
+          fields: [
+            { name: "id", optional: false, type: "number" },
+          ],
+          typeName: "AccountResponse",
+        },
+        status: "200",
+      }],
+      title: "List accounts",
     }, {
       method: "GET",
       path: "/accounts",
@@ -1295,22 +1603,22 @@ describe("search page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add property" }));
     const propertyNames = screen.getAllByRole("textbox", {
-      name: "Property name",
+      name: /^Property name /,
     });
     fireEvent.change(propertyNames[1]!, {
       target: { value: "profile" },
     });
     const propertyTypes = screen.getAllByRole("button", {
-      name: "Property type",
+      name: /^Property type /,
     });
     fireEvent.click(propertyTypes[1]!);
     fireEvent.click(
-      within(screen.getByRole("list", { name: "Property type" }))
+      within(screen.getByRole("list", { name: /^Property type 2$/ }))
         .getByRole("button", { name: "object" }),
     );
 
     const objectTypeTemplate = screen.getByRole("button", {
-      name: "Object type template",
+      name: /^Object type template 2 New$/,
     });
     expect(screen.queryByRole("button", {
       name: "Object definition: profile",
@@ -1321,7 +1629,9 @@ describe("search page", () => {
     await waitFor(() => expect(form).toBeValid());
     fireEvent.click(objectTypeTemplate);
     fireEvent.click(
-      within(screen.getByRole("list", { name: "Object type template" }))
+      within(screen.getByRole("list", {
+        name: /^Object type template 2$/,
+      }))
         .getByRole("button", { name: "UserResponse" }),
     );
 
@@ -1330,21 +1640,49 @@ describe("search page", () => {
     });
     fireEvent.submit(form);
     expect(onSave).toHaveBeenLastCalledWith({
-      fields: [
-        { name: "id", optional: false, type: "number" },
-        {
-          name: "profile",
-          objectSchema: {
-            fields: [
-              { name: "id", optional: false, type: "string" },
-            ],
-            typeName: "AccountResponseProfile",
+      operationId: "listAccount",
+      paginated: undefined,
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "number" },
+          {
+            name: "profile",
+            objectSchema: {
+              fields: [
+                { name: "id", optional: false, type: "string" },
+              ],
+              typeName: "AccountResponseProfile",
+            },
+            optional: false,
+            type: "object",
           },
-          optional: false,
-          type: "object",
+        ],
+        typeName: "AccountResponse",
+      },
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        headers: [],
+        schema: {
+          fields: [
+            { name: "id", optional: false, type: "number" },
+            {
+              name: "profile",
+              objectSchema: {
+                fields: [
+                  { name: "id", optional: false, type: "string" },
+                ],
+                typeName: "AccountResponseProfile",
+              },
+              optional: false,
+              type: "object",
+            },
+          ],
+          typeName: "AccountResponse",
         },
-      ],
-      typeName: "AccountResponse",
+        status: "200",
+      }],
+      title: "List accounts",
     }, {
       method: "GET",
       path: "/accounts",
@@ -1353,14 +1691,14 @@ describe("search page", () => {
     const objectPropertyRow = objectTypeTemplate.closest("li");
     expect(objectPropertyRow).not.toBeNull();
     expect(within(objectPropertyRow!).getByRole("button", {
-      name: "Add property",
+      name: /^Add property 2$/,
     })).toBeInTheDocument();
     const nestedProperties = objectPropertyRow?.querySelector<HTMLElement>(
       '[data-nested-properties="true"]',
     );
     expect(nestedProperties).not.toBeNull();
     const nestedPropertyName = within(nestedProperties!).getByRole("textbox", {
-      name: "Property name",
+      name: /^Property name 2\.1$/,
     });
     fireEvent.change(nestedPropertyName, {
       target: { value: "displayName" },
@@ -1390,6 +1728,9 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Response type" }),
@@ -1438,6 +1779,113 @@ describe("search page", () => {
     });
   });
 
+  it("preserves an edited response when a concurrent route identity wins", async () => {
+    window.localStorage.setItem(
+      apiRoutesStorage.key,
+      JSON.stringify([
+        {
+          id: 4,
+          method: "GET",
+          path: "/users",
+          response: {
+            fields: [],
+            typeName: "UserResponse",
+          },
+        },
+      ]),
+    );
+    renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
+
+    const routeActions = await screen.findByRole("button", {
+      name: "Route actions /users",
+    });
+    fireEvent.click(routeActions);
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "Route actions /users",
+    })).getByRole("button", { name: "Edit /users" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Edit this route",
+    });
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Response type: Expand",
+    }));
+    const routeEditor = within(dialog).getByRole("group", {
+      name: "API endpoint path",
+    });
+    const routeInput = within(routeEditor).getByRole("textbox", {
+      name: "API endpoint path",
+    });
+    fireEvent.change(routeInput, { target: { value: "accounts" } });
+    fireEvent.click(within(routeEditor).getByRole("button", {
+      name: "HTTP method GET",
+    }));
+    fireEvent.click(within(
+      within(dialog).getByRole("list", { name: "HTTP method" }),
+    ).getByRole("button", { name: "POST" }));
+    const form = dialog.querySelector("form");
+    if (!form) throw new Error("The edit form must be rendered.");
+
+    window.localStorage.setItem(
+      apiRoutesStorage.key,
+      JSON.stringify([
+        {
+          id: 4,
+          method: "GET",
+          path: "/users",
+          response: {
+            fields: [],
+            typeName: "UserResponse",
+          },
+        },
+        {
+          id: 9,
+          method: "POST",
+          path: "/accounts",
+        },
+      ]),
+    );
+    fireEvent(
+      window,
+      new StorageEvent("storage", { key: apiRoutesStorage.key }),
+    );
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(dialog).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", {
+        name: "Save",
+      })).toBeDisabled();
+      expect(routeInput).toHaveFocus();
+      expect(routeInput).toHaveAttribute("aria-invalid", "true");
+      expect(routeInput).toHaveAccessibleDescription(
+        "A leading slash is added automatically. "
+        + "This HTTP method and path already exist.",
+      );
+      expect(within(dialog).getByRole("textbox", {
+        name: "Response type",
+      })).toHaveValue("UserResponse");
+    });
+    expect(JSON.parse(
+      window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
+    )).toEqual([
+      {
+        id: 4,
+        method: "GET",
+        path: "/users",
+        response: {
+          fields: [],
+          typeName: "UserResponse",
+        },
+      },
+      {
+        id: 9,
+        method: "POST",
+        path: "/accounts",
+      },
+    ]);
+  });
+
   it("normalizes pasted routes to lowercase letters, numbers, braces, and slashes", () => {
     renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
@@ -1471,7 +1919,7 @@ describe("search page", () => {
     expect(storedRoute).toHaveTextContent("/orders/{orderid}");
 
     const methodTrigger = screen.getByRole("button", {
-      name: "HTTP method /orders/{orderid}",
+      name: "HTTP method /orders/{orderid} PATCH",
     });
     fireEvent.click(methodTrigger);
     fireEvent.click(
@@ -1589,7 +2037,7 @@ describe("search page", () => {
 
       const route = screen.getByRole("listitem");
       fireEvent.click(within(route).getByRole("button", {
-        name: "HTTP method /orders/{orderid}",
+        name: "HTTP method /orders/{orderid} GET",
       }));
       fireEvent.click(within(route).getByRole("button", { name: "POST" }));
 
@@ -1641,7 +2089,7 @@ describe("search page", () => {
     );
 
     const newRouteMethod = screen.getByRole("button", {
-      name: "HTTP method",
+      name: "HTTP method GET",
     });
     fireEvent.click(newRouteMethod);
     fireEvent.click(within(screen.getByRole("list", {
@@ -1668,7 +2116,7 @@ describe("search page", () => {
     const [getRoute] = screen.getAllByRole("listitem");
     if (!getRoute) throw new Error("The GET route must exist.");
     fireEvent.click(within(getRoute).getByRole("button", {
-      name: "HTTP method /users",
+      name: "HTTP method /users GET",
     }));
     expect(within(getRoute).getByRole("button", {
       name: "POST",
@@ -1923,13 +2371,17 @@ describe("locale switcher", () => {
       <LocaleSwitcher {...getLocaleSwitcherModel("en")} />,
     );
 
-    const trigger = screen.getByRole("button", { name: "Language" });
+    const trigger = screen.getByRole("button", { name: "Language English" });
     fireEvent.click(trigger);
     const englishLink = screen.getByRole("link", { name: "English" });
     const germanLink = screen.getByRole("link", { name: "Deutsch" });
     expect(trigger.getAttribute("aria-controls")).toBe(germanLink.closest("ul")?.id);
     expect(englishLink).toHaveAttribute("aria-current", "page");
+    expect(englishLink).toHaveAttribute("hreflang", "en");
+    expect(englishLink).toHaveAttribute("lang", "en");
     expect(englishLink.querySelector("svg")).toBeInTheDocument();
+    expect(germanLink).toHaveAttribute("hreflang", "de");
+    expect(germanLink).toHaveAttribute("lang", "de");
     expect(germanLink.querySelector("svg")).not.toBeInTheDocument();
     expect(germanLink).toHaveAttribute(
       "href",

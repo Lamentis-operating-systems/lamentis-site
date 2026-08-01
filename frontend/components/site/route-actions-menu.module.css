@@ -9,23 +9,10 @@
 }
 
 .trigger {
-  border: var(--control-border-width) solid transparent;
+  --icon-button-foreground: var(--color-text-muted);
+
+  border: 0;
   border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--color-text-muted);
-  transition-property: background-color, border-color, color, transform;
-}
-
-.trigger:hover {
-  background: var(--color-field-focus-background);
-  color: var(--color-text);
-  transform: var(--transform-button-hover);
-}
-
-.trigger[aria-expanded="true"] {
-  border-color: var(--color-border);
-  background: var(--color-field-menu-background);
-  color: var(--color-text);
 }
 
 .menu {
