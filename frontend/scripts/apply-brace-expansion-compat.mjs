@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const packagePath = require.resolve("brace-expansion/package.json");
 const entryPath = require.resolve("brace-expansion");
 const packageMetadata = JSON.parse(readFileSync(packagePath, "utf8"));
-const expectedVersion = "5.0.8";
+const expectedVersion = "5.0.9";
 const patchMarker = "// Lamentis CommonJS compatibility export";
 
 if (packageMetadata.version !== expectedVersion) {
