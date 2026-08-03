@@ -1,0 +1,22 @@
+.textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: calc(var(--control-height-large) * 2);
+  resize: vertical;
+  border: 0;
+  padding-block: var(--space-4);
+  outline: none;
+  background: transparent;
+  color: var(--control-foreground, var(--color-text));
+  caret-color: var(--control-caret, var(--color-text));
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-body);
+  tab-size: 2;
+}
+
+.textarea::placeholder {
+  color: var(--control-placeholder);
+  opacity: 1;
+}

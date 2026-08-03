@@ -15,15 +15,6 @@ import {
   type RouteRef,
   type SiteRouteId,
 } from "./routes";
-import type { ApiResponseFieldType } from "./api-response-schema";
-import type {
-  ApiCachePolicy,
-  ApiIdempotencyPolicy,
-  ApiParameterLocation,
-  ApiParameterType,
-  ApiQueryArraySerialization,
-  ApiSecurityScheme,
-} from "./api-route";
 
 export type RouteCopy = {
   title: string;
@@ -37,112 +28,22 @@ export type SearchContent = {
 };
 
 export type ResponseSchemaEditorContent = {
-  addPropertyLabel: string;
-  advancedDescription: string;
-  advancedLabel: string;
-  arrayConnectorLabel: string;
-  arrayItemTypeLabel: string;
-  collapseSectionLabel: string;
-  duplicatePropertyError: string;
-  expandSectionLabel: string;
-  identifierHint: string;
-  incompleteSchemaError: string;
-  newSchemaTypeLabel: string;
-  newResponseTypeLabel: string;
-  objectTypeTemplateLabel: string;
-  optionalLabel: string;
-  paginationDescription: string;
-  paginationLabel: string;
-  propertiesLabel: string;
-  propertiesLabelByKind: Record<"request" | "response", string>;
-  propertyNameLabel: string;
-  propertyNamePlaceholder: string;
-  propertyTypeLabel: string;
-  removePropertyLabel: string;
   requestBodyDescription: string;
   requestBodyLabel: string;
   responseSectionDescription: string;
   responseSectionLabel: string;
-  responseTypeConflictError: string;
-  responseTypeDescription: string;
   responseTypeLabel: string;
-  responseTypePlaceholder: string;
-  responseTypeTemplateLabel: string;
-  responseOptionsDescription: string;
-  responseOptionsLabel: string;
-  schemaSectionsLabel: string;
   routeContract: {
-    addParameterLabel: string;
-    addResponseHeaderLabel: string;
-    addResponseLabel: string;
-    allowedValuesLabel: string;
-    authLocationLabel: string;
-    authNameLabel: string;
-    cacheLabel: string;
-    cacheOptions: Record<ApiCachePolicy, string>;
-    contentTypesHint: string;
-    contentTypesLabel: string;
-    defaultValueLabel: string;
     defaultResponseDescription: string;
     duplicateResponseStatusError: string;
-    deprecatedLabel: string;
-    descriptionLabel: string;
-    detailsDescription: string;
-    detailsLabel: string;
-    exampleHint: string;
-    exampleLabel: string;
     requestExampleLabel: string;
     responseExampleLabel: string;
-    formatLabel: string;
-    idempotencyLabel: string;
-    idempotencyOptions: Record<ApiIdempotencyPolicy, string>;
     invalidContractError: string;
     invalidExampleError: string;
-    maximumLabel: string;
-    maxLengthLabel: string;
-    minimumLabel: string;
-    minLengthLabel: string;
-    operationIdLabel: string;
-    parameterDescriptionLabel: string;
-    parameterLocationLabel: string;
-    parameterLocationOptions: Record<ApiParameterLocation, string>;
-    parameterNameLabel: string;
-    parameterSerializationLabel: string;
-    parameterSerializationOptions: Record<ApiQueryArraySerialization, string>;
-    parameterTypeLabel: string;
-    parameterTypeOptions: Record<ApiParameterType, string>;
-    parametersDescription: string;
-    parametersLabel: string;
-    patternLabel: string;
-    rateLimitLabel: string;
-    removeParameterLabel: string;
-    removeResponseHeaderLabel: string;
-    removeResponseLabel: string;
-    requestRequiredLabel: string;
-    requiredLabel: string;
-    responseDescriptionLabel: string;
-    responseHeaderDescriptionLabel: string;
-    responseHeaderNameLabel: string;
-    responseHeadersLabel: string;
     responseStatusLabel: string;
-    securityBehaviorDescription: string;
-    securityBehaviorLabel: string;
-    securityNameHint: string;
-    securitySchemeLabel: string;
-    securitySchemeOptions: Record<ApiSecurityScheme, string>;
-    securityScopesLabel: string;
-    tagsHint: string;
-    tagsLabel: string;
-    titleLabel: string;
   };
-  schemaTypeConflictError: string;
   routeLabel: string;
   saveLabel: string;
-  typeDescriptionByKind: Record<"request" | "response", string>;
-  typeLabelByKind: Record<"request" | "response", string>;
-  typeOptions: Record<ApiResponseFieldType, string>;
-  typePlaceholderByKind: Record<"request" | "response", string>;
-  typeTemplateLabelByKind: Record<"request" | "response", string>;
 };
 
 export type ApiCreatorStudioContent = SearchContent & {
@@ -160,7 +61,6 @@ export type ApiCreatorStudioContent = SearchContent & {
   copyRouteLabel: string;
   deleteRouteLabel: string;
   duplicatePathError: string;
-  editResponseTypeDescription: string;
   editRouteLabel: string;
   editRouteTitle: string;
   invalidPathError: string;
@@ -254,8 +154,6 @@ export const contentByLocale = {
       copyRouteLabel: "Copy",
       deleteRouteLabel: "Delete",
       duplicatePathError: "This HTTP method and path already exist.",
-      editResponseTypeDescription:
-        "Update this response type or use an existing one as an editable template.",
       editRouteLabel: "Edit",
       editRouteTitle: "Edit this route",
       heading: "Create API Contracts",
@@ -264,186 +162,28 @@ export const contentByLocale = {
       methodSelectorLabel: "HTTP method",
       pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
-        addPropertyLabel: "Add property",
-        advancedDescription:
-          "Configure API and operation metadata, field constraints, additional responses, authentication, and runtime behavior.",
-        advancedLabel: "Advanced settings",
-        arrayConnectorLabel: "of",
-        arrayItemTypeLabel: "Array item type",
-        collapseSectionLabel: "Collapse",
-        duplicatePropertyError: "Property names must be unique.",
-        expandSectionLabel: "Expand",
-        identifierHint: "Use a valid TypeScript identifier.",
-        incompleteSchemaError:
-          "Complete every object type and property before saving.",
-        newSchemaTypeLabel: "New",
-        newResponseTypeLabel: "New",
-        objectTypeTemplateLabel: "Object type template",
-        optionalLabel: "Optional",
-        paginationDescription:
-          "Wrap the response in a paginated result with items, totalHits, page, limit, and totalPages.",
-        paginationLabel: "Paginated response",
-        propertiesLabel: "Response properties",
-        propertiesLabelByKind: {
-          request: "Request properties",
-          response: "Response properties",
-        },
-        propertyNameLabel: "Property name",
-        propertyNamePlaceholder: "propertyName",
-        propertyTypeLabel: "Property type",
-        removePropertyLabel: "Remove property",
         requestBodyDescription:
-          "Define the request body, its media types, example, and typed schema.",
-        requestBodyLabel: "Request body",
+          "Paste one JSON example. The request type is inferred automatically.",
+        requestBodyLabel: "Request JSON",
         responseSectionDescription:
-          "Define the primary response status, media types, example, and typed schema.",
-        responseSectionLabel: "Response",
-        responseTypeConflictError:
-          "This response type already uses a different schema.",
-        schemaTypeConflictError:
-          "This type name already uses a different schema.",
-        responseTypeDescription:
-          "Create a response type or use an existing one as an editable template.",
+          "Paste one JSON example. The response type is inferred automatically.",
+        responseSectionLabel: "Response JSON",
         responseTypeLabel: "Response type",
-        responseTypePlaceholder: "Name your response type",
-        responseTypeTemplateLabel: "Response type template",
-        responseOptionsDescription:
-          "Configure additional responses and response headers.",
-        responseOptionsLabel: "Response options",
-        schemaSectionsLabel: "Request and response",
         routeContract: {
-          addParameterLabel: "Add parameter",
-          addResponseHeaderLabel: "Add response header",
-          addResponseLabel: "Add response",
-          allowedValuesLabel: "Allowed values",
-          authLocationLabel: "Credential location",
-          authNameLabel: "Credential name",
-          cacheLabel: "Cache policy",
-          cacheOptions: {
-            unspecified: "Unspecified",
-            "no-store": "No store",
-            private: "Private",
-            public: "Public",
-          },
-          contentTypesHint: "Comma-separated media types",
-          contentTypesLabel: "Content types",
-          defaultValueLabel: "Default value",
           defaultResponseDescription: "Successful response",
           duplicateResponseStatusError:
             "Response status codes must be unique.",
-          deprecatedLabel: "Deprecated route",
-          descriptionLabel: "Description",
-          detailsDescription:
-            "Document the operation with editable suggestions derived from its method and path.",
-          detailsLabel: "Route details",
-          exampleHint: "Valid JSON example",
-          exampleLabel: "Example",
-          requestExampleLabel: "Request example",
-          responseExampleLabel: "Response example",
-          formatLabel: "Format",
-          idempotencyLabel: "Idempotency",
-          idempotencyOptions: {
-            unspecified: "Unspecified",
-            idempotent: "Idempotent",
-            "non-idempotent": "Non-idempotent",
-            "idempotency-key": "Requires idempotency key",
-          },
+          requestExampleLabel: "Request JSON",
+          responseExampleLabel: "Response JSON",
           invalidContractError:
-            "Complete every route contract field with a valid value before saving.",
-          invalidExampleError: "Examples must contain valid JSON.",
-          maximumLabel: "Maximum",
-          maxLengthLabel: "Maximum length",
-          minimumLabel: "Minimum",
-          minLengthLabel: "Minimum length",
-          operationIdLabel: "Operation ID",
-          parameterDescriptionLabel: "Parameter description",
-          parameterLocationLabel: "Parameter location",
-          parameterLocationOptions: {
-            path: "path",
-            query: "query",
-            header: "header",
-            cookie: "cookie",
-          },
-          parameterNameLabel: "Parameter name",
-          parameterSerializationLabel: "Array serialization",
-          parameterSerializationOptions: {
-            repeat: "Repeated (?tag=a&tag=b)",
-            comma: "Comma separated (?tag=a,b)",
-            space: "Space separated (?tag=a b)",
-            pipe: "Pipe separated (?tag=a|b)",
-          },
-          parameterTypeLabel: "Parameter type",
-          parameterTypeOptions: {
-            string: "string",
-            number: "number",
-            integer: "integer",
-            boolean: "boolean",
-            array: "array",
-          },
-          parametersDescription:
-            "Path parameters are synchronized from the route. Add query, header, or cookie parameters explicitly.",
-          parametersLabel: "Parameters",
-          patternLabel: "Pattern",
-          rateLimitLabel: "Rate limit",
-          removeParameterLabel: "Remove parameter",
-          removeResponseHeaderLabel: "Remove response header",
-          removeResponseLabel: "Remove response",
-          requestRequiredLabel: "Request body required",
-          requiredLabel: "Required",
-          responseDescriptionLabel: "Response description",
-          responseHeaderDescriptionLabel: "Header description",
-          responseHeaderNameLabel: "Response header name",
-          responseHeadersLabel: "Response headers",
+            "This route conflicts with an existing generated type. Change the path or JSON shape.",
+          invalidExampleError: "Enter valid JSON before saving.",
           responseStatusLabel: "HTTP status",
-          securityBehaviorDescription:
-            "Define authentication and transport-independent operational behavior.",
-          securityBehaviorLabel: "Security and behavior",
-          securityNameHint: "Header, query parameter, or cookie name",
-          securitySchemeLabel: "Security scheme",
-          securitySchemeOptions: {
-            none: "None",
-            bearer: "Bearer token",
-            basic: "HTTP Basic",
-            apiKey: "API key",
-            cookie: "Cookie session",
-            oauth2: "OAuth 2",
-          },
-          securityScopesLabel: "OAuth scopes",
-          tagsHint: "Comma-separated tags",
-          tagsLabel: "Tags",
-          titleLabel: "Title",
         },
         routeLabel: "Route",
         saveLabel: "Save",
-        typeDescriptionByKind: {
-          request:
-            "Create a request type or use an existing one as an editable template.",
-          response:
-            "Create a response type or use an existing one as an editable template.",
-        },
-        typeLabelByKind: {
-          request: "Request type",
-          response: "Response type",
-        },
-        typeOptions: {
-          string: "string",
-          number: "number",
-          boolean: "boolean",
-          object: "object",
-          array: "array",
-          null: "null",
-          unknown: "unknown",
-        },
-        typePlaceholderByKind: {
-          request: "Name your request type",
-          response: "Name your response type",
-        },
-        typeTemplateLabelByKind: {
-          request: "Request type template",
-          response: "Response type template",
-        },
       },
-      responseOverlayTitle: "Add a data structure to this route",
+      responseOverlayTitle: "Define this API route",
       routeActionsLabel: "Route actions",
       routeListLabel: "API routes",
       storageErrorLabel:
@@ -531,8 +271,6 @@ export const contentByLocale = {
       deleteRouteLabel: "Löschen",
       duplicatePathError:
         "Diese HTTP-Methode und dieser Pfad sind bereits vorhanden.",
-      editResponseTypeDescription:
-        "Bearbeite diesen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
       editRouteLabel: "Bearbeiten",
       editRouteTitle: "Diese Route bearbeiten",
       heading: "API-Verträge erstellen",
@@ -542,187 +280,28 @@ export const contentByLocale = {
       pathPrefixHint:
         "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
-        addPropertyLabel: "Eigenschaft hinzufügen",
-        advancedDescription:
-          "Konfiguriere API- und Operationsmetadaten, Feldbedingungen, zusätzliche Antworten, Authentifizierung und Laufzeitverhalten.",
-        advancedLabel: "Erweiterte Einstellungen",
-        arrayConnectorLabel: "aus",
-        arrayItemTypeLabel: "Array-Elementtyp",
-        collapseSectionLabel: "Einklappen",
-        duplicatePropertyError: "Eigenschaftsnamen müssen eindeutig sein.",
-        expandSectionLabel: "Ausklappen",
-        identifierHint: "Eine gültige TypeScript-Bezeichnung verwenden.",
-        incompleteSchemaError:
-          "Vervollständige jeden Objekttyp und jede Eigenschaft vor dem Speichern.",
-        newSchemaTypeLabel: "Neu",
-        newResponseTypeLabel: "Neu",
-        objectTypeTemplateLabel: "Objekttyp-Vorlage",
-        optionalLabel: "Optionales Feld",
-        paginationDescription:
-          "Hülle die Antwort in ein paginiertes Ergebnis mit items, totalHits, page, limit und totalPages.",
-        paginationLabel: "Paginierte Antwort",
-        propertiesLabel: "Antwort-Eigenschaften",
-        propertiesLabelByKind: {
-          request: "Anfrage-Eigenschaften",
-          response: "Antwort-Eigenschaften",
-        },
-        propertyNameLabel: "Eigenschaftsname",
-        propertyNamePlaceholder: "eigenschaftName",
-        propertyTypeLabel: "Eigenschaftstyp",
-        removePropertyLabel: "Eigenschaft entfernen",
         requestBodyDescription:
-          "Definiere Anfragekörper, Medientypen, Beispiel und typisiertes Schema.",
-        requestBodyLabel: "Anfragekörper",
+          "Füge ein JSON-Beispiel ein. Der Anfragetyp wird automatisch abgeleitet.",
+        requestBodyLabel: "Request-JSON",
         responseSectionDescription:
-          "Definiere Status, Medientypen, Beispiel und typisiertes Schema der primären Antwort.",
-        responseSectionLabel: "Antwort",
-        responseTypeConflictError:
-          "Dieser Antworttyp verwendet bereits ein anderes Schema.",
-        schemaTypeConflictError:
-          "Dieser Typname verwendet bereits ein anderes Schema.",
-        responseTypeDescription:
-          "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
+          "Füge ein JSON-Beispiel ein. Der Antworttyp wird automatisch abgeleitet.",
+        responseSectionLabel: "Response-JSON",
         responseTypeLabel: "Antworttyp",
-        responseTypePlaceholder: "Benenne deinen Antworttyp",
-        responseTypeTemplateLabel: "Antworttyp-Vorlage",
-        responseOptionsDescription:
-          "Konfiguriere zusätzliche Antworten und Antwort-Header.",
-        responseOptionsLabel: "Antwortoptionen",
-        schemaSectionsLabel: "Anfrage und Antwort",
         routeContract: {
-          addParameterLabel: "Parameter hinzufügen",
-          addResponseHeaderLabel: "Antwort-Header hinzufügen",
-          addResponseLabel: "Antwort hinzufügen",
-          allowedValuesLabel: "Erlaubte Werte",
-          authLocationLabel: "Zugangsdaten-Ort",
-          authNameLabel: "Zugangsdaten-Name",
-          cacheLabel: "Cache-Richtlinie",
-          cacheOptions: {
-            unspecified: "Nicht angegeben",
-            "no-store": "Nicht speichern",
-            private: "Privat",
-            public: "Öffentlich",
-          },
-          contentTypesHint: "Kommagetrennte Medientypen",
-          contentTypesLabel: "Inhaltstypen",
-          defaultValueLabel: "Standardwert",
           defaultResponseDescription: "Erfolgreiche Antwort",
           duplicateResponseStatusError:
             "HTTP-Statuscodes der Antworten müssen eindeutig sein.",
-          deprecatedLabel: "Veraltete Route",
-          descriptionLabel: "Beschreibung",
-          detailsDescription:
-            "Dokumentiere die Operation mit bearbeitbaren Vorschlägen aus Methode und Pfad.",
-          detailsLabel: "Routendetails",
-          exampleHint: "Gültiges JSON-Beispiel",
-          exampleLabel: "Beispiel",
-          requestExampleLabel: "Request-Beispiel",
-          responseExampleLabel: "Response-Beispiel",
-          formatLabel: "Format",
-          idempotencyLabel: "Idempotenz",
-          idempotencyOptions: {
-            unspecified: "Nicht angegeben",
-            idempotent: "Idempotent",
-            "non-idempotent": "Nicht idempotent",
-            "idempotency-key": "Idempotenzschlüssel erforderlich",
-          },
+          requestExampleLabel: "Request-JSON",
+          responseExampleLabel: "Response-JSON",
           invalidContractError:
-            "Vervollständige vor dem Speichern alle Felder des Routenvertrags mit gültigen Werten.",
-          invalidExampleError: "Beispiele müssen gültiges JSON enthalten.",
-          maximumLabel: "Maximum",
-          maxLengthLabel: "Maximale Länge",
-          minimumLabel: "Minimum",
-          minLengthLabel: "Minimale Länge",
-          operationIdLabel: "Operations-ID",
-          parameterDescriptionLabel: "Parameterbeschreibung",
-          parameterLocationLabel: "Parameterort",
-          parameterLocationOptions: {
-            path: "Pfad",
-            query: "Query",
-            header: "Header",
-            cookie: "Cookie",
-          },
-          parameterNameLabel: "Parametername",
-          parameterSerializationLabel: "Array-Serialisierung",
-          parameterSerializationOptions: {
-            repeat: "Wiederholt (?tag=a&tag=b)",
-            comma: "Kommagetrennt (?tag=a,b)",
-            space: "Leerzeichengetrennt (?tag=a b)",
-            pipe: "Pipe-getrennt (?tag=a|b)",
-          },
-          parameterTypeLabel: "Parametertyp",
-          parameterTypeOptions: {
-            string: "string",
-            number: "number",
-            integer: "integer",
-            boolean: "boolean",
-            array: "array",
-          },
-          parametersDescription:
-            "Pfadparameter werden mit der Route synchronisiert. Query-, Header- und Cookie-Parameter werden explizit ergänzt.",
-          parametersLabel: "Parameter",
-          patternLabel: "Muster",
-          rateLimitLabel: "Ratenbegrenzung",
-          removeParameterLabel: "Parameter entfernen",
-          removeResponseHeaderLabel: "Antwort-Header entfernen",
-          removeResponseLabel: "Antwort entfernen",
-          requestRequiredLabel: "Anfragekörper erforderlich",
-          requiredLabel: "Erforderlich",
-          responseDescriptionLabel: "Antwortbeschreibung",
-          responseHeaderDescriptionLabel: "Headerbeschreibung",
-          responseHeaderNameLabel: "Antwort-Headername",
-          responseHeadersLabel: "Antwort-Header",
+            "Diese Route kollidiert mit einem bestehenden automatisch erzeugten Typ. Ändere Pfad oder JSON-Struktur.",
+          invalidExampleError: "Gib vor dem Speichern gültiges JSON ein.",
           responseStatusLabel: "HTTP-Status",
-          securityBehaviorDescription:
-            "Definiere Authentifizierung und transportunabhängiges Betriebsverhalten.",
-          securityBehaviorLabel: "Sicherheit und Verhalten",
-          securityNameHint: "Header-, Query-Parameter- oder Cookie-Name",
-          securitySchemeLabel: "Sicherheitsschema",
-          securitySchemeOptions: {
-            none: "Keine",
-            bearer: "Bearer-Token",
-            basic: "HTTP Basic",
-            apiKey: "API-Schlüssel",
-            cookie: "Cookie-Sitzung",
-            oauth2: "OAuth 2",
-          },
-          securityScopesLabel: "OAuth-Bereiche",
-          tagsHint: "Kommagetrennte Tags",
-          tagsLabel: "Tags",
-          titleLabel: "Titel",
         },
         routeLabel: "Route",
         saveLabel: "Speichern",
-        typeDescriptionByKind: {
-          request:
-            "Erstelle einen Anfragetyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
-          response:
-            "Erstelle einen Antworttyp oder verwende einen vorhandenen als bearbeitbare Vorlage.",
-        },
-        typeLabelByKind: {
-          request: "Anfragetyp",
-          response: "Antworttyp",
-        },
-        typeOptions: {
-          string: "string",
-          number: "number",
-          boolean: "boolean",
-          object: "object",
-          array: "array",
-          null: "null",
-          unknown: "unknown",
-        },
-        typePlaceholderByKind: {
-          request: "Benenne deinen Anfragetyp",
-          response: "Benenne deinen Antworttyp",
-        },
-        typeTemplateLabelByKind: {
-          request: "Anfragetyp-Vorlage",
-          response: "Antworttyp-Vorlage",
-        },
       },
-      responseOverlayTitle:
-        "Datenstruktur zu dieser Route hinzufügen",
+      responseOverlayTitle: "Diese API-Route definieren",
       routeActionsLabel: "Routenaktionen",
       routeListLabel: "API-Routen",
       storageErrorLabel:

@@ -90,15 +90,24 @@ for (const colorScheme of colorSchemes) {
       locale: "en",
       routeId: "apiCreatorStudio",
     }));
+    await page.getByRole("button", { name: "HTTP method GET" }).click();
+    await page.getByRole("list", { name: "HTTP method" })
+      .getByRole("button", { name: "POST" }).click();
     const routeInput = page.getByRole("textbox", {
       name: "API endpoint path",
     });
     await routeInput.fill("accounts/{accountid}");
     await routeInput.press("Enter");
     const responseDialog = page.getByRole("dialog", {
-      name: "Add a data structure to this route",
+      name: "Define this API route",
     });
     await expect(responseDialog).toBeVisible();
+    await responseDialog.getByRole("textbox", { name: "Request JSON" }).fill(
+      '{"name":"Ada"}',
+    );
+    await responseDialog.getByRole("textbox", { name: "Response JSON" }).fill(
+      '{"id":"user_123","name":"Ada"}',
+    );
     await settlePage(page);
 
     expect(pageErrors).toEqual([]);

@@ -21,7 +21,7 @@ async function openResponseOverlay(page: Page) {
   await routeInput.press("Enter");
 
   const dialog = page.getByRole("dialog", {
-    name: "Add a data structure to this route",
+    name: "Define this API route",
   });
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveAttribute("data-resizable", "true");
@@ -126,14 +126,11 @@ test("all overlay edges and corners preserve their opposite axes", async ({
     }
   }
 
-  const responseName = dialog.getByRole("textbox", {
-    name: "Response type",
+  const responseJson = dialog.getByRole("textbox", {
+    name: "Response JSON",
   });
-  await dialog.getByRole("button", {
-    name: "Advanced settings: Expand",
-  }).click();
-  await responseName.fill("ResizableResponse");
-  await expect(responseName).toHaveValue("ResizableResponse");
+  await responseJson.fill('{"resizable":true}');
+  await expect(responseJson).toHaveValue('{"resizable":true}');
   await dialog.getByRole("button", {
     name: "Close the response editor",
   }).click();
@@ -242,7 +239,7 @@ test("touch/mobile keeps the existing non-resizable overlay behavior", async ({
       name: "API endpoint path",
     }).press("Enter");
     const dialog = page.getByRole("dialog", {
-      name: "Add a data structure to this route",
+      name: "Define this API route",
     });
     await expect(dialog).toBeVisible();
     await expect(dialog).not.toHaveAttribute("data-resizable", "true");

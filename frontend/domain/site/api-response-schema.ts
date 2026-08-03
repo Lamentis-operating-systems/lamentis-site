@@ -1,4 +1,4 @@
-export const apiResponseFieldTypes = [
+const apiResponseFieldTypes = [
   "string",
   "number",
   "boolean",
@@ -8,7 +8,7 @@ export const apiResponseFieldTypes = [
   "unknown",
 ] as const;
 
-export const apiResponseArrayItemTypes = [
+const apiResponseArrayItemTypes = [
   "string",
   "number",
   "boolean",
@@ -42,6 +42,113 @@ export type ApiResponseSchema = {
   fields: ApiResponseField[];
   typeName: string;
 };
+
+function jsonValueType(value: unknown): ApiResponseFieldType {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "string") return "string";
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "object") return "object";
+  return "unknown";
+}
+
+function nestedTypeSegment(value: string): string {
+  const segment = value
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+  return segment && !/^[0-9]/.test(segment) ? segment : `Field${segment}`;
+}
+
+function inferJsonField(
+  name: string,
+  values: readonly unknown[],
+  parentTypeName: string,
+  optional: boolean,
+): ApiResponseField {
+  const valueTypes = new Set(values.map(jsonValueType));
+  const type = valueTypes.size === 1
+    ? [...valueTypes][0] ?? "unknown"
+    : "unknown";
+  const nestedTypeName = `${parentTypeName}${nestedTypeSegment(name)}`;
+
+  if (type === "object") {
+    const objects = values.filter((value): value is Record<string, unknown> => (
+      typeof value === "object" && value !== null && !Array.isArray(value)
+    ));
+    return {
+      name,
+      objectSchema: inferJsonObjectSchema(nestedTypeName, objects),
+      optional,
+      type,
+    };
+  }
+
+  if (type === "array") {
+    const items = values.flatMap((value) => Array.isArray(value) ? value : []);
+    const itemTypes = new Set(items.map(jsonValueType));
+    const inferredItemType = itemTypes.size === 1
+      ? ([...itemTypes][0] ?? "unknown")
+      : "unknown";
+    const arrayItemType = inferredItemType === "array"
+      ? "unknown"
+      : inferredItemType;
+    const objectItems = arrayItemType === "object"
+      ? items.filter((value): value is Record<string, unknown> => (
+          typeof value === "object" && value !== null && !Array.isArray(value)
+        ))
+      : [];
+    return {
+      arrayItemType,
+      name,
+      ...(arrayItemType === "object"
+        ? { objectSchema: inferJsonObjectSchema(nestedTypeName, objectItems) }
+        : {}),
+      optional,
+      type,
+    };
+  }
+
+  return { name, optional, type };
+}
+
+function inferJsonObjectSchema(
+  typeName: string,
+  objects: readonly Record<string, unknown>[],
+): ApiResponseSchema {
+  const propertyNames = [...new Set(objects.flatMap(Object.keys))];
+  return {
+    fields: propertyNames.map((name) => {
+      const values = objects.flatMap((object) => (
+        Object.hasOwn(object, name) ? [object[name]] : []
+      ));
+      return inferJsonField(
+        name,
+        values,
+        typeName,
+        values.length < objects.length,
+      );
+    }),
+    typeName,
+  };
+}
+
+export function inferApiResponseSchemaFromJson(
+  typeName: string,
+  value: unknown,
+): ApiResponseSchema | undefined {
+  if (
+    typeof value !== "object"
+    || value === null
+    || Array.isArray(value)
+    || !isValidTypeScriptTypeName(typeName)
+  ) {
+    return undefined;
+  }
+  return inferJsonObjectSchema(typeName, [value as Record<string, unknown>]);
+}
 
 export const typeScriptIdentifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const reservedTypeScriptDeclarationNames = new Set([
@@ -370,7 +477,7 @@ function isValidApiResponseSchemaValue(
       typeof field.name !== "string"
       || typeof field.optional !== "boolean"
       || !isApiResponseFieldType(field.type)
-      || !typeScriptIdentifierPattern.test(field.name)
+      || !field.name
       || propertyNames.has(field.name)
       || (
         field.type === "array"

@@ -24,7 +24,7 @@ export type ResponseDraftField = {
   type: ApiResponseFieldType;
 };
 
-export type ResponseDraftObjectSchema = {
+type ResponseDraftObjectSchema = {
   fields: ResponseDraftField[];
   selectedTemplateTypeName: string;
 };
@@ -250,25 +250,6 @@ export function updateDraftFieldsAtSchemaPath(
       },
     };
   });
-}
-
-export function flattenResponseDraftFields(
-  fields: readonly ResponseDraftField[],
-): ResponseDraftField[] {
-  const flattened: ResponseDraftField[] = [];
-  const pending = [...fields].reverse();
-
-  while (pending.length > 0) {
-    const field = pending.pop();
-    if (!field) continue;
-
-    flattened.push(field);
-    if (field.objectSchema) {
-      pending.push(...[...field.objectSchema.fields].reverse());
-    }
-  }
-
-  return flattened;
 }
 
 export function duplicateResponseDraftFieldIds(

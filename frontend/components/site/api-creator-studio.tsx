@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  apiRouteSchemas,
   hasApiRouteIdentity,
   httpMethods,
   nextApiRouteId,
@@ -75,12 +74,10 @@ export function ApiCreatorStudio({
   actionLabel,
   closeEditRouteOverlayLabel,
   closeResponseOverlayLabel,
-  contractMetadata,
   copyRouteErrorLabel,
   copyRouteLabel,
   deleteRouteLabel,
   duplicatePathError,
-  editResponseTypeDescription,
   editRouteLabel,
   editRouteTitle,
   heading,
@@ -98,7 +95,7 @@ export function ApiCreatorStudio({
   const { closeOverlay, openOverlay } = useOverlay();
   const [method, setMethod] = useState<HttpMethod>("GET");
   const [copyFailed, setCopyFailed] = useState(false);
-  const [metadata, setMetadata, metadataStorageStatus] =
+  const [, , metadataStorageStatus] =
     useLocalStorageState(apiContractMetadataStorage);
   const [
     routes,
@@ -146,30 +143,11 @@ export function ApiCreatorStudio({
     routeSnapshot: readonly ApiRouteContract[],
   ) {
     const disabledMethods = disabledApiRouteMethods(routeSnapshot, route);
-    const editorContent = mode === "edit"
-      ? {
-          ...responseEditor,
-          responseTypeDescription: editResponseTypeDescription,
-          typeDescriptionByKind: {
-            ...responseEditor.typeDescriptionByKind,
-            response: editResponseTypeDescription,
-          },
-        }
-      : responseEditor;
-
     openOverlay({
       body: (
         <ResponseSchemaEditor
-          content={editorContent}
-          contractMetadataContent={contractMetadata}
+          content={responseEditor}
           disabledRouteMethods={disabledMethods}
-          existingSchemas={routeSnapshot.flatMap(
-            (candidateRoute) => (
-              candidateRoute.id !== route.id
-                ? apiRouteSchemas(candidateRoute)
-                : []
-            ),
-          )}
           formId={responseFormId}
           getRouteValidationReason={(nextMethod, nextPath) => (
             apiRouteWorkspaceValidationReason(
@@ -178,8 +156,6 @@ export function ApiCreatorStudio({
               route.id,
             )
           )}
-          metadata={metadata}
-          onMetadataChange={setMetadata}
           {...(mode === "create"
             ? {
                 onRouteMethodChange: (nextMethod: HttpMethod) => {

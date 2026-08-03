@@ -13,6 +13,7 @@ import {
   apiResponseSchemaSignature,
   canonicalizeApiResponseSchema,
   collectApiResponseSchemas,
+  typeScriptIdentifierPattern,
   type ApiResponseField,
   type ApiResponseSchema,
 } from "./api-response-schema";
@@ -238,7 +239,9 @@ function renderTypeScriptModel(schema: ApiResponseSchema): string {
   }
 
   const fields = schema.fields.map((field) => (
-    `  ${field.name}${field.optional ? "?" : ""}: ${
+    `  ${typeScriptIdentifierPattern.test(field.name)
+      ? field.name
+      : JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${
       typeScriptFieldType(field)
     };`
   ));
