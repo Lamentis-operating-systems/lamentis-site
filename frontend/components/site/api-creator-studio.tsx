@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  apiSecuritySchemes,
   apiRouteSchemas,
   hasApiRouteIdentity,
   httpMethods,
@@ -30,9 +29,6 @@ import {
 } from "./api-route-row";
 import { ApiRouteInputBar } from "./api-route-input-bar";
 import { CheckIcon } from "./icons/check-icon";
-import { ChevronIcon } from "./icons/chevron-icon";
-import { TextInput } from "./form/text-input";
-import { SelectMenu } from "./select-menu";
 import { useOverlay } from "./overlay/overlay-provider";
 import { ResponseSchemaEditor } from "./response-schema-editor";
 import { SearchSurface } from "./search-surface";
@@ -102,7 +98,6 @@ export function ApiCreatorStudio({
   const { closeOverlay, openOverlay } = useOverlay();
   const [method, setMethod] = useState<HttpMethod>("GET");
   const [copyFailed, setCopyFailed] = useState(false);
-  const [metadataOpen, setMetadataOpen] = useState(false);
   const [metadata, setMetadata, metadataStorageStatus] =
     useLocalStorageState(apiContractMetadataStorage);
   const [
@@ -113,8 +108,6 @@ export function ApiCreatorStudio({
   ] = useLocalStorageState(apiRoutesStorage);
   const routesRef = useRef(routes);
   const responseFormId = useId();
-  const metadataHeadingId = useId();
-  const metadataPanelId = useId();
   const routeInputRef = useRef<HTMLInputElement>(null);
   const focusRouteInputAfterMutation = useRef(false);
   const methodsByPath = useMemo(() => {
@@ -168,6 +161,7 @@ export function ApiCreatorStudio({
       body: (
         <ResponseSchemaEditor
           content={editorContent}
+          contractMetadataContent={contractMetadata}
           disabledRouteMethods={disabledMethods}
           existingSchemas={routeSnapshot.flatMap(
             (candidateRoute) => (
@@ -184,6 +178,8 @@ export function ApiCreatorStudio({
               route.id,
             )
           )}
+          metadata={metadata}
+          onMetadataChange={setMetadata}
           {...(mode === "create"
             ? {
                 onRouteMethodChange: (nextMethod: HttpMethod) => {
@@ -375,142 +371,7 @@ export function ApiCreatorStudio({
       heading={heading}
       label={label}
       surface={(
-        <div className={styles.studioControls}>
-          <section className={styles.metadataSection} aria-labelledby={metadataHeadingId}>
-            <button
-              type="button"
-              className={styles.metadataToggle}
-              aria-controls={metadataPanelId}
-              aria-expanded={metadataOpen}
-              onClick={() => setMetadataOpen((current) => !current)}
-            >
-              <span>
-                <span id={metadataHeadingId} className={styles.metadataTitle}>
-                  {contractMetadata.label}
-                </span>
-                <span className={styles.metadataDescription}>
-                  {contractMetadata.description}
-                </span>
-              </span>
-              <ChevronIcon />
-            </button>
-            <div
-              id={metadataPanelId}
-              className={styles.metadataFields}
-              hidden={!metadataOpen}
-            >
-              <TextInput
-                aria-label={contractMetadata.titleLabel}
-                placeholder={contractMetadata.titleLabel}
-                tone="nested"
-                value={metadata.title ?? ""}
-                onChange={(event) => setMetadata((current) => ({
-                  ...current,
-                  title: event.currentTarget.value || undefined,
-                }))}
-              />
-              <TextInput
-                aria-label={contractMetadata.versionLabel}
-                placeholder={contractMetadata.versionLabel}
-                tone="nested"
-                value={metadata.version ?? ""}
-                onChange={(event) => setMetadata((current) => ({
-                  ...current,
-                  version: event.currentTarget.value || undefined,
-                }))}
-              />
-              <TextInput
-                aria-label={contractMetadata.basePathLabel}
-                pattern="/.*"
-                placeholder="/api/v1"
-                tone="nested"
-                value={metadata.basePath ?? ""}
-                onChange={(event) => setMetadata((current) => ({
-                  ...current,
-                  basePath: event.currentTarget.value || undefined,
-                }))}
-              />
-              <SelectMenu
-                height="large"
-                label={responseEditor.routeContract.securitySchemeLabel}
-                options={apiSecuritySchemes.map((scheme) => ({
-                  id: scheme,
-                  kind: "action" as const,
-                  label: responseEditor.routeContract.securitySchemeOptions[scheme],
-                  onSelect: () => setMetadata((current) => ({
-                    ...current,
-                    security: scheme === "none" ? undefined : {
-                      scheme,
-                      ...(scheme === "apiKey"
-                        ? { location: "header" as const, name: "X-API-Key" }
-                        : {}),
-                      ...(scheme === "cookie"
-                        ? { location: "cookie" as const, name: "session" }
-                        : {}),
-                    },
-                  })),
-                }))}
-                rounded
-                selectedId={metadata.security?.scheme ?? "none"}
-                width="field"
-              />
-              {metadata.security?.scheme === "apiKey"
-                || metadata.security?.scheme === "cookie" ? (
-                  <TextInput
-                    aria-label={responseEditor.routeContract.authNameLabel}
-                    placeholder={responseEditor.routeContract.securityNameHint}
-                    required
-                    tone="nested"
-                    value={metadata.security.name ?? ""}
-                    onChange={(event) => setMetadata((current) => ({
-                      ...current,
-                      security: current.security
-                        ? { ...current.security, name: event.currentTarget.value }
-                        : undefined,
-                    }))}
-                  />
-                ) : null}
-              {metadata.security?.scheme === "apiKey" ? (
-                <SelectMenu
-                  height="large"
-                  label={responseEditor.routeContract.authLocationLabel}
-                  options={(["query", "header", "cookie"] as const).map((location) => ({
-                    id: location,
-                    kind: "action" as const,
-                    label: responseEditor.routeContract.parameterLocationOptions[location],
-                    onSelect: () => setMetadata((current) => ({
-                      ...current,
-                      security: current.security?.scheme === "apiKey"
-                        ? { ...current.security, location }
-                        : current.security,
-                    })),
-                  }))}
-                  rounded
-                  selectedId={metadata.security.location ?? "header"}
-                  width="field"
-                />
-              ) : null}
-              {metadata.security?.scheme === "oauth2" ? (
-                <TextInput
-                  aria-label={responseEditor.routeContract.securityScopesLabel}
-                  placeholder={responseEditor.routeContract.securityScopesLabel}
-                  tone="nested"
-                  value={(metadata.security.scopes ?? []).join(", ")}
-                  onChange={(event) => setMetadata((current) => ({
-                    ...current,
-                    security: current.security ? {
-                      ...current.security,
-                      scopes: event.currentTarget.value
-                        .split(",")
-                        .map((scope) => scope.trim())
-                        .filter(Boolean),
-                    } : undefined,
-                  }))}
-                />
-              ) : null}
-            </div>
-          </section>
-          <ApiRouteInputBar
+        <ApiRouteInputBar
             actionLabel={actionLabel}
             getValidationReason={(candidateMethod, path) => (
               apiRouteWorkspaceValidationReason(
@@ -530,8 +391,7 @@ export function ApiCreatorStudio({
               duplicate: duplicatePathError,
               syntax: invalidPathError,
             }}
-          />
-        </div>
+        />
       )}
     />
   );

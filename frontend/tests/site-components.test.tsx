@@ -37,6 +37,11 @@ const browserDownloadState = vi.hoisted(() => ({
 const apiCreatorStudioProps = {
   ...getApiCreatorStudioContent("en"),
 } as const;
+const responseSchemaEditorMetadataProps = {
+  contractMetadataContent: apiCreatorStudioProps.contractMetadata,
+  metadata: {},
+  onMetadataChange: vi.fn(),
+} as const;
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigationState.pathname,
@@ -786,12 +791,31 @@ describe("search page", () => {
       name: "Advanced settings: Expand",
     });
     expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "API details" }))
+      .not.toBeInTheDocument();
+    expect(within(responseDialog).getByRole("region", {
+      name: "Request body",
+    })).toBeVisible();
+    expect(within(responseDialog).queryByRole("textbox", {
+      name: "Response type",
+    })).not.toBeInTheDocument();
+    expect(within(responseDialog).getByRole("textbox", {
+      name: "Request type",
+    })).toBeVisible();
+    const responseTab = within(responseDialog).getByRole("tab", {
+      name: "Response",
+    });
+    fireEvent.click(responseTab);
     expect(within(responseDialog).getByRole("textbox", {
       name: "Response type",
     })).toBeVisible();
-    expect(within(responseDialog).queryByRole("textbox", {
-      name: "Request type",
-    })).not.toBeInTheDocument();
+    fireEvent.keyDown(responseTab, { key: "ArrowLeft" });
+    const requestTab = within(responseDialog).getByRole("tab", {
+      name: "Request body",
+    });
+    await waitFor(() => expect(requestTab).toHaveFocus());
+    fireEvent.keyDown(requestTab, { key: "ArrowRight" });
+    await waitFor(() => expect(responseTab).toHaveFocus());
     const responsePanel = responseDialog.querySelector("section");
     expect(responseDialog).toHaveAttribute("data-placement", "bottom-right");
     expect(responsePanel?.style.getPropertyValue("--overlay-width")).toBe(
@@ -840,7 +864,7 @@ describe("search page", () => {
     );
     expect(routeMethod).toHaveTextContent("PATCH");
     expect(within(responseDialog).getByText(
-      "Create a response type or use an existing one as an editable template.",
+      "Define the primary response status, media types, example, and typed schema.",
     )).toBeInTheDocument();
     expect(within(responseDialog).getByRole("textbox", {
       name: "Response type",
@@ -878,7 +902,7 @@ describe("search page", () => {
     await waitFor(() => expect(saveResponse).toBeEnabled());
 
     const responseTypeRegion = within(responseDialog).getByRole("region", {
-      name: "Response type",
+      name: "Response",
     });
     const addPropertyButton = within(responseTypeRegion).getByRole("button", {
       name: "Add property",
@@ -947,7 +971,9 @@ describe("search page", () => {
       within(screen.getByRole("list", { name: /^Array item type 1$/ }))
         .getByRole("button", { name: "number" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+    fireEvent.click(within(responseTypeRegion).getByRole("button", {
+      name: "Add property",
+    }));
     const propertyNameInputs = screen.getAllByRole("textbox", {
       name: /^Property name /,
     });
@@ -1099,7 +1125,7 @@ describe("search page", () => {
     expect(saveRoute.firstElementChild?.querySelector("svg")).not.toBeNull();
     expect(saveRoute.lastElementChild).toHaveTextContent("Save");
     expect(within(editDialog).getByText(
-      "Update this response type or use an existing one as an editable template.",
+      "Define the request body, its media types, example, and typed schema.",
     )).toBeInTheDocument();
     expect(within(editDialog).queryByText(
       "Update the fields returned in this response.",
@@ -1110,6 +1136,12 @@ describe("search page", () => {
     expect(within(editDialog).getByRole("textbox", {
       name: "API endpoint path",
     })).toHaveValue("users / {uuid} / posts");
+    fireEvent.click(within(editDialog).getByRole("tab", {
+      name: "Response",
+    }));
+    expect(within(editDialog).getByText(
+      "Define the primary response status, media types, example, and typed schema.",
+    )).toBeInTheDocument();
     expect(within(editDialog).getByRole("textbox", {
       name: "Response type",
     })).toHaveValue("UserResponse");
@@ -1169,11 +1201,14 @@ describe("search page", () => {
       within(dialog).getByRole("textbox", { name: "Response type" }),
       { target: { value: "UserResponse" } },
     );
+    const responseRegion = within(dialog).getByRole("region", {
+      name: "Response",
+    });
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Add property" }),
+      within(responseRegion).getByRole("button", { name: "Add property" }),
     );
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Add property" }),
+      within(responseRegion).getByRole("button", { name: "Add property" }),
     );
 
     const propertyNames = within(dialog).getAllByRole("textbox", {
@@ -1223,6 +1258,7 @@ describe("search page", () => {
     const onSave = vi.fn(() => "saved" as const);
     render(
       <ResponseSchemaEditor
+        {...responseSchemaEditorMetadataProps}
         content={apiCreatorStudioProps.responseEditor}
         formId="request-pagination-form"
         getRouteValidationReason={() => null}
@@ -1242,8 +1278,7 @@ describe("search page", () => {
     fireEvent.click(screen.getByRole("button", {
       name: "Advanced settings: Expand",
     }));
-    const requestRegion = screen.getByRole("region", { name: "Request type" });
-    const responseRegion = screen.getByRole("region", { name: "Response type" });
+    const requestRegion = screen.getByRole("region", { name: "Request body" });
     fireEvent.change(within(requestRegion).getByRole("textbox", {
       name: "Request type",
     }), { target: { value: "SearchRequest" } });
@@ -1254,6 +1289,8 @@ describe("search page", () => {
       name: /^Property name /,
     }), { target: { value: "query" } });
 
+    fireEvent.click(screen.getByRole("tab", { name: "Response" }));
+    const responseRegion = screen.getByRole("region", { name: "Response" });
     fireEvent.change(within(responseRegion).getByRole("textbox", {
       name: "Response type",
     }), { target: { value: "SearchResult" } });
@@ -1298,6 +1335,7 @@ describe("search page", () => {
     const onSave = vi.fn(() => "saved" as const);
     render(
       <ResponseSchemaEditor
+        {...responseSchemaEditorMetadataProps}
         content={apiCreatorStudioProps.responseEditor}
         formId="cookie-security-form"
         getRouteValidationReason={() => null}
@@ -1317,17 +1355,20 @@ describe("search page", () => {
     fireEvent.click(screen.getByRole("button", {
       name: "Advanced settings: Expand",
     }));
-    fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
-    fireEvent.click(screen.getByRole("button", {
+    const routeDetails = screen.getByRole("region", { name: "Route details" });
+    fireEvent.click(within(routeDetails).getByRole("button", {
+      name: "Add parameter",
+    }));
+    fireEvent.click(within(routeDetails).getByRole("button", {
       name: "Parameter location 1 query",
     }));
     expect(within(screen.getByRole("list", {
       name: "Parameter location 1",
     })).getByRole("button", { name: "path" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", {
+    fireEvent.click(within(routeDetails).getByRole("button", {
       name: "Remove parameter 1",
     }));
-    fireEvent.click(screen.getByRole("button", {
+    fireEvent.click(within(routeDetails).getByRole("button", {
       name: "Security scheme None",
     }));
     fireEvent.click(within(screen.getByRole("list", {
@@ -1378,7 +1419,7 @@ describe("search page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add response" }));
     expect(screen.getAllByRole("button", {
       name: /Remove response /,
-    })).toHaveLength(2);
+    })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", {
       name: "Remove response 2",
     }));
@@ -1428,6 +1469,7 @@ describe("search page", () => {
     render(
       <>
         <ResponseSchemaEditor
+          {...responseSchemaEditorMetadataProps}
           content={apiCreatorStudioProps.responseEditor}
           existingSchemas={existingResponseSchemas}
           formId="response-prefill-form"
@@ -1461,6 +1503,9 @@ describe("search page", () => {
     if (!form) throw new Error("The response form must be rendered.");
     const responseType = screen.getByRole("textbox", {
       name: "Response type",
+    });
+    const responseRegion = screen.getByRole("region", {
+      name: "Response",
     });
     const responseTypeTemplate = screen.getByRole("button", {
       name: "Response type template New",
@@ -1584,7 +1629,9 @@ describe("search page", () => {
       path: "/accounts",
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+    fireEvent.click(within(responseRegion).getByRole("button", {
+      name: "Add property",
+    }));
     const propertyNames = screen.getAllByRole("textbox", {
       name: /^Property name /,
     });

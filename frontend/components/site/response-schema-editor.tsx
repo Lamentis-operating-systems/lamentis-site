@@ -9,9 +9,12 @@ import {
   useReducer,
   useRef,
   useState,
+  type SetStateAction,
   type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
 } from "react";
+import type { ApiContractMetadata } from "@/domain/site/api-contract-metadata";
 import {
   apiResponseArrayItemTypes,
   apiResponseFieldRequiresObjectSchema,
@@ -27,6 +30,7 @@ import {
   typeScriptIdentifierPattern,
 } from "@/domain/site/api-response-schema";
 import {
+  apiSecuritySchemes,
   apiParameterTypes,
   type ApiRouteContract,
   type ApiRouteHeader,
@@ -36,7 +40,10 @@ import {
 } from "@/domain/site/api-route";
 import { deriveApiRouteSuggestions } from "@/domain/site/api-route-suggestions";
 import type { ApiRouteWorkspaceSaveResult } from "@/domain/site/api-route-workspace";
-import type { ResponseSchemaEditorContent } from "@/domain/site/content";
+import type {
+  ApiCreatorStudioContent,
+  ResponseSchemaEditorContent,
+} from "@/domain/site/content";
 import {
   createResponseDraftFields,
   draftFieldsToApiResponseSchema,
@@ -87,6 +94,7 @@ type SchemaDefinitionEditorProps = {
 
 type ResponseSchemaEditorProps = {
   content: ResponseSchemaEditorContent;
+  contractMetadataContent: ApiCreatorStudioContent["contractMetadata"];
   disabledRouteMethods?: readonly HttpMethod[];
   existingSchemas?: readonly ApiResponseSchema[];
   formId: string;
@@ -95,11 +103,13 @@ type ResponseSchemaEditorProps = {
     path: string,
   ) => BracedPathValidationReason | null;
   onRouteMethodChange?: (method: HttpMethod) => void;
+  onMetadataChange: (next: SetStateAction<ApiContractMetadata>) => void;
   onSave: (
     contract: Omit<ApiRouteContract, "id" | "method" | "path">,
     route: Pick<ApiRouteContract, "method" | "path">,
   ) => ApiRouteWorkspaceSaveResult;
   route: ApiRouteContract;
+  metadata: ApiContractMetadata;
   routeInputContent: {
     duplicatePathError: string;
     invalidPathError: string;
@@ -924,18 +934,152 @@ function initialResponseDrafts(
   }));
 }
 
+function ContractMetadataEditor({
+  content,
+  metadata,
+  onChange,
+  routeContent,
+}: {
+  content: ApiCreatorStudioContent["contractMetadata"];
+  metadata: ApiContractMetadata;
+  onChange: (next: SetStateAction<ApiContractMetadata>) => void;
+  routeContent: ResponseSchemaEditorContent["routeContract"];
+}) {
+  return (
+    <div className={styles.contractFieldGrid}>
+      <TextInput
+        aria-label={content.titleLabel}
+        placeholder={content.titleLabel}
+        tone="nested"
+        value={metadata.title ?? ""}
+        onChange={(event) => onChange((current) => ({
+          ...current,
+          title: event.currentTarget.value || undefined,
+        }))}
+      />
+      <TextInput
+        aria-label={content.versionLabel}
+        placeholder={content.versionLabel}
+        tone="nested"
+        value={metadata.version ?? ""}
+        onChange={(event) => onChange((current) => ({
+          ...current,
+          version: event.currentTarget.value || undefined,
+        }))}
+      />
+      <TextInput
+        aria-label={content.basePathLabel}
+        pattern="/.*"
+        placeholder="/api/v1"
+        tone="nested"
+        value={metadata.basePath ?? ""}
+        onChange={(event) => onChange((current) => ({
+          ...current,
+          basePath: event.currentTarget.value || undefined,
+        }))}
+      />
+      <SelectMenu
+        height="large"
+        label={routeContent.securitySchemeLabel}
+        options={apiSecuritySchemes.map((scheme) => ({
+          id: scheme,
+          kind: "action" as const,
+          label: routeContent.securitySchemeOptions[scheme],
+          onSelect: () => onChange((current) => ({
+            ...current,
+            security: scheme === "none" ? undefined : {
+              scheme,
+              ...(scheme === "apiKey"
+                ? { location: "header" as const, name: "X-API-Key" }
+                : {}),
+              ...(scheme === "cookie"
+                ? { location: "cookie" as const, name: "session" }
+                : {}),
+            },
+          })),
+        }))}
+        rounded
+        selectedId={metadata.security?.scheme ?? "none"}
+        width="field"
+      />
+      {metadata.security?.scheme === "apiKey"
+        || metadata.security?.scheme === "cookie" ? (
+          <TextInput
+            aria-label={routeContent.authNameLabel}
+            placeholder={routeContent.securityNameHint}
+            required
+            tone="nested"
+            value={metadata.security.name ?? ""}
+            onChange={(event) => onChange((current) => ({
+              ...current,
+              security: current.security
+                ? { ...current.security, name: event.currentTarget.value }
+                : undefined,
+            }))}
+          />
+        ) : null}
+      {metadata.security?.scheme === "apiKey" ? (
+        <SelectMenu
+          height="large"
+          label={routeContent.authLocationLabel}
+          options={(["query", "header", "cookie"] as const).map((location) => ({
+            id: location,
+            kind: "action" as const,
+            label: routeContent.parameterLocationOptions[location],
+            onSelect: () => onChange((current) => ({
+              ...current,
+              security: current.security?.scheme === "apiKey"
+                ? { ...current.security, location }
+                : current.security,
+            })),
+          }))}
+          rounded
+          selectedId={metadata.security.location ?? "header"}
+          width="field"
+        />
+      ) : null}
+      {metadata.security?.scheme === "oauth2" ? (
+        <TextInput
+          aria-label={routeContent.securityScopesLabel}
+          placeholder={routeContent.securityScopesLabel}
+          tone="nested"
+          value={(metadata.security.scopes ?? []).join(", ")}
+          onChange={(event) => onChange((current) => ({
+            ...current,
+            security: current.security ? {
+              ...current.security,
+              scopes: event.currentTarget.value
+                .split(",")
+                .map((scope) => scope.trim())
+                .filter(Boolean),
+            } : undefined,
+          }))}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function ResponseSchemaEditor({
   content,
+  contractMetadataContent,
   disabledRouteMethods = [],
   existingSchemas = [],
   formId,
   getRouteValidationReason,
+  metadata,
+  onMetadataChange,
   onRouteMethodChange,
   onSave,
   route,
   routeInputContent,
 }: ResponseSchemaEditorProps) {
   const initialSuggestions = deriveApiRouteSuggestions(route.method, route.path);
+  const [activeBodySection, setActiveBodySection] = useState<SchemaKind>(() => (
+    route.requestBody || route.request || ["POST", "PUT", "PATCH"].includes(route.method)
+      ? "request"
+      : "response"
+  ));
   const [routeMethod, setRouteMethod] = useState(route.method);
   const [routePath, setRoutePath] = useState(route.path);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -970,7 +1114,13 @@ export function ResponseSchemaEditor({
   const detailsRef = useRef<RouteContractDetailsHandle>(null);
   const requestRef = useRef<SchemaDefinitionHandle>(null);
   const responseRefs = useRef(new Map<number, SchemaDefinitionHandle>());
+  const requestTabRef = useRef<HTMLButtonElement>(null);
+  const responseTabRef = useRef<HTMLButtonElement>(null);
   const routeInputRef = useRef<HTMLInputElement>(null);
+  const requestTabId = useId();
+  const requestPanelId = `${requestTabId}-panel`;
+  const responseTabId = useId();
+  const responsePanelId = `${responseTabId}-panel`;
 
   function updateIdentity(nextMethod: HttpMethod, nextPath: string) {
     const previous = suggestionsRef.current;
@@ -1073,6 +1223,141 @@ export function ResponseSchemaEditor({
     });
   }
 
+  function renderResponseMetadata(
+    response: ResponseDraft,
+    responseIndex: number,
+    removable: boolean,
+  ) {
+    return (
+      <>
+        <div className={styles.responseMetadataRow}>
+          <label className={styles.contractField}>
+            <span className={styles.label}>{content.routeContract.responseStatusLabel}</span>
+            <TextInput
+              aria-label={`${content.routeContract.responseStatusLabel} ${responseIndex + 1}`}
+              name={`response-${response.id}-status`}
+              pattern="(?:default|[1-5][0-9]{2})"
+              required
+              tone="nested"
+              value={response.status}
+              onChange={(event) => updateResponse(response.id, {
+                status: event.currentTarget.value,
+              })}
+            />
+          </label>
+          <label className={styles.contractField}>
+            <span className={styles.label}>{content.routeContract.responseDescriptionLabel}</span>
+            <TextInput
+              aria-label={`${content.routeContract.responseDescriptionLabel} ${responseIndex + 1}`}
+              name={`response-${response.id}-description`}
+              required
+              tone="nested"
+              value={response.description}
+              onChange={(event) => updateResponse(response.id, {
+                description: event.currentTarget.value,
+              })}
+            />
+          </label>
+          <label className={styles.contractField}>
+            <span className={styles.label}>{content.routeContract.contentTypesLabel}</span>
+            <TextInput
+              aria-label={`${content.routeContract.contentTypesLabel} ${responseIndex + 1}`}
+              name={`response-${response.id}-content-types`}
+              placeholder={content.routeContract.contentTypesHint}
+              tone="nested"
+              value={response.contentTypes}
+              onChange={(event) => updateResponse(response.id, {
+                contentTypes: event.currentTarget.value,
+              })}
+            />
+          </label>
+          {removable ? (
+            <IconButton
+              aria-label={`${content.routeContract.removeResponseLabel} ${responseIndex + 1}`}
+              onClick={() => removeResponse(response.id)}
+            >
+              <CloseIcon />
+            </IconButton>
+          ) : (
+            <span aria-hidden="true" className={styles.responseActionSpacer} />
+          )}
+        </div>
+        <label className={styles.contractField}>
+          <span className={styles.label}>{content.routeContract.exampleLabel}</span>
+          <TextInput
+            aria-label={`${content.routeContract.responseExampleLabel} ${responseIndex + 1}`}
+            name={`response-${response.id}-example`}
+            placeholder={content.routeContract.exampleHint}
+            tone="nested"
+            value={response.example}
+            onChange={(event) => updateResponse(response.id, {
+              example: event.currentTarget.value,
+            })}
+          />
+        </label>
+      </>
+    );
+  }
+
+  function renderResponseHeaders(response: ResponseDraft, responseIndex: number) {
+    return (
+      <>
+        <div className={styles.contractSubsectionHeader}>
+          <span className={styles.label}>{content.routeContract.responseHeadersLabel}</span>
+          <IconButton
+            aria-label={`${content.routeContract.addResponseHeaderLabel} ${responseIndex + 1}`}
+            onClick={() => addResponseHeader(response.id)}
+          >
+            <PlusIcon />
+          </IconButton>
+        </div>
+        {response.headers.map((header, headerIndex) => (
+          <div key={header.id} className={styles.responseHeaderRow}>
+            <TextInput
+              aria-label={`${content.routeContract.responseHeaderNameLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+              name={`response-${response.id}-header-${header.id}-name`}
+              pattern="[A-Za-z][A-Za-z0-9_-]*"
+              required
+              tone="nested"
+              value={header.name}
+              onChange={(event) => updateResponseHeader(response.id, header.id, {
+                name: event.currentTarget.value,
+              })}
+            />
+            <SelectMenu
+              height="large"
+              label={`${content.routeContract.parameterTypeLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+              options={apiParameterTypes.map((type) => ({
+                id: type,
+                kind: "action",
+                label: content.routeContract.parameterTypeOptions[type],
+                onSelect: () => updateResponseHeader(response.id, header.id, { type }),
+              }))}
+              rounded
+              selectedId={header.type}
+              width="field"
+            />
+            <TextInput
+              aria-label={`${content.routeContract.responseHeaderDescriptionLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+              name={`response-${response.id}-header-${header.id}-description`}
+              tone="nested"
+              value={header.description ?? ""}
+              onChange={(event) => updateResponseHeader(response.id, header.id, {
+                description: event.currentTarget.value,
+              })}
+            />
+            <IconButton
+              aria-label={`${content.routeContract.removeResponseHeaderLabel} ${responseIndex + 1}.${headerIndex + 1}`}
+              onClick={() => removeResponseHeader(response.id, header.id)}
+            >
+              <CloseIcon />
+            </IconButton>
+          </div>
+        ))}
+      </>
+    );
+  }
+
   function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const request = requestRef.current?.getSchema();
@@ -1080,8 +1365,11 @@ export function ResponseSchemaEditor({
     const parsedResponseExamples = responses.map((response) => (
       parseJsonExample(response.example)
     ));
-    if (!parsedRequestExample.valid
-      || parsedResponseExamples.some((example) => !example.valid)) {
+    const hasInvalidResponseExample = parsedResponseExamples.some(
+      (example) => !example.valid,
+    );
+    if (!parsedRequestExample.valid || hasInvalidResponseExample) {
+      selectBodySection(parsedRequestExample.valid ? "response" : "request");
       setAdvancedOpen(true);
       setResponseIssue(content.routeContract.invalidExampleError);
       return;
@@ -1111,6 +1399,7 @@ export function ResponseSchemaEditor({
     });
     const statuses = normalizedResponses.map((response) => response.status);
     if (new Set(statuses).size !== statuses.length) {
+      selectBodySection("response");
       setResponseIssue(content.routeContract.duplicateResponseStatusError);
       setAdvancedOpen(true);
       return;
@@ -1168,6 +1457,32 @@ export function ResponseSchemaEditor({
     }
   }
 
+  function selectBodySection(section: SchemaKind, focus = false) {
+    setActiveBodySection(section);
+    if (focus) {
+      queueMicrotask(() => (
+        section === "request" ? requestTabRef : responseTabRef
+      ).current?.focus());
+    }
+  }
+
+  function handleBodyTabKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentSection: SchemaKind,
+  ) {
+    const nextSection = currentSection === "request" ? "response" : "request";
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      selectBodySection(nextSection, true);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      selectBodySection("request", true);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      selectBodySection("response", true);
+    }
+  }
+
   const primaryResponseDraft = responses[0];
 
   return (
@@ -1205,61 +1520,61 @@ export function ResponseSchemaEditor({
           syntax: routeInputContent.invalidPathError,
         }}
       />
-      {primaryResponseDraft ? (
+      <div
+        aria-label={content.schemaSectionsLabel}
+        className={styles.schemaTabs}
+        role="tablist"
+      >
+        <button
+          ref={requestTabRef}
+          aria-controls={requestPanelId}
+          aria-selected={activeBodySection === "request"}
+          className={styles.schemaTab}
+          id={requestTabId}
+          role="tab"
+          tabIndex={activeBodySection === "request" ? 0 : -1}
+          type="button"
+          onClick={() => selectBodySection("request")}
+          onKeyDown={(event) => handleBodyTabKeyDown(event, "request")}
+        >
+          {content.requestBodyLabel}
+        </button>
+        <button
+          ref={responseTabRef}
+          aria-controls={responsePanelId}
+          aria-selected={activeBodySection === "response"}
+          className={styles.schemaTab}
+          id={responseTabId}
+          role="tab"
+          tabIndex={activeBodySection === "response" ? 0 : -1}
+          type="button"
+          onClick={() => selectBodySection("response")}
+          onKeyDown={(event) => handleBodyTabKeyDown(event, "response")}
+        >
+          {content.responseSectionLabel}
+        </button>
+      </div>
+      <div
+        aria-labelledby={requestTabId}
+        id={requestPanelId}
+        hidden={activeBodySection !== "request"}
+        role="tabpanel"
+      >
         <EditorSection
-          description={content.typeDescriptionByKind.response}
-          label={content.typeLabelByKind.response}
+          description={content.requestBodyDescription}
+          label={content.requestBodyLabel}
         >
           <SchemaDefinitionEditor
-            ref={(handle) => {
-              if (handle) responseRefs.current.set(primaryResponseDraft.id, handle);
-              else responseRefs.current.delete(primaryResponseDraft.id);
-            }}
+            ref={requestRef}
+            advancedFieldsVisible={advancedOpen}
             content={content}
             existingSchemas={existingSchemas}
-            initialSchema={primaryResponseDraft.initialSchema}
-            kind="response"
-            onPaginationChange={(paginated) => updateResponse(
-              primaryResponseDraft.id,
-              { paginated },
-            )}
-            paginated={primaryResponseDraft.paginated}
-            required={primaryResponseDraft.status !== "204"
-              && routeMethod !== "HEAD"
-              && routeMethod !== "OPTIONS"}
-            advancedFieldsVisible={advancedOpen}
-            suggestedTypeName={primaryResponseDraft.status !== "204"
-              && routeMethod !== "HEAD"
-              && routeMethod !== "OPTIONS"
-              ? initialSuggestions.responseTypeName
-              : ""}
+            initialSchema={route.requestBody?.schema ?? route.request}
+            kind="request"
+            required={false}
+            suggestedTypeName={initialSuggestions.requestTypeName}
           />
-        </EditorSection>
-      ) : null}
-      <ToggleSection
-        collapseLabel={content.collapseSectionLabel}
-        description={content.advancedDescription}
-        expandLabel={content.expandSectionLabel}
-        label={content.advancedLabel}
-        open={advancedOpen}
-        onToggle={() => setAdvancedOpen((current) => !current)}
-      >
-        <div className={styles.advancedSections}>
-          <EditorSection
-            description={content.routeContract.detailsDescription}
-            label={content.routeContract.detailsLabel}
-          >
-            <RouteContractDetailsEditor
-              ref={detailsRef}
-              content={content.routeContract}
-              route={route}
-            />
-          </EditorSection>
-          <EditorSection
-            description={content.typeDescriptionByKind.request}
-            label={content.typeLabelByKind.request}
-          >
-        <div className={styles.contractFieldGrid}>
+          <div className={styles.contractFieldGrid}>
           <label className={styles.contractField}>
             <span className={styles.label}>{content.routeContract.contentTypesLabel}</span>
             <TextInput
@@ -1288,16 +1603,77 @@ export function ResponseSchemaEditor({
               onChange={(event) => setRequestExample(event.currentTarget.value)}
             />
           </label>
-        </div>
-        <SchemaDefinitionEditor
-          ref={requestRef}
-          content={content}
-          existingSchemas={existingSchemas}
-          initialSchema={route.requestBody?.schema ?? route.request}
-          kind="request"
-          required={false}
-          suggestedTypeName={initialSuggestions.requestTypeName}
-        />
+          </div>
+        </EditorSection>
+      </div>
+      <div
+        aria-labelledby={responseTabId}
+        id={responsePanelId}
+        hidden={activeBodySection !== "response"}
+        role="tabpanel"
+      >
+        {primaryResponseDraft ? (
+          <EditorSection
+            description={content.responseSectionDescription}
+            label={content.responseSectionLabel}
+          >
+            <SchemaDefinitionEditor
+            ref={(handle) => {
+              if (handle) responseRefs.current.set(primaryResponseDraft.id, handle);
+              else responseRefs.current.delete(primaryResponseDraft.id);
+            }}
+            content={content}
+            existingSchemas={existingSchemas}
+            initialSchema={primaryResponseDraft.initialSchema}
+            kind="response"
+            onPaginationChange={(paginated) => updateResponse(
+              primaryResponseDraft.id,
+              { paginated },
+            )}
+            paginated={primaryResponseDraft.paginated}
+            required={primaryResponseDraft.status !== "204"
+              && routeMethod !== "HEAD"
+              && routeMethod !== "OPTIONS"}
+            advancedFieldsVisible={advancedOpen}
+            suggestedTypeName={primaryResponseDraft.status !== "204"
+              && routeMethod !== "HEAD"
+              && routeMethod !== "OPTIONS"
+              ? initialSuggestions.responseTypeName
+              : ""}
+            />
+            {renderResponseMetadata(primaryResponseDraft, 0, false)}
+          </EditorSection>
+        ) : null}
+      </div>
+      <ToggleSection
+        collapseLabel={content.collapseSectionLabel}
+        description={content.advancedDescription}
+        expandLabel={content.expandSectionLabel}
+        label={content.advancedLabel}
+        open={advancedOpen}
+        onToggle={() => setAdvancedOpen((current) => !current)}
+      >
+        <div className={styles.advancedSections}>
+          <EditorSection
+            description={contractMetadataContent.description}
+            label={contractMetadataContent.label}
+          >
+            <ContractMetadataEditor
+              content={contractMetadataContent}
+              metadata={metadata}
+              onChange={onMetadataChange}
+              routeContent={content.routeContract}
+            />
+          </EditorSection>
+          <EditorSection
+            description={content.routeContract.detailsDescription}
+            label={content.routeContract.detailsLabel}
+          >
+            <RouteContractDetailsEditor
+              ref={detailsRef}
+              content={content.routeContract}
+              route={route}
+            />
           </EditorSection>
           <EditorSection
             description={content.responseOptionsDescription}
@@ -1320,74 +1696,9 @@ export function ResponseSchemaEditor({
               role="group"
               aria-label={`${content.typeLabelByKind.response} ${responseIndex + 1}`}
             >
-              <div className={styles.responseMetadataRow}>
-                <label className={styles.contractField}>
-                  <span className={styles.label}>{content.routeContract.responseStatusLabel}</span>
-                  <TextInput
-                    aria-label={`${content.routeContract.responseStatusLabel} ${responseIndex + 1}`}
-                    name={`response-${response.id}-status`}
-                    pattern="(?:default|[1-5][0-9]{2})"
-                    required
-                    tone="nested"
-                    value={response.status}
-                    onChange={(event) => updateResponse(response.id, {
-                      status: event.currentTarget.value,
-                    })}
-                  />
-                </label>
-                <label className={styles.contractField}>
-                  <span className={styles.label}>{content.routeContract.responseDescriptionLabel}</span>
-                  <TextInput
-                    aria-label={`${content.routeContract.responseDescriptionLabel} ${responseIndex + 1}`}
-                    name={`response-${response.id}-description`}
-                    required
-                    tone="nested"
-                    value={response.description}
-                    onChange={(event) => updateResponse(response.id, {
-                      description: event.currentTarget.value,
-                    })}
-                  />
-                </label>
-                <label className={styles.contractField}>
-                  <span className={styles.label}>{content.routeContract.contentTypesLabel}</span>
-                  <TextInput
-                    aria-label={`${content.routeContract.contentTypesLabel} ${responseIndex + 1}`}
-                    name={`response-${response.id}-content-types`}
-                    placeholder={content.routeContract.contentTypesHint}
-                    tone="nested"
-                    value={response.contentTypes}
-                    onChange={(event) => updateResponse(response.id, {
-                      contentTypes: event.currentTarget.value,
-                    })}
-                  />
-                </label>
-                {responses.length > 1 ? (
-                  <IconButton
-                    aria-label={`${content.routeContract.removeResponseLabel} ${responseIndex + 1}`}
-                    onClick={() => removeResponse(response.id)}
-                  >
-                    <CloseIcon />
-                  </IconButton>
-                ) : (
-                  <span
-                    aria-hidden="true"
-                    className={styles.responseActionSpacer}
-                  />
-                )}
-              </div>
-              <label className={styles.contractField}>
-                <span className={styles.label}>{content.routeContract.exampleLabel}</span>
-                <TextInput
-                  aria-label={`${content.routeContract.responseExampleLabel} ${responseIndex + 1}`}
-                  name={`response-${response.id}-example`}
-                  placeholder={content.routeContract.exampleHint}
-                  tone="nested"
-                  value={response.example}
-                  onChange={(event) => updateResponse(response.id, {
-                    example: event.currentTarget.value,
-                  })}
-                />
-              </label>
+              {responseIndex > 0
+                ? renderResponseMetadata(response, responseIndex, true)
+                : null}
               {responseIndex > 0 ? <SchemaDefinitionEditor
                 ref={(handle) => {
                   if (handle) responseRefs.current.set(response.id, handle);
@@ -1403,58 +1714,7 @@ export function ResponseSchemaEditor({
                 paginated={response.paginated}
                 required={false}
               /> : null}
-              <div className={styles.contractSubsectionHeader}>
-                <span className={styles.label}>{content.routeContract.responseHeadersLabel}</span>
-                <IconButton
-                  aria-label={`${content.routeContract.addResponseHeaderLabel} ${responseIndex + 1}`}
-                  onClick={() => addResponseHeader(response.id)}
-                >
-                  <PlusIcon />
-                </IconButton>
-              </div>
-              {response.headers.map((header, headerIndex) => (
-                <div key={header.id} className={styles.responseHeaderRow}>
-                  <TextInput
-                    aria-label={`${content.routeContract.responseHeaderNameLabel} ${responseIndex + 1}.${headerIndex + 1}`}
-                    name={`response-${response.id}-header-${header.id}-name`}
-                    pattern="[A-Za-z][A-Za-z0-9_-]*"
-                    required
-                    tone="nested"
-                    value={header.name}
-                    onChange={(event) => updateResponseHeader(response.id, header.id, {
-                      name: event.currentTarget.value,
-                    })}
-                  />
-                  <SelectMenu
-                    height="large"
-                    label={`${content.routeContract.parameterTypeLabel} ${responseIndex + 1}.${headerIndex + 1}`}
-                    options={apiParameterTypes.map((type) => ({
-                      id: type,
-                      kind: "action",
-                      label: content.routeContract.parameterTypeOptions[type],
-                      onSelect: () => updateResponseHeader(response.id, header.id, { type }),
-                    }))}
-                    rounded
-                    selectedId={header.type}
-                    width="field"
-                  />
-                  <TextInput
-                    aria-label={`${content.routeContract.responseHeaderDescriptionLabel} ${responseIndex + 1}.${headerIndex + 1}`}
-                    name={`response-${response.id}-header-${header.id}-description`}
-                    tone="nested"
-                    value={header.description ?? ""}
-                    onChange={(event) => updateResponseHeader(response.id, header.id, {
-                      description: event.currentTarget.value,
-                    })}
-                  />
-                  <IconButton
-                    aria-label={`${content.routeContract.removeResponseHeaderLabel} ${responseIndex + 1}.${headerIndex + 1}`}
-                    onClick={() => removeResponseHeader(response.id, header.id)}
-                  >
-                    <CloseIcon />
-                  </IconButton>
-                </div>
-              ))}
+              {renderResponseHeaders(response, responseIndex)}
             </div>
           ))}
           {responseIssue ? <p className={styles.error} role="alert">{responseIssue}</p> : null}

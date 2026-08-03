@@ -59,6 +59,10 @@ export type ResponseSchemaEditorContent = {
   propertyNamePlaceholder: string;
   propertyTypeLabel: string;
   removePropertyLabel: string;
+  requestBodyDescription: string;
+  requestBodyLabel: string;
+  responseSectionDescription: string;
+  responseSectionLabel: string;
   responseTypeConflictError: string;
   responseTypeDescription: string;
   responseTypeLabel: string;
@@ -66,6 +70,7 @@ export type ResponseSchemaEditorContent = {
   responseTypeTemplateLabel: string;
   responseOptionsDescription: string;
   responseOptionsLabel: string;
+  schemaSectionsLabel: string;
   routeContract: {
     addParameterLabel: string;
     addResponseHeaderLabel: string;
@@ -261,7 +266,7 @@ export const contentByLocale = {
       responseEditor: {
         addPropertyLabel: "Add property",
         advancedDescription:
-          "Configure request bodies, operation metadata, field constraints, additional responses, authentication, and runtime behavior.",
+          "Configure API and operation metadata, field constraints, additional responses, authentication, and runtime behavior.",
         advancedLabel: "Advanced settings",
         arrayConnectorLabel: "of",
         arrayItemTypeLabel: "Array item type",
@@ -287,6 +292,12 @@ export const contentByLocale = {
         propertyNamePlaceholder: "propertyName",
         propertyTypeLabel: "Property type",
         removePropertyLabel: "Remove property",
+        requestBodyDescription:
+          "Define the request body, its media types, example, and typed schema.",
+        requestBodyLabel: "Request body",
+        responseSectionDescription:
+          "Define the primary response status, media types, example, and typed schema.",
+        responseSectionLabel: "Response",
         responseTypeConflictError:
           "This response type already uses a different schema.",
         schemaTypeConflictError:
@@ -297,8 +308,9 @@ export const contentByLocale = {
         responseTypePlaceholder: "Name your response type",
         responseTypeTemplateLabel: "Response type template",
         responseOptionsDescription:
-          "Configure status metadata, media types, examples, additional responses, and response headers.",
+          "Configure additional responses and response headers.",
         responseOptionsLabel: "Response options",
+        schemaSectionsLabel: "Request and response",
         routeContract: {
           addParameterLabel: "Add parameter",
           addResponseHeaderLabel: "Add response header",
@@ -532,7 +544,7 @@ export const contentByLocale = {
       responseEditor: {
         addPropertyLabel: "Eigenschaft hinzufügen",
         advancedDescription:
-          "Konfiguriere Anfragekörper, Operationsmetadaten, Feldbedingungen, zusätzliche Antworten, Authentifizierung und Laufzeitverhalten.",
+          "Konfiguriere API- und Operationsmetadaten, Feldbedingungen, zusätzliche Antworten, Authentifizierung und Laufzeitverhalten.",
         advancedLabel: "Erweiterte Einstellungen",
         arrayConnectorLabel: "aus",
         arrayItemTypeLabel: "Array-Elementtyp",
@@ -558,6 +570,12 @@ export const contentByLocale = {
         propertyNamePlaceholder: "eigenschaftName",
         propertyTypeLabel: "Eigenschaftstyp",
         removePropertyLabel: "Eigenschaft entfernen",
+        requestBodyDescription:
+          "Definiere Anfragekörper, Medientypen, Beispiel und typisiertes Schema.",
+        requestBodyLabel: "Anfragekörper",
+        responseSectionDescription:
+          "Definiere Status, Medientypen, Beispiel und typisiertes Schema der primären Antwort.",
+        responseSectionLabel: "Antwort",
         responseTypeConflictError:
           "Dieser Antworttyp verwendet bereits ein anderes Schema.",
         schemaTypeConflictError:
@@ -568,8 +586,9 @@ export const contentByLocale = {
         responseTypePlaceholder: "Benenne deinen Antworttyp",
         responseTypeTemplateLabel: "Antworttyp-Vorlage",
         responseOptionsDescription:
-          "Konfiguriere Statusmetadaten, Medientypen, Beispiele, zusätzliche Antworten und Antwort-Header.",
+          "Konfiguriere zusätzliche Antworten und Antwort-Header.",
         responseOptionsLabel: "Antwortoptionen",
+        schemaSectionsLabel: "Anfrage und Antwort",
         routeContract: {
           addParameterLabel: "Parameter hinzufügen",
           addResponseHeaderLabel: "Antwort-Header hinzufügen",

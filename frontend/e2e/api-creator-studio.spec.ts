@@ -130,6 +130,21 @@ for (const scenario of methodSuggestionScenarios) {
     const dialog = page.getByRole("dialog", {
       name: "Add a data structure to this route",
     });
+    const requestTab = dialog.getByRole("tab", { name: "Request body" });
+    const responseTab = dialog.getByRole("tab", { name: "Response" });
+    const requestFirst = ["POST", "PUT", "PATCH"].includes(scenario.method);
+    await expect(requestTab).toHaveAttribute(
+      "aria-selected",
+      requestFirst ? "true" : "false",
+    );
+    await expect(responseTab).toHaveAttribute(
+      "aria-selected",
+      requestFirst ? "false" : "true",
+    );
+    await requestTab.click();
+    await expect(dialog.getByRole("textbox", { name: "Request type" }))
+      .toHaveValue(scenario.requestType);
+    await responseTab.click();
     await expandAdvancedSettings(dialog);
     const details = dialog.getByRole("region", { name: "Route details" });
     await expect(details.getByRole("textbox", { name: "Title" }))
@@ -143,11 +158,9 @@ for (const scenario of methodSuggestionScenarios) {
     await expect(details.getByRole("button", { name: "Remove parameter 1" }))
       .toHaveCount(0);
 
-    await expect(dialog.getByRole("textbox", { name: "Request type" }))
-      .toHaveValue(scenario.requestType);
-    const response = dialog.getByRole("region", { name: "Response type" });
+    const response = dialog.getByRole("region", { name: "Response" });
     const responseOptions = dialog.getByRole("region", { name: "Response options" });
-    await expect(responseOptions.getByRole("textbox", { name: "HTTP status 1" }))
+    await expect(response.getByRole("textbox", { name: "HTTP status 1" }))
       .toHaveValue(scenario.responseStatus);
     await expect(response.getByRole("textbox", { name: "Response type" }))
       .toHaveValue(scenario.responseType);
@@ -182,7 +195,6 @@ test("keeps response and header removal on the trailing edge in a narrow overlay
   await response.getByRole("button", { name: "Add response header 1" }).click();
 
   const trailingActions = [
-    response.getByRole("button", { name: "Remove response 1" }),
     response.getByRole("button", { name: "Remove response 2" }),
     response.getByRole("button", { name: "Remove response header 1.1" }),
   ];
@@ -370,9 +382,13 @@ test("adds and persists a route while restoring focus after Escape", {
     .toBeVisible();
   await expect(responseDialog.getByRole("textbox", { name: "Request type" }))
     .toHaveCount(0);
+  await responseDialog.getByRole("tab", { name: "Request body" }).click();
+  await expect(responseDialog.getByRole("textbox", { name: "Request type" }))
+    .toBeVisible();
+  await responseDialog.getByRole("tab", { name: "Response" }).click();
   await expandAdvancedSettings(responseDialog);
   await expect(responseDialog.getByText(
-    "Create a response type or use an existing one as an editable template.",
+    "Define the primary response status, media types, example, and typed schema.",
   )).toBeVisible();
   await expect(responseDialog.getByRole("heading", {
     name: "Response properties",
@@ -394,7 +410,7 @@ test("adds and persists a route while restoring focus after Escape", {
   })).toHaveCount(0);
 
   const responseTypeRegion = responseDialog.getByRole("region", {
-    name: "Response type",
+    name: "Response",
   });
   await responseTypeRegion.getByRole("button", {
     name: "Add property",
@@ -590,11 +606,10 @@ test("preserves a materialized response when changing a route to DELETE", async 
   await dialog.getByRole("list", { name: "HTTP method" })
     .getByRole("button", { name: "DELETE" }).click();
   await expandAdvancedSettings(dialog);
-  const response = dialog.getByRole("region", { name: "Response type" });
-  const responseOptions = dialog.getByRole("region", { name: "Response options" });
-  await expect(responseOptions.getByRole("textbox", { name: "HTTP status 1" }))
+  const response = dialog.getByRole("region", { name: "Response" });
+  await expect(response.getByRole("textbox", { name: "HTTP status 1" }))
     .toHaveValue("200");
-  await expect(responseOptions.getByRole("textbox", { name: "Content types 1" }))
+  await expect(response.getByRole("textbox", { name: "Content types 1" }))
     .toHaveValue("application/json");
   await expect(response.getByRole("textbox", { name: "Response type" }))
     .toHaveValue("AccountView");
@@ -802,7 +817,8 @@ test("derives object names from properties and can prefill an existing model", a
   await dialog.getByRole("textbox", {
     name: "Response type",
   }).fill("UserResponse");
-  const addPropertyButton = dialog.getByRole("button", {
+  const responseRegion = dialog.getByRole("region", { name: "Response" });
+  const addPropertyButton = responseRegion.getByRole("button", {
     name: "Add property",
   });
   await expect(addPropertyButton).toHaveText("");
@@ -936,7 +952,8 @@ test("renders object definitions inline without an empty state", async ({
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await dialog.getByRole("button", { name: "Add property" }).click();
+  const responseRegion = dialog.getByRole("region", { name: "Response" });
+  await responseRegion.getByRole("button", { name: "Add property" }).click();
   await dialog.getByRole("textbox", {
     name: "Property name 1",
   }).fill("profile");
@@ -968,7 +985,7 @@ test("renders object definitions inline without an empty state", async ({
     name: "Property name 1.1",
   })).toBeVisible();
   const rootProperties = dialog.getByRole("region", {
-    name: "Response type",
+    name: "Response",
   }).locator('[data-root-properties="true"]');
   await expect(rootProperties).toHaveCount(1);
   await expect(rootProperties).toHaveCSS("padding-inline-start", "16px");
@@ -1110,14 +1127,16 @@ test("persists request and paginated response sections and exports the wrapper",
     "transform",
     "matrix(1, 0, 0, 1, 0, 0)",
   );
-  const requestRegion = dialog.getByRole("region", { name: "Request type" });
+  await dialog.getByRole("tab", { name: "Request body" }).click();
+  const requestRegion = dialog.getByRole("region", { name: "Request body" });
   await requestRegion.getByRole("textbox", { name: "Request type" })
     .fill("SearchRequest");
   await requestRegion.getByRole("button", { name: "Add property" }).click();
   await requestRegion.getByRole("textbox", { name: "Property name 1" })
     .fill("query");
 
-  const responseRegion = dialog.getByRole("region", { name: "Response type" });
+  await dialog.getByRole("tab", { name: "Response" }).click();
+  const responseRegion = dialog.getByRole("region", { name: "Response" });
   await responseRegion.getByRole("textbox", { name: "Response type" })
     .fill("SearchResult");
   const pagination = responseRegion.getByRole("button", {
@@ -1289,14 +1308,6 @@ test("authors portable contract details, constraints, examples, and array serial
   page,
 }) => {
   await page.goto(studioPath);
-  await page.getByRole("button", { name: "API details" }).click();
-  await page.getByRole("textbox", { name: "API title" }).fill("Accounts API");
-  await page.getByRole("textbox", { name: "API version" }).fill("1.0.0");
-  await page.getByRole("textbox", { name: "Base path" }).fill("/api/v1");
-  await page.getByRole("button", { name: /^Security scheme / }).click();
-  await page.getByRole("list", { name: "Security scheme" })
-    .getByRole("button", { name: "Bearer token" }).click();
-
   await page.getByRole("button", { name: /^HTTP method / }).click();
   await page.getByRole("list", { name: "HTTP method" })
     .getByRole("button", { name: "POST" }).click();
@@ -1308,6 +1319,14 @@ test("authors portable contract details, constraints, examples, and array serial
     name: "Add a data structure to this route",
   });
   await expandAdvancedSettings(dialog);
+  const apiDetails = dialog.getByRole("region", { name: "API details" });
+  await apiDetails.getByRole("textbox", { name: "API title" }).fill("Accounts API");
+  await apiDetails.getByRole("textbox", { name: "API version" }).fill("1.0.0");
+  await apiDetails.getByRole("textbox", { name: "Base path" }).fill("/api/v1");
+  await apiDetails.getByRole("button", { name: /^Security scheme / }).click();
+  await apiDetails.getByRole("list", { name: "Security scheme" })
+    .getByRole("button", { name: "Bearer token" }).click();
+
   const details = dialog.getByRole("region", { name: "Route details" });
   await details.getByRole("button", { name: "Add parameter" }).click();
   await details.getByRole("textbox", { name: "Parameter name 1" }).fill("tags");
@@ -1324,7 +1343,7 @@ test("authors portable contract details, constraints, examples, and array serial
 
   await dialog.getByRole("textbox", { name: "Request example" })
     .fill('{"query":"elias"}');
-  const request = dialog.getByRole("region", { name: "Request type" });
+  const request = dialog.getByRole("region", { name: "Request body" });
   await request.getByRole("button", { name: "Add property" }).click();
   await request.getByRole("textbox", { name: "Property name 1" }).fill("query");
   await request.getByRole("textbox", { name: "Allowed values 1" })
@@ -1333,6 +1352,7 @@ test("authors portable contract details, constraints, examples, and array serial
   await request.getByRole("textbox", { name: "Maximum length 1" }).fill("80");
   await request.getByRole("textbox", { name: "Pattern 1" }).fill("^[a-z]+$");
 
+  await dialog.getByRole("tab", { name: "Response" }).click();
   await dialog.getByRole("textbox", { name: "Response example 1" })
     .fill('{"id":"acc_1"}');
   await dialog.getByRole("button", { name: "Save" }).click();
