@@ -80,6 +80,7 @@ type SchemaDefinitionEditorProps = {
   kind: SchemaKind;
   paginated?: boolean;
   required: boolean;
+  advancedFieldsVisible?: boolean;
   suggestedTypeName?: string;
   onPaginationChange?: (paginated: boolean) => void;
 };
@@ -134,6 +135,7 @@ const SchemaDefinitionEditor = forwardRef<
   onPaginationChange,
   paginated = false,
   required,
+  advancedFieldsVisible = true,
   suggestedTypeName = "",
 }, ref) {
   const [initialDraft] = useState(() => (
@@ -533,7 +535,8 @@ const SchemaDefinitionEditor = forwardRef<
                   </IconButton>
                 </div>
               </div>
-              <div className={styles.propertyConstraintGrid}>
+              {advancedFieldsVisible ? (
+                <div className={styles.propertyConstraintGrid}>
                 <TextInput
                   aria-label={`${content.routeContract.parameterDescriptionLabel} ${positionLabel}`}
                   name={`${kind}-property-${field.id}-description`}
@@ -642,7 +645,8 @@ const SchemaDefinitionEditor = forwardRef<
                     />
                   </>
                 ) : null}
-              </div>
+                </div>
+              ) : null}
               {hasObjectDefinitionContent && field.objectSchema ? (
                 <div className={styles.objectDefinition}>
                   {reusableSchemas.length > 0 ? (
@@ -716,7 +720,9 @@ const SchemaDefinitionEditor = forwardRef<
           aria-describedby={hasInvalidTypeName || hasSchemaConflict
             ? validationErrorId
             : undefined}
-          trailingControl={kind === "response" && normalizedTypeName ? (
+          trailingControl={kind === "response"
+            && normalizedTypeName
+            && advancedFieldsVisible ? (
             <IconButton
               className={styles.paginationToggle}
               variant="transparent"
@@ -839,6 +845,27 @@ function ToggleSection({
   );
 }
 
+type EditorSectionProps = {
+  children: ReactNode;
+  description: string;
+  label: string;
+};
+
+function EditorSection({ children, description, label }: EditorSectionProps) {
+  const headingId = useId();
+  return (
+    <section className={styles.section} aria-labelledby={headingId}>
+      <div className={styles.sectionHeader}>
+        <h3 id={headingId} className={styles.sectionTitle}>
+          {label}
+        </h3>
+        <p className={styles.sectionDescription}>{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 type ResponseHeaderDraft = ApiRouteHeader & { id: number };
 
 type ResponseDraft = {
@@ -911,9 +938,7 @@ export function ResponseSchemaEditor({
   const initialSuggestions = deriveApiRouteSuggestions(route.method, route.path);
   const [routeMethod, setRouteMethod] = useState(route.method);
   const [routePath, setRoutePath] = useState(route.path);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [responseOpen, setResponseOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [requestContentTypes, setRequestContentTypes] = useState(
     route.requestBody?.contentTypes.join(", ") ?? "application/json",
   );
@@ -1057,8 +1082,7 @@ export function ResponseSchemaEditor({
     ));
     if (!parsedRequestExample.valid
       || parsedResponseExamples.some((example) => !example.valid)) {
-      setRequestOpen(true);
-      setResponseOpen(true);
+      setAdvancedOpen(true);
       setResponseIssue(content.routeContract.invalidExampleError);
       return;
     }
@@ -1088,7 +1112,7 @@ export function ResponseSchemaEditor({
     const statuses = normalizedResponses.map((response) => response.status);
     if (new Set(statuses).size !== statuses.length) {
       setResponseIssue(content.routeContract.duplicateResponseStatusError);
-      setResponseOpen(true);
+      setAdvancedOpen(true);
       return;
     }
     const schemas = [
@@ -1099,7 +1123,7 @@ export function ResponseSchemaEditor({
       schemas.filter((_, candidateIndex) => candidateIndex !== index),
       schema,
     ))) {
-      setResponseOpen(true);
+      setAdvancedOpen(true);
       for (const responseRef of responseRefs.current.values()) {
         responseRef.rejectConflict();
       }
@@ -1131,20 +1155,20 @@ export function ResponseSchemaEditor({
       responses: normalizedResponses,
     }, { method: routeMethod, path: routePath });
     if (result === "schema-conflict") {
-      setResponseOpen(true);
+      setAdvancedOpen(true);
       for (const responseRef of responseRefs.current.values()) {
         responseRef.rejectConflict();
       }
     } else if (result === "contract-invalid") {
-      setDetailsOpen(true);
-      setRequestOpen(true);
-      setResponseOpen(true);
+      setAdvancedOpen(true);
       setResponseIssue(content.routeContract.invalidContractError);
     } else if (result === "route-conflict") {
       setSaveFailure("route-conflict");
       queueMicrotask(() => routeInputRef.current?.focus());
     }
   }
+
+  const primaryResponseDraft = responses[0];
 
   return (
     <form id={formId} className={styles.form} onSubmit={submitContract}>
@@ -1181,28 +1205,60 @@ export function ResponseSchemaEditor({
           syntax: routeInputContent.invalidPathError,
         }}
       />
+      {primaryResponseDraft ? (
+        <EditorSection
+          description={content.typeDescriptionByKind.response}
+          label={content.typeLabelByKind.response}
+        >
+          <SchemaDefinitionEditor
+            ref={(handle) => {
+              if (handle) responseRefs.current.set(primaryResponseDraft.id, handle);
+              else responseRefs.current.delete(primaryResponseDraft.id);
+            }}
+            content={content}
+            existingSchemas={existingSchemas}
+            initialSchema={primaryResponseDraft.initialSchema}
+            kind="response"
+            onPaginationChange={(paginated) => updateResponse(
+              primaryResponseDraft.id,
+              { paginated },
+            )}
+            paginated={primaryResponseDraft.paginated}
+            required={primaryResponseDraft.status !== "204"
+              && routeMethod !== "HEAD"
+              && routeMethod !== "OPTIONS"}
+            advancedFieldsVisible={advancedOpen}
+            suggestedTypeName={primaryResponseDraft.status !== "204"
+              && routeMethod !== "HEAD"
+              && routeMethod !== "OPTIONS"
+              ? initialSuggestions.responseTypeName
+              : ""}
+          />
+        </EditorSection>
+      ) : null}
       <ToggleSection
         collapseLabel={content.collapseSectionLabel}
-        description={content.routeContract.detailsDescription}
+        description={content.advancedDescription}
         expandLabel={content.expandSectionLabel}
-        label={content.routeContract.detailsLabel}
-        open={detailsOpen}
-        onToggle={() => setDetailsOpen((current) => !current)}
+        label={content.advancedLabel}
+        open={advancedOpen}
+        onToggle={() => setAdvancedOpen((current) => !current)}
       >
-        <RouteContractDetailsEditor
-          ref={detailsRef}
-          content={content.routeContract}
-          route={route}
-        />
-      </ToggleSection>
-      <ToggleSection
-        collapseLabel={content.collapseSectionLabel}
-        description={content.typeDescriptionByKind.request}
-        expandLabel={content.expandSectionLabel}
-        label={content.typeLabelByKind.request}
-        open={requestOpen}
-        onToggle={() => setRequestOpen((current) => !current)}
-      >
+        <div className={styles.advancedSections}>
+          <EditorSection
+            description={content.routeContract.detailsDescription}
+            label={content.routeContract.detailsLabel}
+          >
+            <RouteContractDetailsEditor
+              ref={detailsRef}
+              content={content.routeContract}
+              route={route}
+            />
+          </EditorSection>
+          <EditorSection
+            description={content.typeDescriptionByKind.request}
+            label={content.typeLabelByKind.request}
+          >
         <div className={styles.contractFieldGrid}>
           <label className={styles.contractField}>
             <span className={styles.label}>{content.routeContract.contentTypesLabel}</span>
@@ -1242,15 +1298,11 @@ export function ResponseSchemaEditor({
           required={false}
           suggestedTypeName={initialSuggestions.requestTypeName}
         />
-      </ToggleSection>
-      <ToggleSection
-        collapseLabel={content.collapseSectionLabel}
-        description={content.typeDescriptionByKind.response}
-        expandLabel={content.expandSectionLabel}
-        label={content.typeLabelByKind.response}
-        open={responseOpen}
-        onToggle={() => setResponseOpen((current) => !current)}
-      >
+          </EditorSection>
+          <EditorSection
+            description={content.responseOptionsDescription}
+            label={content.responseOptionsLabel}
+          >
         <div className={styles.contractDefinition}>
           <div className={styles.contractSubsectionHeader}>
             <span className={styles.label}>{content.typeLabelByKind.response}</span>
@@ -1336,7 +1388,7 @@ export function ResponseSchemaEditor({
                   })}
                 />
               </label>
-              <SchemaDefinitionEditor
+              {responseIndex > 0 ? <SchemaDefinitionEditor
                 ref={(handle) => {
                   if (handle) responseRefs.current.set(response.id, handle);
                   else responseRefs.current.delete(response.id);
@@ -1349,17 +1401,8 @@ export function ResponseSchemaEditor({
                   paginated,
                 })}
                 paginated={response.paginated}
-                required={responseIndex === 0
-                  && response.status !== "204"
-                  && routeMethod !== "HEAD"
-                  && routeMethod !== "OPTIONS"}
-                suggestedTypeName={responseIndex === 0
-                  && response.status !== "204"
-                  && routeMethod !== "HEAD"
-                  && routeMethod !== "OPTIONS"
-                  ? initialSuggestions.responseTypeName
-                  : ""}
-              />
+                required={false}
+              /> : null}
               <div className={styles.contractSubsectionHeader}>
                 <span className={styles.label}>{content.routeContract.responseHeadersLabel}</span>
                 <IconButton
@@ -1415,6 +1458,8 @@ export function ResponseSchemaEditor({
             </div>
           ))}
           {responseIssue ? <p className={styles.error} role="alert">{responseIssue}</p> : null}
+        </div>
+          </EditorSection>
         </div>
       </ToggleSection>
     </form>

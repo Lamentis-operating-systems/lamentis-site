@@ -54,6 +54,13 @@
   gap: var(--space-5);
 }
 
+.advancedSections {
+  display: grid;
+  min-width: 0;
+  padding-block-start: var(--space-5);
+  gap: var(--space-7);
+}
+
 .contractFieldGrid {
   display: grid;
   min-width: 0;

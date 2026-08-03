@@ -782,18 +782,16 @@ describe("search page", () => {
     const responseDialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
-    const requestToggle = within(responseDialog).getByRole("button", {
-      name: "Request type: Expand",
+    const advancedToggle = within(responseDialog).getByRole("button", {
+      name: "Advanced settings: Expand",
     });
-    const responseToggle = within(responseDialog).getByRole("button", {
-      name: "Response type: Expand",
-    });
-    expect(requestToggle).toHaveAttribute("aria-expanded", "false");
-    expect(responseToggle).toHaveAttribute("aria-expanded", "false");
-    expect(within(responseDialog).queryByRole("textbox", {
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(responseDialog).getByRole("textbox", {
       name: "Response type",
+    })).toBeVisible();
+    expect(within(responseDialog).queryByRole("textbox", {
+      name: "Request type",
     })).not.toBeInTheDocument();
-    fireEvent.click(responseToggle);
     const responsePanel = responseDialog.querySelector("section");
     expect(responseDialog).toHaveAttribute("data-placement", "bottom-right");
     expect(responsePanel?.style.getPropertyValue("--overlay-width")).toBe(
@@ -850,8 +848,8 @@ describe("search page", () => {
       "Create a response type or use an existing one as an editable template.",
     );
     expect(within(responseDialog).getByRole("button", {
-      name: "Response type: Collapse",
-    })).toHaveAttribute("aria-expanded", "true");
+      name: "Advanced settings: Expand",
+    })).toHaveAttribute("aria-expanded", "false");
     expect(within(responseDialog).queryByRole("heading", {
       name: "Response properties",
     })).not.toBeInTheDocument();
@@ -1093,9 +1091,6 @@ describe("search page", () => {
     const editDialog = await screen.findByRole("dialog", {
       name: "Edit this route",
     });
-    fireEvent.click(within(editDialog).getByRole("button", {
-      name: "Response type: Expand",
-    }));
     expect(editDialog.querySelector("header")).toHaveTextContent(
       "Edit this route",
     );
@@ -1169,9 +1164,6 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
-    fireEvent.click(within(dialog).getByRole("button", {
-      name: "Response type: Expand",
-    }));
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Response type" }),
@@ -1247,11 +1239,11 @@ describe("search page", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings: Expand",
+    }));
     const requestRegion = screen.getByRole("region", { name: "Request type" });
     const responseRegion = screen.getByRole("region", { name: "Response type" });
-    fireEvent.click(within(requestRegion).getByRole("button", {
-      name: "Request type: Expand",
-    }));
     fireEvent.change(within(requestRegion).getByRole("textbox", {
       name: "Request type",
     }), { target: { value: "SearchRequest" } });
@@ -1262,9 +1254,6 @@ describe("search page", () => {
       name: /^Property name /,
     }), { target: { value: "query" } });
 
-    fireEvent.click(within(responseRegion).getByRole("button", {
-      name: "Response type: Expand",
-    }));
     fireEvent.change(within(responseRegion).getByRole("textbox", {
       name: "Response type",
     }), { target: { value: "SearchResult" } });
@@ -1326,7 +1315,7 @@ describe("search page", () => {
     );
 
     fireEvent.click(screen.getByRole("button", {
-      name: "Route details: Expand",
+      name: "Advanced settings: Expand",
     }));
     fireEvent.click(screen.getByRole("button", { name: "Add parameter" }));
     fireEvent.click(screen.getByRole("button", {
@@ -1367,9 +1356,6 @@ describe("search page", () => {
     }));
     fireEvent.change(credentialName, { target: { value: "session_id" } });
 
-    fireEvent.click(screen.getByRole("button", {
-      name: "Response type: Expand",
-    }));
     const optionalResponseType = screen.getByRole("textbox", {
       name: "Response type",
     });
@@ -1468,9 +1454,6 @@ describe("search page", () => {
       </>,
     );
 
-    fireEvent.click(screen.getByRole("button", {
-      name: "Response type: Expand",
-    }));
 
     const form = document.querySelector<HTMLFormElement>(
       "#response-prefill-form",
@@ -1728,9 +1711,6 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Add a data structure to this route",
     });
-    fireEvent.click(within(dialog).getByRole("button", {
-      name: "Response type: Expand",
-    }));
     const save = within(dialog).getByRole("button", { name: "Save" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Response type" }),
@@ -1807,9 +1787,6 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Edit this route",
     });
-    fireEvent.click(within(dialog).getByRole("button", {
-      name: "Response type: Expand",
-    }));
     const routeEditor = within(dialog).getByRole("group", {
       name: "API endpoint path",
     });

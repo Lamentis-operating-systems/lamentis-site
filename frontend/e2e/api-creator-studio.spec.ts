@@ -45,9 +45,9 @@ async function readDownload(download: Download): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function expandResponseType(dialog: Locator) {
+async function expandAdvancedSettings(dialog: Locator) {
   const toggle = dialog.getByRole("button", {
-    name: "Response type: Expand",
+    name: "Advanced settings: Expand",
   });
   if (await toggle.count()) await toggle.click();
 }
@@ -130,7 +130,7 @@ for (const scenario of methodSuggestionScenarios) {
     const dialog = page.getByRole("dialog", {
       name: "Add a data structure to this route",
     });
-    await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+    await expandAdvancedSettings(dialog);
     const details = dialog.getByRole("region", { name: "Route details" });
     await expect(details.getByRole("textbox", { name: "Title" }))
       .toHaveValue(scenario.title);
@@ -143,18 +143,17 @@ for (const scenario of methodSuggestionScenarios) {
     await expect(details.getByRole("button", { name: "Remove parameter 1" }))
       .toHaveCount(0);
 
-    await dialog.getByRole("button", { name: "Request type: Expand" }).click();
     await expect(dialog.getByRole("textbox", { name: "Request type" }))
       .toHaveValue(scenario.requestType);
-    await dialog.getByRole("button", { name: "Response type: Expand" }).click();
     const response = dialog.getByRole("region", { name: "Response type" });
-    await expect(response.getByRole("textbox", { name: "HTTP status 1" }))
+    const responseOptions = dialog.getByRole("region", { name: "Response options" });
+    await expect(responseOptions.getByRole("textbox", { name: "HTTP status 1" }))
       .toHaveValue(scenario.responseStatus);
     await expect(response.getByRole("textbox", { name: "Response type" }))
       .toHaveValue(scenario.responseType);
     await expect(response.getByRole("button", { name: "Paginated response" }))
       .toHaveCount(scenario.responseType ? 1 : 0);
-    await expect(response.getByRole("button", { name: "Remove response 1" }))
+    await expect(responseOptions.getByRole("button", { name: "Remove response 1" }))
       .toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled();
   });
@@ -174,8 +173,8 @@ test("keeps response and header removal on the trailing edge in a narrow overlay
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
-  const response = dialog.getByRole("region", { name: "Response type" });
+  await expandAdvancedSettings(dialog);
+  const response = dialog.getByRole("region", { name: "Response options" });
   await response.getByRole("button", {
     name: "Add response",
     exact: true,
@@ -215,7 +214,7 @@ test("keeps every route-detail selector inside a valid editable state", async ({
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+  await expandAdvancedSettings(dialog);
   const details = dialog.getByRole("region", { name: "Route details" });
   await details.getByRole("button", { name: "Add parameter" }).click();
   await details.getByRole("textbox", { name: "Parameter name 1" })
@@ -306,8 +305,8 @@ test("keeps multi-response validation and header actions recoverable", async ({
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
-  const response = dialog.getByRole("region", { name: "Response type" });
+  await expandAdvancedSettings(dialog);
+  const response = dialog.getByRole("region", { name: "Response options" });
   await response.getByRole("button", {
     name: "Add response",
     exact: true,
@@ -365,12 +364,13 @@ test("adds and persists a route while restoring focus after Escape", {
   });
   await expect(responseDialog).toBeVisible();
   await expect(responseDialog.getByRole("button", {
-    name: "Request type: Expand",
+    name: "Advanced settings: Expand",
   })).toHaveAttribute("aria-expanded", "false");
-  await expect(responseDialog.getByRole("button", {
-    name: "Response type: Expand",
-  })).toHaveAttribute("aria-expanded", "false");
-  await expandResponseType(responseDialog);
+  await expect(responseDialog.getByRole("textbox", { name: "Response type" }))
+    .toBeVisible();
+  await expect(responseDialog.getByRole("textbox", { name: "Request type" }))
+    .toHaveCount(0);
+  await expandAdvancedSettings(responseDialog);
   await expect(responseDialog.getByText(
     "Create a response type or use an existing one as an editable template.",
   )).toBeVisible();
@@ -530,7 +530,7 @@ test("keeps edit-route changes atomic until Save", async ({ page }) => {
   }).getByRole("button", { name: "Edit /users/{id}" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Edit this route" });
-  await expandResponseType(dialog);
+  await expandAdvancedSettings(dialog);
   const routeEditor = dialog.getByRole("group", {
     name: "API endpoint path",
   });
@@ -589,11 +589,12 @@ test("preserves a materialized response when changing a route to DELETE", async 
   await dialog.getByRole("button", { name: "HTTP method GET" }).click();
   await dialog.getByRole("list", { name: "HTTP method" })
     .getByRole("button", { name: "DELETE" }).click();
-  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
+  await expandAdvancedSettings(dialog);
   const response = dialog.getByRole("region", { name: "Response type" });
-  await expect(response.getByRole("textbox", { name: "HTTP status 1" }))
+  const responseOptions = dialog.getByRole("region", { name: "Response options" });
+  await expect(responseOptions.getByRole("textbox", { name: "HTTP status 1" }))
     .toHaveValue("200");
-  await expect(response.getByRole("textbox", { name: "Content types 1" }))
+  await expect(responseOptions.getByRole("textbox", { name: "Content types 1" }))
     .toHaveValue("application/json");
   await expect(response.getByRole("textbox", { name: "Response type" }))
     .toHaveValue("AccountView");
@@ -701,7 +702,7 @@ test("prevents incompatible response-type reuse before persistence", async ({
   const responseDialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await expandResponseType(responseDialog);
+  await expandAdvancedSettings(responseDialog);
   const save = responseDialog.getByRole("button", { name: "Save" });
   const responseType = responseDialog.getByRole("textbox", {
     name: "Response type",
@@ -797,7 +798,6 @@ test("derives object names from properties and can prefill an existing model", a
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await expandResponseType(dialog);
   const save = dialog.getByRole("button", { name: "Save" });
   await dialog.getByRole("textbox", {
     name: "Response type",
@@ -936,7 +936,6 @@ test("renders object definitions inline without an empty state", async ({
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await expandResponseType(dialog);
   await dialog.getByRole("button", { name: "Add property" }).click();
   await dialog.getByRole("textbox", {
     name: "Property name 1",
@@ -1083,35 +1082,31 @@ test("persists request and paginated response sections and exports the wrapper",
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  const requestToggle = dialog.getByRole("button", {
-    name: /^Request type:/,
+  const advancedToggle = dialog.getByRole("button", {
+    name: /^Advanced settings:/,
   });
-  const responseToggle = dialog.getByRole("button", {
-    name: "Response type: Expand",
-  });
-  await expect(requestToggle).toHaveAttribute("aria-expanded", "false");
-  await expect(responseToggle).toHaveAttribute("aria-expanded", "false");
-  const requestChevron = requestToggle.locator("svg");
-  await expect(requestChevron).toHaveCSS(
+  await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+  const advancedChevron = advancedToggle.locator("svg");
+  await expect(advancedChevron).toHaveCSS(
     "transform",
     "matrix(0, -1, 1, 0, 0, 0)",
   );
-  await expect(requestChevron).toHaveCSS("transition-duration", "0.12s");
-  await requestToggle.hover();
-  await expect(requestToggle).toHaveCSS("box-shadow", "none");
-  await expect(requestToggle).toHaveCSS(
+  await expect(advancedChevron).toHaveCSS("transition-duration", "0.12s");
+  await advancedToggle.hover();
+  await expect(advancedToggle).toHaveCSS("box-shadow", "none");
+  await expect(advancedToggle).toHaveCSS(
     "background-color",
     "rgba(0, 0, 0, 0)",
   );
-  await requestToggle.focus();
-  await expect(requestToggle).toHaveCSS("box-shadow", "none");
-  await expect(requestToggle).toHaveCSS(
+  await advancedToggle.focus();
+  await expect(advancedToggle).toHaveCSS("box-shadow", "none");
+  await expect(advancedToggle).toHaveCSS(
     "background-color",
     "rgba(0, 0, 0, 0)",
   );
 
-  await requestToggle.click();
-  await expect(requestChevron).toHaveCSS(
+  await advancedToggle.click();
+  await expect(advancedChevron).toHaveCSS(
     "transform",
     "matrix(1, 0, 0, 1, 0, 0)",
   );
@@ -1122,7 +1117,6 @@ test("persists request and paginated response sections and exports the wrapper",
   await requestRegion.getByRole("textbox", { name: "Property name 1" })
     .fill("query");
 
-  await responseToggle.click();
   const responseRegion = dialog.getByRole("region", { name: "Response type" });
   await responseRegion.getByRole("textbox", { name: "Response type" })
     .fill("SearchResult");
@@ -1188,7 +1182,7 @@ test("prefills a path contract and persists explicit parameters and behavior", a
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+  await expandAdvancedSettings(dialog);
   const details = dialog.getByRole("region", { name: "Route details" });
   await expect(details.getByRole("textbox", { name: "Title" }))
     .toHaveValue("Get user");
@@ -1249,7 +1243,6 @@ test("prefills a path contract and persists explicit parameters and behavior", a
     .getByRole("button", { name: "Private" }).click();
   await details.getByRole("textbox", { name: "Rate limit" }).fill("120/minute");
 
-  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
   await expect(dialog.getByRole("textbox", { name: "Response type" }))
     .toHaveValue("UserResponse");
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -1314,7 +1307,7 @@ test("authors portable contract details, constraints, examples, and array serial
   const dialog = page.getByRole("dialog", {
     name: "Add a data structure to this route",
   });
-  await dialog.getByRole("button", { name: "Route details: Expand" }).click();
+  await expandAdvancedSettings(dialog);
   const details = dialog.getByRole("region", { name: "Route details" });
   await details.getByRole("button", { name: "Add parameter" }).click();
   await details.getByRole("textbox", { name: "Parameter name 1" }).fill("tags");
@@ -1329,18 +1322,17 @@ test("authors portable contract details, constraints, examples, and array serial
   await details.getByRole("textbox", { name: "Default value 1" }).fill("active");
   await details.getByRole("textbox", { name: "Example 1" }).fill("active");
 
-  await dialog.getByRole("button", { name: "Request type: Expand" }).click();
   await dialog.getByRole("textbox", { name: "Request example" })
     .fill('{"query":"elias"}');
-  await dialog.getByRole("button", { name: "Add property" }).click();
-  await dialog.getByRole("textbox", { name: "Property name 1" }).fill("query");
-  await dialog.getByRole("textbox", { name: "Allowed values 1" }).last()
+  const request = dialog.getByRole("region", { name: "Request type" });
+  await request.getByRole("button", { name: "Add property" }).click();
+  await request.getByRole("textbox", { name: "Property name 1" }).fill("query");
+  await request.getByRole("textbox", { name: "Allowed values 1" })
     .fill("elias, account");
-  await dialog.getByRole("textbox", { name: "Minimum length 1" }).fill("2");
-  await dialog.getByRole("textbox", { name: "Maximum length 1" }).fill("80");
-  await dialog.getByRole("textbox", { name: "Pattern 1" }).fill("^[a-z]+$");
+  await request.getByRole("textbox", { name: "Minimum length 1" }).fill("2");
+  await request.getByRole("textbox", { name: "Maximum length 1" }).fill("80");
+  await request.getByRole("textbox", { name: "Pattern 1" }).fill("^[a-z]+$");
 
-  await dialog.getByRole("button", { name: "Response type: Expand" }).click();
   await dialog.getByRole("textbox", { name: "Response example 1" })
     .fill('{"id":"acc_1"}');
   await dialog.getByRole("button", { name: "Save" }).click();

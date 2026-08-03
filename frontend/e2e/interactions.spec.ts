@@ -300,9 +300,6 @@ test("shared controls use their intended interaction states", async ({
     name: "Add a data structure to this route",
   });
   await expect(responseDialog).toBeVisible();
-  await responseDialog.getByRole("button", {
-    name: "Response type: Expand",
-  }).click();
   await responseDialog.getByRole("button", { name: "Add property" }).click();
   const optionalProperty = responseDialog.getByRole("button", {
     name: "Optional 1",

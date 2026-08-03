@@ -38,6 +38,8 @@ export type SearchContent = {
 
 export type ResponseSchemaEditorContent = {
   addPropertyLabel: string;
+  advancedDescription: string;
+  advancedLabel: string;
   arrayConnectorLabel: string;
   arrayItemTypeLabel: string;
   collapseSectionLabel: string;
@@ -62,6 +64,8 @@ export type ResponseSchemaEditorContent = {
   responseTypeLabel: string;
   responseTypePlaceholder: string;
   responseTypeTemplateLabel: string;
+  responseOptionsDescription: string;
+  responseOptionsLabel: string;
   routeContract: {
     addParameterLabel: string;
     addResponseHeaderLabel: string;
@@ -256,6 +260,9 @@ export const contentByLocale = {
       pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
         addPropertyLabel: "Add property",
+        advancedDescription:
+          "Configure request bodies, operation metadata, field constraints, additional responses, authentication, and runtime behavior.",
+        advancedLabel: "Advanced settings",
         arrayConnectorLabel: "of",
         arrayItemTypeLabel: "Array item type",
         collapseSectionLabel: "Collapse",
@@ -289,6 +296,9 @@ export const contentByLocale = {
         responseTypeLabel: "Response type",
         responseTypePlaceholder: "Name your response type",
         responseTypeTemplateLabel: "Response type template",
+        responseOptionsDescription:
+          "Configure status metadata, media types, examples, additional responses, and response headers.",
+        responseOptionsLabel: "Response options",
         routeContract: {
           addParameterLabel: "Add parameter",
           addResponseHeaderLabel: "Add response header",
@@ -521,6 +531,9 @@ export const contentByLocale = {
         "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
         addPropertyLabel: "Eigenschaft hinzufügen",
+        advancedDescription:
+          "Konfiguriere Anfragekörper, Operationsmetadaten, Feldbedingungen, zusätzliche Antworten, Authentifizierung und Laufzeitverhalten.",
+        advancedLabel: "Erweiterte Einstellungen",
         arrayConnectorLabel: "aus",
         arrayItemTypeLabel: "Array-Elementtyp",
         collapseSectionLabel: "Einklappen",
@@ -554,6 +567,9 @@ export const contentByLocale = {
         responseTypeLabel: "Antworttyp",
         responseTypePlaceholder: "Benenne deinen Antworttyp",
         responseTypeTemplateLabel: "Antworttyp-Vorlage",
+        responseOptionsDescription:
+          "Konfiguriere Statusmetadaten, Medientypen, Beispiele, zusätzliche Antworten und Antwort-Header.",
+        responseOptionsLabel: "Antwortoptionen",
         routeContract: {
           addParameterLabel: "Parameter hinzufügen",
           addResponseHeaderLabel: "Antwort-Header hinzufügen",
