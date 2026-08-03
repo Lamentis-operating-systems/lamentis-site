@@ -32,10 +32,13 @@ Interaktionen, Accessibility und visuelle Baselines.
 Weitere Verträge sind in der Dokumentation festgehalten:
 
 - [Architektur](docs/architecture.md)
+- [Deployment](docs/deployment.md)
 - [Designsystem](docs/design-system.md)
 - [Tests](docs/testing.md)
 
 ## Deployment
 
-Die einzige getrackte Vercel-Konfiguration liegt im Repository-Root. Ein
-Deployment wird bewusst separat von normalen Refactors ausgelöst.
+Die einzige getrackte Vercel-Buildkonfiguration liegt im Repository-Root.
+`main` beliefert die Produktionsdomains; der langlebige Branch `dev` beliefert
+die feste Preview-Domain `dev.lamentis.de`. Provider-Einstellungen und der
+vollständige Prüfvertrag sind in der Deployment-Dokumentation festgehalten.

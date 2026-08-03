@@ -142,5 +142,10 @@ besitzt. Direkte Imports und Named Exports halten Abhängigkeiten sichtbar.
 
 ## Deployment
 
-`vercel.json` im Repository-Root ist die einzige Deployment-Konfiguration. Ein
-Deployment gehört nicht zu einem normalen Refactor und wird separat ausgelöst.
+`vercel.json` im Repository-Root ist die einzige getrackte
+Vercel-Buildkonfiguration. Das kanonische Vercel-Projekt `frontend` baut den
+Anwendungscode aus `frontend`; `main` ist der Produktionsbranch und `dev` der
+langlebige Preview-Branch. Domain-, DNS- und Git-Integrationseinstellungen sind
+Provider-Zustand und werden nicht durch veraltete Alias- oder
+`github.silent`-Eigenschaften in `vercel.json` gespiegelt. Der vollständige
+Vertrag und seine getrennten Nachweise stehen in [Deployment](deployment.md).
