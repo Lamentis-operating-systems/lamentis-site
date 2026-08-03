@@ -390,7 +390,9 @@ describe("overlay provider", () => {
         screen.queryByRole("dialog", { name: "Demo overlay" }),
       ).not.toBeInTheDocument();
     });
-    expect(trigger).toHaveFocus();
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
   });
 
   it("renders configured action icons and closes from the secondary cancel action", async () => {
