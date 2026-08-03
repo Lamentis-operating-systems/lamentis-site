@@ -170,9 +170,33 @@ test("preserves legacy details that are no longer editable", async ({ page }) =>
     id: 9,
     method: "GET",
     path: "/legacy",
+    requestBody: {
+      contentTypes: ["application/vnd.legacy+json"],
+      example: { name: "Ada" },
+      required: false,
+      schema: {
+        fields: [{
+          maxLength: 40,
+          name: "name",
+          optional: false,
+          type: "string",
+        }],
+        typeName: "LegacyRequest",
+      },
+    },
     responses: [{
       contentTypes: ["application/xml"],
       description: "Legacy XML response",
+      example: { id: "legacy_1" },
+      schema: {
+        fields: [{
+          name: "id",
+          optional: false,
+          pattern: "^legacy_",
+          type: "string",
+        }],
+        typeName: "LegacyResponse",
+      },
       status: "200",
     }],
     security: { scheme: "bearer" },
@@ -190,9 +214,33 @@ test("preserves legacy details that are no longer editable", async ({ page }) =>
   ), apiRoutesStorage.key);
   expect(routes[0]).toMatchObject({
     behavior: { cache: "private", rateLimit: "100/min" },
+    requestBody: {
+      contentTypes: ["application/vnd.legacy+json"],
+      example: { name: "Ada" },
+      required: false,
+      schema: {
+        fields: [{
+          maxLength: 40,
+          name: "name",
+          optional: false,
+          type: "string",
+        }],
+        typeName: "LegacyRequest",
+      },
+    },
     responses: [{
       contentTypes: ["application/xml"],
       description: "Legacy XML response",
+      example: { id: "legacy_1" },
+      schema: {
+        fields: [{
+          name: "id",
+          optional: false,
+          pattern: "^legacy_",
+          type: "string",
+        }],
+        typeName: "LegacyResponse",
+      },
       status: "200",
     }],
     security: { scheme: "bearer" },

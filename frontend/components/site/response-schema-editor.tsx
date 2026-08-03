@@ -133,14 +133,12 @@ export function ResponseSchemaEditor({
 }: ResponseSchemaEditorProps) {
   const initialSuggestions = deriveApiRouteSuggestions(route.method, route.path);
   const initialPrimaryResponse = primaryResponse(route);
+  const initialRequestJson = prettyJson(route.requestBody?.example);
+  const initialResponseJson = prettyJson(initialPrimaryResponse?.example);
   const [routeMethod, setRouteMethod] = useState(route.method);
   const [routePath, setRoutePath] = useState(route.path);
-  const [requestJson, setRequestJson] = useState(() => (
-    prettyJson(route.requestBody?.example)
-  ));
-  const [responseJson, setResponseJson] = useState(() => (
-    prettyJson(initialPrimaryResponse?.example)
-  ));
+  const [requestJson, setRequestJson] = useState(initialRequestJson);
+  const [responseJson, setResponseJson] = useState(initialResponseJson);
   const [responseStatus, setResponseStatus] = useState(
     initialPrimaryResponse?.status ?? initialSuggestions.responseStatus,
   );
@@ -189,7 +187,8 @@ export function ResponseSchemaEditor({
       title: previousContract.title ?? suggestions.title,
     };
 
-    if (parsedRequest.value !== undefined) {
+    const requestJsonChanged = requestJson !== initialRequestJson;
+    if (parsedRequest.value !== undefined && requestJsonChanged) {
       const requestSchema = inferApiResponseSchemaFromJson(
         contractTypeName(routeMethod, routePath, "Request"),
         parsedRequest.value,
@@ -201,12 +200,13 @@ export function ResponseSchemaEditor({
         required: true,
         ...(requestSchema ? { schema: requestSchema } : {}),
       };
-    } else if (route.requestBody?.example !== undefined) {
+    } else if (requestJsonChanged && route.requestBody?.example !== undefined) {
       delete nextContract.request;
       delete nextContract.requestBody;
     }
 
-    const responseSchema = parsedResponse.value === undefined
+    const responseJsonChanged = responseJson !== initialResponseJson;
+    const responseSchema = parsedResponse.value === undefined || !responseJsonChanged
       ? undefined
       : inferApiResponseSchemaFromJson(
           contractTypeName(routeMethod, routePath, "Response"),
@@ -225,17 +225,17 @@ export function ResponseSchemaEditor({
       ...currentPrimary,
       contentTypes: responseStatus === "204"
         ? []
-        : parsedResponse.value !== undefined
+        : responseJsonChanged && parsedResponse.value !== undefined
           ? ["application/json"]
           : currentPrimary.contentTypes,
       status: responseStatus,
     };
-    if (parsedResponse.value !== undefined) {
+    if (parsedResponse.value !== undefined && responseJsonChanged) {
       nextPrimary = withSchema({
         ...nextPrimary,
         example: parsedResponse.value,
       }, responseSchema);
-    } else if (initialPrimaryResponse?.example !== undefined) {
+    } else if (responseJsonChanged && initialPrimaryResponse?.example !== undefined) {
       const withoutExample = { ...nextPrimary };
       delete withoutExample.example;
       nextPrimary = withSchema(withoutExample, undefined);
@@ -248,7 +248,7 @@ export function ResponseSchemaEditor({
     }
     nextContract.responses = responses;
     if (nextPrimary.schema) nextContract.response = nextPrimary.schema;
-    else if (initialPrimaryResponse?.example !== undefined) {
+    else if (responseJsonChanged && initialPrimaryResponse?.example !== undefined) {
       delete nextContract.response;
       delete nextContract.paginated;
     }
