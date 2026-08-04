@@ -26,6 +26,7 @@
 
 .sectionHeader,
 .field,
+.responseOption,
 .advancedSubsection,
 .responseAdvanced,
 .advancedResponseCard {
@@ -33,9 +34,14 @@
 }
 
 .sectionHeader,
-.field {
+.field,
+.responseOption {
   display: grid;
   min-width: 0;
+}
+
+.responseOption {
+  gap: var(--space-1);
 }
 
 .sectionTitle,

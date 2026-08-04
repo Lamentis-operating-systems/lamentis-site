@@ -156,6 +156,7 @@ export function ApiCreatorStudio({
               route.id,
             )
           )}
+          initializeEmptyResponseSchema={mode === "create"}
           {...(mode === "create"
             ? {
                 onRouteMethodChange: (nextMethod: HttpMethod) => {

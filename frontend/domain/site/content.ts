@@ -76,6 +76,7 @@ export type ResponseSchemaEditorContent = {
     parameterTypeOptions: Record<ApiParameterType, string>;
     parametersDescription: string;
     parametersLabel: string;
+    paginationDescription: string;
     paginationLabel: string;
     removeParameterLabel: string;
     removeResponseHeaderLabel: string;
@@ -224,7 +225,7 @@ export const contentByLocale = {
         expandSectionLabel: "Expand",
         formatJsonLabel: "Format JSON",
         requestBodyDescription:
-          "Object schemas only: type, properties, required, and items; primitives, nested objects, and arrays.",
+          "Object schemas only. Add fields inside properties and mandatory names in required. Braces, brackets, quotes, and indentation complete as you type.",
         requestBodyLabel: "Request type (JSON Schema)",
         requestExampleDescription:
           "Optional example payload. It stays separate from the request type.",
@@ -234,7 +235,7 @@ export const contentByLocale = {
         responseExampleLabel: "Response example (JSON)",
         responseGroupLabel: "Response",
         responseSectionDescription:
-          "Object schemas only: type, properties, required, and items; primitives, nested objects, and arrays.",
+          "Object schemas only. Add fields inside properties and mandatory names in required. Braces, brackets, quotes, and indentation complete as you type.",
         responseSectionLabel: "Response type (JSON Schema)",
         responseTypeLabel: "Response type",
         routeContract: {
@@ -282,6 +283,8 @@ export const contentByLocale = {
           parametersDescription:
             "Path parameters follow the route automatically. Add only the query parameters callers need.",
           parametersLabel: "Parameters",
+          paginationDescription:
+            "Wraps this type in items and adds totalHits, page, limit, and totalPages when exported.",
           paginationLabel: "Paginated response",
           removeParameterLabel: "Remove parameter",
           removeResponseHeaderLabel: "Remove response header",
@@ -418,7 +421,7 @@ export const contentByLocale = {
         expandSectionLabel: "Ausklappen",
         formatJsonLabel: "JSON formatieren",
         requestBodyDescription:
-          "Nur Objektschemas: type, properties, required und items; primitive Typen, verschachtelte Objekte und Arrays.",
+          "Nur Objektschemas. Ergänze Felder unter properties und Pflichtfelder unter required. Klammern, Anführungszeichen und Einrückungen werden beim Schreiben ergänzt.",
         requestBodyLabel: "Request-Typ (JSON Schema)",
         requestExampleDescription:
           "Optionaler Beispiel-Payload. Er bleibt vom Request-Typ getrennt.",
@@ -428,7 +431,7 @@ export const contentByLocale = {
         responseExampleLabel: "Response-Beispiel (JSON)",
         responseGroupLabel: "Antwort",
         responseSectionDescription:
-          "Nur Objektschemas: type, properties, required und items; primitive Typen, verschachtelte Objekte und Arrays.",
+          "Nur Objektschemas. Ergänze Felder unter properties und Pflichtfelder unter required. Klammern, Anführungszeichen und Einrückungen werden beim Schreiben ergänzt.",
         responseSectionLabel: "Response-Typ (JSON Schema)",
         responseTypeLabel: "Antworttyp",
         routeContract: {
@@ -476,6 +479,8 @@ export const contentByLocale = {
           parametersDescription:
             "Pfadparameter folgen der Route automatisch. Ergänze nur benötigte Query-Parameter.",
           parametersLabel: "Parameter",
+          paginationDescription:
+            "Umschließt diesen Typ beim Export mit items und ergänzt totalHits, page, limit und totalPages.",
           paginationLabel: "Paginierte Antwort",
           removeParameterLabel: "Parameter entfernen",
           removeResponseHeaderLabel: "Antwort-Header entfernen",

@@ -53,6 +53,7 @@ type ResponseSchemaEditorProps = {
     method: HttpMethod,
     path: string,
   ) => BracedPathValidationReason | null;
+  initializeEmptyResponseSchema?: boolean;
   onRouteMethodChange?: (method: HttpMethod) => void;
   onSave: (
     contract: Omit<ApiRouteContract, "id" | "method" | "path">,
@@ -88,6 +89,7 @@ type ResponseDraft = {
   initialSchema?: ApiResponseSchema;
   original?: ApiRouteResponse;
   paginated: boolean;
+  schemaGenerated: boolean;
   schemaJson: string;
   status: string;
 };
@@ -100,6 +102,18 @@ type SecurityMode = "inherit" | ApiSecurityScheme;
 
 const bodyMethods: readonly HttpMethod[] = ["POST", "PUT", "PATCH"];
 const additionalResponseStatuses = ["400", "401", "403", "404", "409", "422", "500"];
+const emptyJsonObjectSchema = [
+  "{",
+  '  "type": "object",',
+  '  "properties": {',
+  "    ",
+  "  }",
+  "}",
+].join("\n");
+const formattedEmptyJsonObjectSchema = `{
+  "type": "object",
+  "properties": {}
+}`;
 const jsonSchemaPlaceholder = `{
   "type": "object",
   "properties": {
@@ -219,6 +233,8 @@ function responseDraft(
   id: number,
   initialSchema = response.schema,
   initialPaginated = response.paginated === true,
+  schemaJson = prettySchemaJson(initialSchema),
+  schemaGenerated = false,
 ): ResponseDraft {
   return {
     contentTypes: response.contentTypes.join(", "),
@@ -233,7 +249,8 @@ function responseDraft(
     ...(initialSchema ? { initialSchema } : {}),
     original: response,
     paginated: initialPaginated,
-    schemaJson: prettySchemaJson(initialSchema),
+    schemaGenerated,
+    schemaJson,
     status: response.status,
   };
 }
@@ -241,7 +258,7 @@ function responseDraft(
 function hasResponsePayload(response: ResponseDraft): boolean {
   return Boolean(
     response.exampleJson.trim()
-    || response.schemaJson.trim()
+    || (!response.schemaGenerated && response.schemaJson.trim())
     || response.original?.example !== undefined
     || response.original?.schema
     || response.paginated,
@@ -364,6 +381,7 @@ export function ResponseSchemaEditor({
   disabledRouteMethods = [],
   formId,
   getRouteValidationReason,
+  initializeEmptyResponseSchema = false,
   onRouteMethodChange,
   onSave,
   route,
@@ -411,16 +429,24 @@ export function ResponseSchemaEditor({
     route.requestBody?.contentTypes.join(", ") ?? "application/json",
   );
   const [responses, setResponses] = useState<ResponseDraft[]>(() => (
-    initialResponseValues.map((response, index) => responseDraft(
-      response,
-      index,
-      response.schema ?? (index === initialPrimaryResponseIndex
-        ? route.response
-        : undefined),
-      response.paginated ?? (index === initialPrimaryResponseIndex
-        ? route.paginated === true
-        : false),
-    ))
+    initialResponseValues.map((response, index) => {
+      const generateSchema = initializeEmptyResponseSchema
+        && index === initialPrimaryResponseIndex
+        && !response.schema
+        && !route.response;
+      return responseDraft(
+        response,
+        index,
+        response.schema ?? (index === initialPrimaryResponseIndex
+          ? route.response
+          : undefined),
+        response.paginated ?? (index === initialPrimaryResponseIndex
+          ? route.paginated === true
+          : false),
+        generateSchema ? emptyJsonObjectSchema : undefined,
+        generateSchema,
+      );
+    })
   ));
   const [primaryResponseId] = useState(initialPrimaryResponseIndex);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -603,6 +629,7 @@ export function ResponseSchemaEditor({
         id: nextResponseIdRef.current++,
         initialPaginated: false,
         paginated: false,
+        schemaGenerated: false,
         schemaJson: "",
         status,
       },
@@ -786,7 +813,15 @@ export function ResponseSchemaEditor({
         }}
         onValueChange={(value) => {
           clearJsonError(response.id, "schema");
-          updateResponse(response.id, { schemaJson: value });
+          updateResponse(response.id, {
+            paginated: value.trim() ? response.paginated : false,
+            schemaGenerated: response.schemaGenerated
+              && (
+                value === emptyJsonObjectSchema
+                || value === formattedEmptyJsonObjectSchema
+              ),
+            schemaJson: value,
+          });
         }}
       />
     );
@@ -821,6 +856,38 @@ export function ResponseSchemaEditor({
           updateResponse(response.id, { exampleJson: value });
         }}
       />
+    );
+  }
+
+  function renderResponsePagination(response: ResponseDraft, index: number) {
+    const primary = index === primaryResponseIndex;
+    const descriptionId = primary
+      ? `${issueId}-response-${response.id}-pagination-description`
+      : undefined;
+    const checkbox = (
+      <CheckboxWithLabel
+        aria-describedby={descriptionId}
+        checked={response.paginated}
+        disabled={response.status === "204" || !response.schemaJson.trim()}
+        label={primary
+          ? content.routeContract.paginationLabel
+          : `${content.routeContract.paginationLabel} ${index + 1}`}
+        name={`response-${response.id}-paginated`}
+        onChange={(event) => {
+          updateResponse(response.id, {
+            paginated: event.currentTarget.checked,
+          });
+        }}
+      />
+    );
+    if (!primary) return checkbox;
+    return (
+      <div className={styles.responseOption}>
+        {checkbox}
+        <p id={descriptionId} className={styles.sectionDescription}>
+          {content.routeContract.paginationDescription}
+        </p>
+      </div>
     );
   }
 
@@ -916,16 +983,9 @@ export function ResponseSchemaEditor({
             contentTypes: event.currentTarget.value,
           })}
         />
-        <CheckboxWithLabel
-          checked={response.paginated}
-          disabled={response.status === "204"}
-          label={`${content.routeContract.paginationLabel} ${index + 1}`}
-          onChange={(event) => {
-            updateResponse(response.id, {
-              paginated: event.currentTarget.checked,
-            });
-          }}
-        />
+        {index === primaryResponseIndex
+          ? null
+          : renderResponsePagination(response, index)}
         {renderResponseHeaders(response, index)}
       </div>
     );
@@ -1370,7 +1430,12 @@ export function ResponseSchemaEditor({
               </div>
               {renderResponseStatus(primaryResponseDraft, primaryResponseIndex)}
             </div>
-          ) : renderResponseSchema(primaryResponseDraft, primaryResponseIndex)}
+          ) : (
+            <>
+              {renderResponseSchema(primaryResponseDraft, primaryResponseIndex)}
+              {renderResponsePagination(primaryResponseDraft, primaryResponseIndex)}
+            </>
+          )}
         </section>
       ) : null}
 

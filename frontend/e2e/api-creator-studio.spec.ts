@@ -14,6 +14,14 @@ const studioPath = routePath({
   locale: "en",
   routeId: "apiCreatorStudio",
 });
+const emptyObjectSchemaStarter = [
+  "{",
+  '  "type": "object",',
+  '  "properties": {',
+  "    ",
+  "  }",
+  "}",
+].join("\n");
 
 function objectSchemaJson(
   properties: Record<string, unknown>,
@@ -72,10 +80,19 @@ test("keeps route, query parameters, status, and response type in the common GET
     name: "Request type (JSON Schema)",
   }))
     .toHaveCount(0);
-  await expect(dialog.getByRole("textbox", {
+  const responseSchema = dialog.getByRole("textbox", {
     name: "Response type (JSON Schema)",
-  }))
-    .toBeVisible();
+  });
+  await expect(responseSchema).toBeVisible();
+  await expect(responseSchema).toHaveValue(emptyObjectSchemaStarter);
+  await expect(dialog.getByRole("checkbox", {
+    name: "Paginated response",
+  })).toHaveAccessibleDescription(
+    "Wraps this type in items and adds totalHits, page, limit, and totalPages when exported.",
+  );
+  await expect(dialog.getByRole("checkbox", {
+    name: "Paginated response 1",
+  })).toHaveCount(0);
   await expect(dialog.getByRole("textbox", { name: "HTTP status" }))
     .toHaveValue("200");
   await expect(dialog.getByRole("button", { name: "Add query parameter" }))
@@ -88,6 +105,50 @@ test("keeps route, query parameters, status, and response type in the common GET
     name: "Response type",
   }))
     .toHaveCount(0);
+});
+
+test("assists keyboard authoring without trapping focus @cross-browser-smoke", async ({
+  page,
+}) => {
+  await page.goto(studioPath);
+  const routeInput = page.getByRole("textbox", {
+    name: "API endpoint path",
+  });
+  await routeInput.fill("assisted");
+  await routeInput.press("Enter");
+
+  const dialog = page.getByRole("dialog", { name: "Define this API route" });
+  const responseSchema = dialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
+  });
+  await responseSchema.focus();
+  const expectedCaret = emptyObjectSchemaStarter.indexOf("\n    \n") + 5;
+  await responseSchema.evaluate((input, position) => {
+    (input as HTMLTextAreaElement).setSelectionRange(position, position);
+  }, expectedCaret);
+
+  await page.keyboard.type('"id": {"type": "string"}');
+  await expect(responseSchema).toHaveValue([
+    "{",
+    '  "type": "object",',
+    '  "properties": {',
+    '    "id": {"type": "string"}',
+    "  }",
+    "}",
+  ].join("\n"));
+
+  await responseSchema.press("Tab");
+  await expect(responseSchema).not.toBeFocused();
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  const routes = await page.evaluate((key) => (
+    JSON.parse(window.localStorage.getItem(key) ?? "[]") as ApiRouteContract[]
+  ), apiRoutesStorage.key);
+  expect(routes[0]?.responses?.[0]?.schema?.fields).toEqual([{
+    name: "id",
+    optional: true,
+    type: "string",
+  }]);
 });
 
 test("creates, exports, and reopens a typed JSON contract with examples", async ({
@@ -122,6 +183,7 @@ test("creates, exports, and reopens a typed JSON contract with examples", async 
       },
     }),
   );
+  await dialog.getByRole("checkbox", { name: "Paginated response" }).check();
   await dialog.getByRole("button", {
     name: "Advanced settings",
   }).click();
@@ -144,6 +206,10 @@ test("creates, exports, and reopens a typed JSON contract with examples", async 
   const skill = await readDownload(download);
   expect(skill).toContain("export interface PostUsersRequest {");
   expect(skill).toContain("export interface PostUsersResponse {");
+  expect(skill).toContain("export interface PostUsersResponsePage {");
+  expect(skill).toContain("items: PostUsersResponse[];");
+  expect(skill).toContain("totalHits: number;");
+  expect(skill).toContain("totalPages: number;");
   expect(skill).toContain('"display-name": string;');
   expect(skill).toContain('"name": "Ada"');
   expect(skill).toContain('"id": "user_1"');
@@ -157,6 +223,9 @@ test("creates, exports, and reopens a typed JSON contract with examples", async 
   await expect(editDialog.getByRole("textbox", {
     name: "Response type (JSON Schema)",
   })).toHaveValue(/"profile": \{/);
+  await expect(editDialog.getByRole("checkbox", {
+    name: "Paginated response",
+  })).toBeChecked();
   await editDialog.getByRole("button", {
     name: "Advanced settings",
   }).click();
@@ -296,6 +365,9 @@ test("offers a compact no-content response", async ({ page }) => {
     name: "Response type (JSON Schema)",
   }))
     .toHaveCount(0);
+  await expect(dialog.getByRole("checkbox", {
+    name: "Paginated response",
+  })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save" }).click();
 
   await expect(page.getByRole("list", { name: "API routes" })

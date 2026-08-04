@@ -4,12 +4,39 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, useState, type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CheckboxWithLabel } from "@/components/site/form/checkbox-with-label";
 import { JsonInput } from "@/components/site/form/json-input";
 import { TextInput } from "@/components/site/form/text-input";
 import { SelectMenu } from "@/components/site/select-menu";
+
+type JsonInputHarnessProps = Partial<ComponentProps<typeof JsonInput>> & {
+  initialValue?: string;
+  onHarnessValueChange?: (value: string) => void;
+};
+
+function JsonInputHarness({
+  initialValue = "",
+  onHarnessValueChange,
+  ...props
+}: JsonInputHarnessProps) {
+  const [value, setValue] = useState(initialValue);
+
+  return (
+    <JsonInput
+      description="Define a JSON object."
+      formatLabel="Format JSON"
+      label="Response type"
+      {...props}
+      value={value}
+      onValueChange={(nextValue) => {
+        setValue(nextValue);
+        onHarnessValueChange?.(nextValue);
+      }}
+    />
+  );
+}
 
 describe("shared form controls", () => {
   it("owns JSON field semantics, formatting, and invalid-format feedback", () => {
@@ -59,6 +86,137 @@ describe("shared form controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Format response JSON" }));
     expect(onInvalidFormat).toHaveBeenCalledTimes(1);
     expect(input).toHaveFocus();
+  });
+
+  it.each([
+    { closing: "}", opening: "{" },
+    { closing: "]", opening: "[" },
+    { closing: "\"", opening: "\"" },
+  ])("pairs and wraps JSON $opening characters", ({ closing, opening }) => {
+    const view = render(<JsonInputHarness />);
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.keyDown(input, { key: opening });
+    expect(input).toHaveValue(`${opening}${closing}`);
+    expect(input).toHaveProperty("selectionStart", 1);
+    expect(input).toHaveProperty("selectionEnd", 1);
+
+    view.unmount();
+    render(<JsonInputHarness initialValue="field" />);
+    const selectedInput = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    selectedInput.setSelectionRange(0, 5);
+    fireEvent.keyDown(selectedInput, { key: opening });
+
+    expect(selectedInput).toHaveValue(`${opening}field${closing}`);
+    expect(selectedInput).toHaveProperty("selectionStart", 1);
+    expect(selectedInput).toHaveProperty("selectionEnd", 6);
+  });
+
+  it.each([
+    { key: "}", pair: "{}" },
+    { key: "]", pair: "[]" },
+    { key: "\"", pair: "\"\"" },
+  ])("skips an existing JSON $key closing character", ({ key, pair }) => {
+    render(<JsonInputHarness initialValue={pair} />);
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(1, 1);
+
+    fireEvent.keyDown(input, { key });
+
+    expect(input).toHaveValue(pair);
+    expect(input).toHaveProperty("selectionStart", 2);
+    expect(input).toHaveProperty("selectionEnd", 2);
+  });
+
+  it.each([
+    { key: "Backspace", pair: "{}", selection: 1 },
+    { key: "Delete", pair: "{}", selection: 0 },
+    { key: "Backspace", pair: "[]", selection: 1 },
+    { key: "Delete", pair: "\"\"", selection: 0 },
+  ])(
+    "deletes both empty JSON pair characters with $key",
+    ({ key, pair, selection }) => {
+      render(<JsonInputHarness initialValue={pair} />);
+      const input = screen.getByRole("textbox", {
+        name: "Response type",
+      }) as HTMLTextAreaElement;
+      input.setSelectionRange(selection, selection);
+
+      fireEvent.keyDown(input, { key });
+
+      expect(input).toHaveValue("");
+      expect(input).toHaveProperty("selectionStart", 0);
+      expect(input).toHaveProperty("selectionEnd", 0);
+    },
+  );
+
+  it("adds structural and current-line indentation on Enter", () => {
+    render(<JsonInputHarness initialValue="{}" />);
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(1, 1);
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("{\n  \n}");
+    expect(input).toHaveProperty("selectionStart", 4);
+
+    fireEvent.change(input, { target: { value: "{\n  \"name\": \"Ada\"" } });
+    input.setSelectionRange(input.value.length, input.value.length);
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(input).toHaveValue("{\n  \"name\": \"Ada\"\n  ");
+    expect(input).toHaveProperty("selectionStart", input.value.length);
+  });
+
+  it("pairs structural characters produced by a keyboard layout modifier", () => {
+    render(<JsonInputHarness />);
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.keyDown(input, { altKey: true, key: "{" });
+
+    expect(input).toHaveValue("{}");
+    expect(input).toHaveProperty("selectionStart", 1);
+  });
+
+  it("only takes over Tab and character keys when an editing aid applies", () => {
+    const onKeyDown = vi.fn();
+    const onValueChange = vi.fn();
+    render(
+      <JsonInputHarness
+        initialValue={'{"value":"text"}'}
+        onHarnessValueChange={onValueChange}
+        onKeyDown={onKeyDown}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(11, 11);
+
+    expect(fireEvent.keyDown(input, { key: "{" })).toBe(true);
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(true);
+    expect(fireEvent.keyDown(input, {
+      ctrlKey: true,
+      key: "[",
+    })).toBe(true);
+    expect(fireEvent.keyDown(input, {
+      isComposing: true,
+      key: "{",
+      keyCode: 229,
+    })).toBe(true);
+
+    expect(input).toHaveValue('{"value":"text"}');
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(onKeyDown).toHaveBeenCalledTimes(4);
   });
 
   it("forwards native text-input semantics through the shared surface", () => {

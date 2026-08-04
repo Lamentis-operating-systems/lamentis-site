@@ -68,6 +68,15 @@ function formattedObjectSchemaJson(
   return JSON.stringify(JSON.parse(objectSchemaJson(properties, required)), null, 2);
 }
 
+const emptyObjectSchemaStarter = [
+  "{",
+  '  "type": "object",',
+  '  "properties": {',
+  "    ",
+  "  }",
+  "}",
+].join("\n");
+
 function renderResponseEditor(
   props: Pick<
     ComponentProps<typeof ResponseSchemaEditor>,
@@ -794,7 +803,15 @@ describe("search page", () => {
     });
     expect(requestSchema).toBeVisible();
     expect(responseSchema).toBeVisible();
-
+    expect(responseSchema).toHaveValue(emptyObjectSchemaStarter);
+    expect(within(dialog).getByRole("checkbox", {
+      name: "Paginated response",
+    })).toHaveAccessibleDescription(
+      "Wraps this type in items and adds totalHits, page, limit, and totalPages when exported.",
+    );
+    expect(within(dialog).queryByRole("checkbox", {
+      name: "Paginated response 1",
+    })).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", {
       name: "Add query parameter",
     }));
@@ -836,6 +853,9 @@ describe("search page", () => {
         }),
       },
     });
+    fireEvent.click(within(dialog).getByRole("checkbox", {
+      name: "Paginated response",
+    }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -853,6 +873,7 @@ describe("search page", () => {
       window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",
     )).toMatchObject([{
       method: "PATCH",
+      paginated: true,
       path: "/users/{uuid}/posts",
       requestBody: {
         contentTypes: ["application/json"],
@@ -876,8 +897,16 @@ describe("search page", () => {
           type: "integer",
         }),
       ],
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "string" },
+          { name: "published", optional: false, type: "boolean" },
+        ],
+        typeName: "PatchUsersByUuidPostsResponse",
+      },
       responses: [{
         contentTypes: ["application/json"],
+        paginated: true,
         schema: {
           fields: [
             { name: "id", optional: false, type: "string" },
@@ -888,6 +917,83 @@ describe("search page", () => {
         status: "200",
       }],
     }]);
+  });
+
+  it("seeds only create-mode responses and keeps the draft through 204", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="seeded-response-form"
+        getRouteValidationReason={() => null}
+        initializeEmptyResponseSchema
+        onSave={onSave}
+        route={{ id: 30, method: "GET", path: "/seeded" }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue(emptyObjectSchemaStarter);
+    fireEvent.click(screen.getByRole("button", { name: "HTTP method GET" }));
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "HTTP method",
+    })).getByRole("button", { name: "DELETE" }));
+    expect(screen.getByRole("textbox", { name: "HTTP status" }))
+      .toHaveValue("204");
+    expect(screen.queryByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", {
+      name: "Paginated response",
+    })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "HTTP method DELETE" }));
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "HTTP method",
+    })).getByRole("button", { name: "GET" }));
+    expect(screen.getByRole("textbox", { name: "HTTP status" }))
+      .toHaveValue("200");
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue(emptyObjectSchemaStarter);
+
+    fireEvent.submit(document.querySelector("#seeded-response-form")!);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      response: {
+        fields: [],
+        typeName: "GetSeededResponse",
+      },
+      responses: [expect.objectContaining({
+        schema: {
+          fields: [],
+          typeName: "GetSeededResponse",
+        },
+        status: "200",
+      })],
+    }), { method: "GET", path: "/seeded" });
+  });
+
+  it("leaves existing empty routes unseeded", () => {
+    renderResponseEditor({
+      formId: "existing-empty-response-form",
+      onSave: vi.fn(() => "saved" as const),
+      route: { id: 31, method: "GET", path: "/existing" },
+    });
+
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue("");
+    expect(screen.getByRole("checkbox", { name: "Paginated response" }))
+      .toBeDisabled();
   });
 
   it("rejects invalid and unsupported schemas and focuses the field", async () => {
@@ -1123,6 +1229,14 @@ describe("search page", () => {
     fireEvent.change(screen.getByRole("textbox", {
       name: "Response example (JSON) 2",
     }), { target: { value: '{"code":"invalid"}' } });
+    expect(screen.queryByRole("checkbox", {
+      name: "Paginated response 1",
+    })).not.toBeInTheDocument();
+    const additionalPagination = screen.getByRole("checkbox", {
+      name: "Paginated response 2",
+    });
+    expect(additionalPagination).toBeEnabled();
+    fireEvent.click(additionalPagination);
     fireEvent.submit(document.querySelector("#advanced-contract-form")!);
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
@@ -1137,6 +1251,7 @@ describe("search page", () => {
         expect.objectContaining({
           description: "Error response",
           example: { code: "invalid" },
+          paginated: true,
           schema: expect.objectContaining({
             typeName: "PostSessionsResponse400",
           }),
@@ -1147,6 +1262,9 @@ describe("search page", () => {
       tags: ["sessions", "auth"],
       title: "Create a session",
     }), { method: "POST", path: "/sessions" });
+    expect(onSave).toHaveBeenCalledWith(expect.not.objectContaining({
+      paginated: expect.anything(),
+    }), expect.anything());
   });
 
   it("preserves existing hidden contract details while simplifying the editor", () => {
@@ -1245,10 +1363,9 @@ describe("search page", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", {
-      name: "Advanced settings",
-    }));
-    expect(screen.getByRole("checkbox", { name: "Paginated response 1" }))
+    expect(screen.getByRole("button", { name: "Advanced settings" }))
+      .toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("checkbox", { name: "Paginated response" }))
       .toBeChecked();
     fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
       target: { value: "201" },
@@ -1418,8 +1535,21 @@ describe("search page", () => {
       },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Advanced settings" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Paginated response 1" }));
+    const pagination = screen.getByRole("checkbox", {
+      name: "Paginated response",
+    });
+    fireEvent.click(pagination);
+    const responseSchema = screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    });
+    fireEvent.change(responseSchema, { target: { value: "" } });
+    expect(pagination).not.toBeChecked();
+    expect(pagination).toBeDisabled();
+    fireEvent.change(responseSchema, {
+      target: { value: objectSchemaJson({ id: { type: "string" } }) },
+    });
+    expect(pagination).toBeEnabled();
+    fireEvent.click(pagination);
     fireEvent.submit(document.querySelector("#legacy-pagination-form")!);
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({

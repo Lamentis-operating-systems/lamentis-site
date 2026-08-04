@@ -108,12 +108,13 @@ for (const colorScheme of colorSchemes) {
     await requestJson.fill(
       '{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}',
     );
-    await responseDialog.getByRole("textbox", {
+    const responseJson = responseDialog.getByRole("textbox", {
       name: "Response type (JSON Schema)",
-    }).fill(
+    });
+    await responseJson.fill(
       '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}',
     );
-    await requestJson.evaluate((input) => {
+    await responseJson.evaluate((input) => {
       const field = input.closest("[data-json-input]");
       const scroller = input.closest("form")?.parentElement;
       if (!field || !scroller) return;
