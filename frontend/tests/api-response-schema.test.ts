@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  apiPaginatedResponseItemJsonSchema,
+  apiPaginatedResponseSchema,
   apiResponseSchemaFromJsonSchema,
   apiResponseSchemaSignature,
   apiResponseSchemaToJsonSchema,
@@ -14,6 +16,58 @@ import {
 } from "@/domain/site/api-response-schema";
 
 describe("API response schemas", () => {
+  it("builds the deterministic paginated response envelope", () => {
+    const response: ApiResponseSchema = {
+      fields: [{ name: "id", optional: false, type: "string" }],
+      typeName: "UserResponse",
+    };
+
+    expect(apiPaginatedResponseSchema(response)).toEqual({
+      fields: [
+        {
+          arrayItemType: "object",
+          name: "items",
+          objectSchema: response,
+          optional: false,
+          type: "array",
+        },
+        { name: "totalHits", optional: false, type: "number" },
+        { name: "page", optional: false, type: "number" },
+        { name: "limit", optional: false, type: "number" },
+        { name: "totalPages", optional: false, type: "number" },
+      ],
+      typeName: "UserResponsePage",
+    });
+  });
+
+  it("extracts only the exact paginated JSON Schema envelope", () => {
+    const response: ApiResponseSchema = {
+      fields: [{ name: "id", optional: false, type: "string" }],
+      typeName: "UserResponse",
+    };
+    const itemSchema = apiResponseSchemaToJsonSchema(response);
+    const envelope = apiResponseSchemaToJsonSchema(
+      apiPaginatedResponseSchema(response),
+    );
+    const properties = envelope.properties as Record<string, unknown>;
+
+    expect(apiPaginatedResponseItemJsonSchema(envelope)).toEqual(itemSchema);
+    expect(apiPaginatedResponseItemJsonSchema({
+      ...envelope,
+      properties: {
+        ...properties,
+        totalHits: { type: "string" },
+      },
+    })).toBeUndefined();
+    expect(apiPaginatedResponseItemJsonSchema({
+      ...envelope,
+      properties: {
+        ...properties,
+        cursor: { type: "string" },
+      },
+    })).toBeUndefined();
+  });
+
   it("rejects reserved TypeScript declaration names", () => {
     expect(isValidTypeScriptTypeName("UserResponse")).toBe(true);
     for (const reservedName of [

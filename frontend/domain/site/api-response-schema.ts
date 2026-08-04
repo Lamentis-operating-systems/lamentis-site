@@ -43,6 +43,40 @@ export type ApiResponseSchema = {
   typeName: string;
 };
 
+const apiPaginationMetadataFieldNames = [
+  "totalHits",
+  "page",
+  "limit",
+  "totalPages",
+] as const;
+const apiPaginatedResponsePropertyNames = [
+  "items",
+  ...apiPaginationMetadataFieldNames,
+] as const;
+
+/** Returns the deterministic response envelope used by paginated routes. */
+export function apiPaginatedResponseSchema(
+  response: ApiResponseSchema,
+): ApiResponseSchema {
+  return {
+    fields: [
+      {
+        arrayItemType: "object",
+        name: "items",
+        objectSchema: response,
+        optional: false,
+        type: "array",
+      },
+      ...apiPaginationMetadataFieldNames.map((name): ApiResponseField => ({
+        name,
+        optional: false,
+        type: "number",
+      })),
+    ],
+    typeName: `${response.typeName}Page`,
+  };
+}
+
 type JsonSchemaObject = Record<string, unknown>;
 
 const jsonSchemaFieldKeywords = new Set([
@@ -63,6 +97,61 @@ const jsonSchemaFieldKeywords = new Set([
 
 function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(
+  value: JsonSchemaObject,
+  keys: readonly string[],
+): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length
+    && actual.every((key, index) => key === expected[index]);
+}
+
+/** Returns the item schema only when value is the exact pagination envelope. */
+export function apiPaginatedResponseItemJsonSchema(
+  value: unknown,
+): unknown | undefined {
+  if (
+    !isJsonSchemaObject(value)
+    || value.type !== "object"
+    || !hasExactKeys(value, ["type", "properties", "required"])
+  ) {
+    return undefined;
+  }
+  const properties = value.properties;
+  const required = value.required;
+  if (
+    !isJsonSchemaObject(properties)
+    || !hasExactKeys(properties, apiPaginatedResponsePropertyNames)
+    || !Array.isArray(required)
+    || required.length !== apiPaginatedResponsePropertyNames.length
+    || new Set(required).size !== apiPaginatedResponsePropertyNames.length
+    || apiPaginatedResponsePropertyNames.some((name) => !required.includes(name))
+  ) {
+    return undefined;
+  }
+
+  const items = properties.items;
+  if (
+    !isJsonSchemaObject(items)
+    || items.type !== "array"
+    || !hasExactKeys(items, ["type", "items"])
+  ) {
+    return undefined;
+  }
+  for (const name of apiPaginationMetadataFieldNames) {
+    const property = properties[name];
+    if (
+      !isJsonSchemaObject(property)
+      || property.type !== "number"
+      || !hasExactKeys(property, ["type"])
+    ) {
+      return undefined;
+    }
+  }
+  return items.items;
 }
 
 function hasOnlyJsonSchemaFieldKeywords(value: JsonSchemaObject): boolean {

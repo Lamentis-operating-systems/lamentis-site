@@ -68,6 +68,31 @@ function formattedObjectSchemaJson(
   return JSON.stringify(JSON.parse(objectSchemaJson(properties, required)), null, 2);
 }
 
+const paginationPropertyNames = [
+  "items",
+  "totalHits",
+  "page",
+  "limit",
+  "totalPages",
+] as const;
+
+function paginatedSchemaJson(itemSchemaJson: string): string {
+  return JSON.stringify({
+    type: "object",
+    properties: {
+      items: {
+        type: "array",
+        items: JSON.parse(itemSchemaJson) as unknown,
+      },
+      totalHits: { type: "number" },
+      page: { type: "number" },
+      limit: { type: "number" },
+      totalPages: { type: "number" },
+    },
+    required: paginationPropertyNames,
+  }, null, 2);
+}
+
 const emptyObjectSchemaStarter = [
   "{",
   '  "type": "object",',
@@ -804,10 +829,12 @@ describe("search page", () => {
     expect(requestSchema).toBeVisible();
     expect(responseSchema).toBeVisible();
     expect(responseSchema).toHaveValue(emptyObjectSchemaStarter);
+    expect(responseSchema).not.toHaveAttribute("aria-invalid");
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
     expect(within(dialog).getByRole("checkbox", {
       name: "Paginated response",
     })).toHaveAccessibleDescription(
-      "Wraps this type in items and adds totalHits, page, limit, and totalPages when exported.",
+      "Shows an items array plus fixed totalHits, page, limit, and totalPages fields in this schema.",
     );
     expect(within(dialog).queryByRole("checkbox", {
       name: "Paginated response 1",
@@ -856,6 +883,10 @@ describe("search page", () => {
     fireEvent.click(within(dialog).getByRole("checkbox", {
       name: "Paginated response",
     }));
+    expect(responseSchema).toHaveValue(paginatedSchemaJson(objectSchemaJson({
+      id: { type: "string" },
+      published: { type: "boolean" },
+    })));
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -996,6 +1027,200 @@ describe("search page", () => {
       .toBeDisabled();
   });
 
+  it("shows, validates, and unwraps the paginated response schema", async () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const initialSchema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "UsersResponse",
+    };
+    renderResponseEditor({
+      formId: "paginated-schema-form",
+      onSave,
+      route: {
+        id: 32,
+        method: "GET",
+        path: "/users",
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          paginated: true,
+          schema: initialSchema,
+          status: "200",
+        }],
+      },
+    });
+
+    const responseSchema = screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    });
+    const pagination = screen.getByRole("checkbox", {
+      name: "Paginated response",
+    });
+    const baseSchemaJson = formattedObjectSchemaJson({
+      id: { type: "string" },
+    }, ["id"]);
+    expect(pagination).toBeChecked();
+    expect(responseSchema).toHaveValue(paginatedSchemaJson(baseSchemaJson));
+
+    fireEvent.click(pagination);
+    expect(pagination).not.toBeChecked();
+    expect(responseSchema).toHaveValue(baseSchemaJson);
+    fireEvent.click(pagination);
+    expect(pagination).toBeChecked();
+
+    const invalidEnvelope = JSON.parse(
+      paginatedSchemaJson(baseSchemaJson),
+    ) as {
+      properties: { totalHits: { type: string } };
+    };
+    invalidEnvelope.properties.totalHits.type = "string";
+    fireEvent.change(responseSchema, {
+      target: { value: JSON.stringify(invalidEnvelope, null, 2) },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use a supported object schema.",
+    );
+    expect(responseSchema).toHaveAttribute("aria-invalid", "true");
+
+    fireEvent.click(pagination);
+    expect(pagination).toBeChecked();
+    expect(responseSchema).toHaveValue(JSON.stringify(invalidEnvelope, null, 2));
+    fireEvent.submit(document.querySelector("#paginated-schema-form")!);
+    await waitFor(() => expect(responseSchema).toHaveFocus());
+    expect(onSave).not.toHaveBeenCalled();
+
+    const editedBaseSchemaJson = formattedObjectSchemaJson({
+      id: { type: "string" },
+      name: { type: "string" },
+    }, ["id"]);
+    fireEvent.change(responseSchema, {
+      target: { value: paginatedSchemaJson(editedBaseSchemaJson) },
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.submit(document.querySelector("#paginated-schema-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      paginated: true,
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "string" },
+          { name: "name", optional: true, type: "string" },
+        ],
+        typeName: "UsersResponse",
+      },
+      responses: [expect.objectContaining({
+        paginated: true,
+        schema: {
+          fields: [
+            { name: "id", optional: false, type: "string" },
+            { name: "name", optional: true, type: "string" },
+          ],
+          typeName: "UsersResponse",
+        },
+      })],
+    }), { method: "GET", path: "/users" });
+  });
+
+  it("limits paginated Tab completion to the item schema", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const initialSchema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "UsersResponse",
+    };
+    renderResponseEditor({
+      formId: "paginated-tab-completion-form",
+      onSave,
+      route: {
+        id: 34,
+        method: "GET",
+        path: "/users",
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          paginated: true,
+          schema: initialSchema,
+          status: "200",
+        }],
+      },
+    });
+
+    const responseSchema = screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }) as HTMLTextAreaElement;
+    const initialValue = responseSchema.value;
+    const outerSlot = initialValue.indexOf('\n  },\n  "required"');
+    expect(outerSlot).toBeGreaterThan(0);
+    responseSchema.setSelectionRange(outerSlot, outerSlot);
+    expect(fireEvent.keyDown(responseSchema, { key: "Tab" })).toBe(true);
+    expect(responseSchema).toHaveValue(initialValue);
+
+    const itemSlot = initialValue.indexOf('\n        },\n        "required"');
+    expect(itemSlot).toBeGreaterThan(0);
+    responseSchema.setSelectionRange(itemSlot, itemSlot);
+    expect(fireEvent.keyDown(responseSchema, { key: "Tab" })).toBe(false);
+    expect(responseSchema.value).toContain('"key": { "type": "string" }');
+    expect(responseSchema.value.slice(
+      responseSchema.selectionStart,
+      responseSchema.selectionEnd,
+    )).toBe("key");
+
+    fireEvent.submit(document.querySelector("#paginated-tab-completion-form")!);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      paginated: true,
+      response: {
+        fields: [
+          { name: "id", optional: false, type: "string" },
+          { name: "key", optional: true, type: "string" },
+        ],
+        typeName: "UsersResponse",
+      },
+    }), { method: "GET", path: "/users" });
+  });
+
+  it("does not let a hidden 204 draft block saving", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    renderResponseEditor({
+      formId: "hidden-no-content-schema-form",
+      onSave,
+      route: {
+        id: 33,
+        method: "GET",
+        path: "/health",
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          schema: {
+            fields: [{ name: "ok", optional: false, type: "boolean" }],
+            typeName: "HealthResponse",
+          },
+          status: "200",
+        }],
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }), { target: { value: '{"type":' } });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Complete the JSON Schema object.",
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
+      target: { value: "204" },
+    });
+    expect(screen.queryByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).not.toBeInTheDocument();
+
+    fireEvent.submit(document.querySelector("#hidden-no-content-schema-form")!);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      responses: [{
+        contentTypes: [],
+        description: "Successful response",
+        status: "204",
+      }],
+    }), { method: "GET", path: "/health" });
+  });
+
   it("rejects invalid and unsupported schemas and focuses the field", async () => {
     renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
@@ -1017,22 +1242,28 @@ describe("search page", () => {
       name: "Response type (JSON Schema)",
     });
     fireEvent.change(responseSchema, { target: { value: '{"type":' } });
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Complete the JSON Schema object.",
+    );
+    expect(responseSchema).toHaveAttribute("aria-invalid", "true");
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Enter a complete JSON Schema object before saving.",
+        "Complete the JSON Schema object.",
       );
       expect(responseSchema).toHaveAttribute("aria-invalid", "true");
       expect(responseSchema).toHaveFocus();
     });
 
     fireEvent.change(responseSchema, { target: { value: '{"id":"string"}' } });
-    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Use a supported object schema. Each property needs a schema object such as { \"type\": \"string\" }.",
+    );
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => {
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Unsupported schema. Use an object with type, properties, required, and items.",
+        "Use a supported object schema. Each property needs a schema object such as { \"type\": \"string\" }.",
       );
       expect(responseSchema).toHaveFocus();
     });
@@ -1040,6 +1271,8 @@ describe("search page", () => {
     fireEvent.change(responseSchema, {
       target: { value: objectSchemaJson({ id: { type: "string" } }) },
     });
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(responseSchema).not.toHaveAttribute("aria-invalid");
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("listitem")).toHaveTextContent(
       "Response type: PostUsersResponse",
@@ -1221,9 +1454,10 @@ describe("search page", () => {
     }), { target: { value: "X-Request-ID" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Add response" }));
-    fireEvent.change(screen.getByRole("textbox", {
+    const additionalSchema = screen.getByRole("textbox", {
       name: "Response type (JSON Schema) 2",
-    }), {
+    });
+    fireEvent.change(additionalSchema, {
       target: { value: objectSchemaJson({ code: { type: "string" } }) },
     });
     fireEvent.change(screen.getByRole("textbox", {
@@ -1237,6 +1471,9 @@ describe("search page", () => {
     });
     expect(additionalPagination).toBeEnabled();
     fireEvent.click(additionalPagination);
+    expect(additionalSchema).toHaveValue(paginatedSchemaJson(
+      objectSchemaJson({ code: { type: "string" } }),
+    ));
     fireEvent.submit(document.querySelector("#advanced-contract-form")!);
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({

@@ -8,6 +8,7 @@ import { createRef, useState, type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CheckboxWithLabel } from "@/components/site/form/checkbox-with-label";
 import { JsonInput } from "@/components/site/form/json-input";
+import { completeJsonSchemaPropertyOnTab } from "@/components/site/form/json-schema-property-completion";
 import { TextInput } from "@/components/site/form/text-input";
 import { SelectMenu } from "@/components/site/select-menu";
 
@@ -217,6 +218,281 @@ describe("shared form controls", () => {
     expect(input).toHaveValue('{"value":"text"}');
     expect(onValueChange).not.toHaveBeenCalled();
     expect(onKeyDown).toHaveBeenCalledTimes(4);
+  });
+
+  it("completes an empty JSON Schema properties slot on plain Tab", () => {
+    const initialValue = [
+      "{",
+      '  "type": "object",',
+      '  "properties": {',
+      "    ",
+      "  }",
+      "}",
+    ].join("\n");
+    render(
+      <JsonInputHarness
+        initialValue={initialValue}
+        onTabComplete={completeJsonSchemaPropertyOnTab}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    const slot = initialValue.indexOf("\n    \n") + 5;
+    input.setSelectionRange(slot, slot);
+
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(false);
+
+    const expectedValue = [
+      "{",
+      '  "type": "object",',
+      '  "properties": {',
+      '    "key": { "type": "string" }',
+      "  }",
+      "}",
+    ].join("\n");
+    const keyStart = expectedValue.indexOf('"key"') + 1;
+    expect(input).toHaveValue(expectedValue);
+    expect(input).toHaveProperty("selectionStart", keyStart);
+    expect(input).toHaveProperty("selectionEnd", keyStart + 3);
+    expect(JSON.parse(input.value)).toEqual({
+      properties: { key: { type: "string" } },
+      type: "object",
+    });
+
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(true);
+    expect(input).toHaveValue(expectedValue);
+  });
+
+  it("adds a comma and collision-free property at a final schema slot", () => {
+    const initialValue = [
+      "{",
+      '  "type": "object",',
+      '  "properties": {',
+      '    "key": { "type": "number" }',
+      "  }",
+      "}",
+    ].join("\n");
+    render(
+      <JsonInputHarness
+        initialValue={initialValue}
+        onTabComplete={completeJsonSchemaPropertyOnTab}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    const slot = initialValue.indexOf("\n  }");
+    input.setSelectionRange(slot, slot);
+
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    const expectedValue = [
+      "{",
+      '  "type": "object",',
+      '  "properties": {',
+      '    "key": { "type": "number" },',
+      '    "key2": { "type": "string" }',
+      "  }",
+      "}",
+    ].join("\n");
+    const keyStart = expectedValue.indexOf('"key2"') + 1;
+    expect(input).toHaveValue(expectedValue);
+    expect(input).toHaveProperty("selectionStart", keyStart);
+    expect(input).toHaveProperty("selectionEnd", keyStart + 4);
+    expect(JSON.parse(input.value)).toEqual({
+      properties: {
+        key: { type: "number" },
+        key2: { type: "string" },
+      },
+      type: "object",
+    });
+  });
+
+  it("completes the closest nested JSON Schema properties slot", () => {
+    const initialValue = [
+      "{",
+      '  "type": "object",',
+      '  "properties": {',
+      '    "profile": {',
+      '      "type": "object",',
+      '      "properties": {',
+      "        ",
+      "      }",
+      "    }",
+      "  }",
+      "}",
+    ].join("\n");
+    render(
+      <JsonInputHarness
+        initialValue={initialValue}
+        onTabComplete={completeJsonSchemaPropertyOnTab}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    const slot = initialValue.indexOf("\n        \n") + 9;
+    input.setSelectionRange(slot, slot);
+
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    expect(input).toHaveValue([
+      "{",
+      '  "type": "object",',
+      '  "properties": {',
+      '    "profile": {',
+      '      "type": "object",',
+      '      "properties": {',
+      '        "key": { "type": "string" }',
+      "      }",
+      "    }",
+      "  }",
+      "}",
+    ].join("\n"));
+  });
+
+  it.each([
+    {
+      label: "invalid JSON",
+      selectionEnd: 33,
+      selectionStart: 33,
+      value: '{"type":"object","properties": {',
+    },
+    {
+      label: "a non-final slot",
+      selectionEnd: 38,
+      selectionStart: 38,
+      value: '{\n  "type": "object",\n  "properties": {\n    \n    "id": { "type": "string" }\n  }\n}',
+    },
+    {
+      label: "selected content",
+      selectionEnd: 48,
+      selectionStart: 44,
+      value: '{\n  "type": "object",\n  "properties": {\n    \n  }\n}',
+    },
+  ])("leaves Tab native for $label", ({
+    selectionEnd,
+    selectionStart,
+    value,
+  }) => {
+    render(
+      <JsonInputHarness
+        initialValue={value}
+        onTabComplete={completeJsonSchemaPropertyOnTab}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(selectionStart, selectionEnd);
+
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(true);
+    expect(input).toHaveValue(value);
+  });
+
+  it.each([
+    { altKey: true, label: "Alt+Tab" },
+    { ctrlKey: true, label: "Control+Tab" },
+    { label: "Shift+Tab", shiftKey: true },
+    { label: "Meta+Tab", metaKey: true },
+  ])("leaves $label native when schema completion is enabled", (modifiers) => {
+    const value = '{"type":"object","properties": {}}';
+    const onTabComplete = vi.fn(completeJsonSchemaPropertyOnTab);
+    render(
+      <JsonInputHarness
+        initialValue={value}
+        onTabComplete={onTabComplete}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    const slot = value.indexOf("{}");
+    input.setSelectionRange(slot + 1, slot + 1);
+
+    expect(fireEvent.keyDown(input, { key: "Tab", ...modifiers })).toBe(true);
+    expect(input).toHaveValue(value);
+    expect(onTabComplete).not.toHaveBeenCalled();
+  });
+
+  it("leaves completion native for protected editing states and prevented events", () => {
+    const value = '{"type":"object","properties": {}}';
+    const slot = value.indexOf("{}") + 1;
+    const onTabComplete = vi.fn(completeJsonSchemaPropertyOnTab);
+    const view = render(
+      <JsonInputHarness
+        disabled
+        initialValue={value}
+        onTabComplete={onTabComplete}
+      />,
+    );
+    let input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(slot, slot);
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(true);
+
+    view.rerender(
+      <JsonInputHarness
+        readOnly
+        initialValue={value}
+        onTabComplete={onTabComplete}
+      />,
+    );
+    input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(slot, slot);
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(true);
+
+    view.rerender(
+      <JsonInputHarness
+        initialValue={value}
+        onKeyDown={(event) => event.preventDefault()}
+        onTabComplete={onTabComplete}
+      />,
+    );
+    input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(slot, slot);
+    expect(fireEvent.keyDown(input, { key: "Tab" })).toBe(false);
+
+    view.rerender(
+      <JsonInputHarness
+        initialValue={value}
+        onTabComplete={onTabComplete}
+      />,
+    );
+    input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+    input.setSelectionRange(slot, slot);
+    expect(fireEvent.keyDown(input, {
+      isComposing: true,
+      key: "Tab",
+      keyCode: 229,
+    })).toBe(true);
+
+    expect(input).toHaveValue(value);
+    expect(onTabComplete).not.toHaveBeenCalled();
+  });
+
+  it("keeps layout-modified JSON pairing with schema completion enabled", () => {
+    render(
+      <JsonInputHarness
+        onTabComplete={completeJsonSchemaPropertyOnTab}
+      />,
+    );
+    const input = screen.getByRole("textbox", {
+      name: "Response type",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.keyDown(input, { altKey: true, key: "{" });
+
+    expect(input).toHaveValue("{}");
+    expect(input).toHaveProperty("selectionStart", 1);
   });
 
   it("forwards native text-input semantics through the shared surface", () => {

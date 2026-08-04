@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import {
+  apiPaginatedResponseItemJsonSchema,
+  apiPaginatedResponseSchema,
   apiResponseSchemaFromJsonSchema,
   apiResponseSchemaToJsonSchema,
   type ApiResponseSchema,
@@ -37,6 +39,7 @@ import { ApiRouteInputBar } from "./api-route-input-bar";
 import type { BracedPathValidationReason } from "./braced-path-input";
 import { CheckboxWithLabel } from "./form/checkbox-with-label";
 import { JsonInput } from "./form/json-input";
+import { completeJsonSchemaPropertyOnTab } from "./form/json-schema-property-completion";
 import { TextInput } from "./form/text-input";
 import { IconButton } from "./icon-button";
 import { ChevronIcon } from "./icons/chevron-icon";
@@ -98,6 +101,7 @@ type JsonIssue = {
   reason: "json" | "schema";
   target: "request" | number;
 } | null;
+type LiveSchemaIssues = Record<string, "json" | "schema" | undefined>;
 type SecurityMode = "inherit" | ApiSecurityScheme;
 
 const bodyMethods: readonly HttpMethod[] = ["POST", "PUT", "PATCH"];
@@ -114,6 +118,14 @@ const formattedEmptyJsonObjectSchema = `{
   "type": "object",
   "properties": {}
 }`;
+const formattedPaginatedEmptyJsonObjectSchema = JSON.stringify(
+  apiResponseSchemaToJsonSchema(apiPaginatedResponseSchema({
+    fields: [],
+    typeName: "Response",
+  })),
+  null,
+  2,
+);
 const jsonSchemaPlaceholder = `{
   "type": "object",
   "properties": {
@@ -166,6 +178,24 @@ function parseSchemaJson(
     : { reason: "schema", valid: false };
 }
 
+function completeResponseSchemaPropertyOnTab(
+  context: Parameters<typeof completeJsonSchemaPropertyOnTab>[0],
+  paginated: boolean,
+): ReturnType<typeof completeJsonSchemaPropertyOnTab> {
+  const completion = completeJsonSchemaPropertyOnTab(context);
+  if (!completion || !paginated) return completion;
+
+  try {
+    return apiPaginatedResponseItemJsonSchema(
+      JSON.parse(completion.value),
+    ) === undefined
+      ? null
+      : completion;
+  } catch {
+    return null;
+  }
+}
+
 function prettyJson(value: ApiContractExample | undefined): string {
   return value === undefined ? "" : JSON.stringify(value, null, 2);
 }
@@ -174,6 +204,25 @@ function prettySchemaJson(value: ApiResponseSchema | undefined): string {
   return value === undefined
     ? ""
     : JSON.stringify(apiResponseSchemaToJsonSchema(value), null, 2);
+}
+
+function prettyResponseSchemaJson(
+  value: ApiResponseSchema | undefined,
+  paginated: boolean,
+): string {
+  if (!value) return "";
+  return prettySchemaJson(
+    paginated ? apiPaginatedResponseSchema(value) : value,
+  );
+}
+
+function isGeneratedResponseSchemaJson(
+  value: string,
+  paginated: boolean,
+): boolean {
+  return paginated
+    ? value === formattedPaginatedEmptyJsonObjectSchema
+    : value === emptyJsonObjectSchema || value === formattedEmptyJsonObjectSchema;
 }
 
 function commaSeparatedValues(value: string): string[] {
@@ -233,7 +282,7 @@ function responseDraft(
   id: number,
   initialSchema = response.schema,
   initialPaginated = response.paginated === true,
-  schemaJson = prettySchemaJson(initialSchema),
+  schemaJson = prettyResponseSchemaJson(initialSchema, initialPaginated),
   schemaGenerated = false,
 ): ResponseDraft {
   return {
@@ -461,6 +510,7 @@ export function ResponseSchemaEditor({
     (route.security?.scopes ?? []).join(", "),
   );
   const [jsonIssue, setJsonIssue] = useState<JsonIssue>(null);
+  const [liveSchemaIssues, setLiveSchemaIssues] = useState<LiveSchemaIssues>({});
   const [issue, setIssue] = useState<"contract" | "duplicate" | null>(null);
   const [saveFailure, setSaveFailure] = useState<"route-conflict" | null>(null);
   const suggestionsRef = useRef(initialSuggestions);
@@ -488,6 +538,75 @@ export function ResponseSchemaEditor({
   )));
   const primaryResponseDraft = responses[primaryResponseIndex];
 
+  function schemaIssueKey(target: "request" | number): string {
+    return target === "request" ? target : `response-${target}`;
+  }
+
+  function updateLiveSchemaIssue(
+    target: "request" | number,
+    result: SchemaParseResult,
+  ) {
+    const key = schemaIssueKey(target);
+    const reason = result.valid ? undefined : result.reason;
+    setLiveSchemaIssues((current) => {
+      if (current[key] === reason) return current;
+      if (reason) return { ...current, [key]: reason };
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function parseRequestSchemaDraft(value = requestSchemaJson): SchemaParseResult {
+    return parseSchemaJson(
+      value,
+      initialRequestSchema?.typeName
+        ?? contractTypeName(routeMethod, routePath, "Request"),
+      initialRequestSchemaJson,
+      initialRequestSchema,
+    );
+  }
+
+  function parseResponseSchemaDraft(
+    response: ResponseDraft,
+    index: number,
+    value = response.schemaJson,
+    paginated = response.paginated,
+  ): SchemaParseResult {
+    if (response.status === "204") return { valid: true };
+    const typeName = response.initialSchema?.typeName ?? contractTypeName(
+      routeMethod,
+      routePath,
+      responseTypeSuffix(index === primaryResponseIndex, response.status),
+    );
+    if (!paginated) {
+      return parseSchemaJson(
+        value,
+        typeName,
+        prettySchemaJson(response.initialSchema),
+        response.initialSchema,
+      );
+    }
+    if (!value.trim()) return { reason: "schema", valid: false };
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value) as unknown;
+    } catch {
+      return { reason: "json", valid: false };
+    }
+    const itemSchema = apiPaginatedResponseItemJsonSchema(parsed);
+    if (itemSchema === undefined) {
+      return { reason: "schema", valid: false };
+    }
+    return parseSchemaJson(
+      JSON.stringify(itemSchema, null, 2),
+      typeName,
+      prettySchemaJson(response.initialSchema),
+      response.initialSchema,
+    );
+  }
+
   function clearIssues() {
     setJsonIssue(null);
     setIssue(null);
@@ -497,8 +616,13 @@ export function ResponseSchemaEditor({
     target: "request" | number,
     input: "example" | "schema",
   ): string | undefined {
-    if (jsonIssue?.target !== target || jsonIssue.input !== input) return undefined;
-    if (jsonIssue.reason === "schema") {
+    const reason = jsonIssue?.target === target && jsonIssue.input === input
+      ? jsonIssue.reason
+      : input === "schema"
+        ? liveSchemaIssues[schemaIssueKey(target)]
+        : undefined;
+    if (!reason) return undefined;
+    if (reason === "schema") {
       return content.routeContract.invalidSchemaError;
     }
     return input === "schema"
@@ -528,8 +652,10 @@ export function ResponseSchemaEditor({
           return;
         }
       }
-      const invalidControl = form
-        ?.querySelector<HTMLElement>("[data-advanced-settings] :invalid");
+      const invalidControl = form?.querySelector<HTMLElement>(
+        '[data-advanced-settings] [aria-invalid="true"], '
+        + "[data-advanced-settings] :invalid",
+      );
       if (invalidControl) {
         invalidControl.focus();
         return;
@@ -640,6 +766,13 @@ export function ResponseSchemaEditor({
   function removeResponse(id: number) {
     if (responses.length === 1) return;
     setResponses((current) => current.filter((response) => response.id !== id));
+    setLiveSchemaIssues((current) => {
+      const key = schemaIssueKey(id);
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   }
 
   function addResponseHeader(responseId: number) {
@@ -800,8 +933,12 @@ export function ResponseSchemaEditor({
         formatLabel={content.formatJsonLabel}
         label={label}
         name={`response-${response.id}-schema`}
+        onTabComplete={(context) => completeResponseSchemaPropertyOnTab(
+          context,
+          response.paginated,
+        )}
         placeholder={jsonSchemaPlaceholder}
-        rows={8}
+        rows={response.paginated ? 16 : 8}
         tone="nested"
         value={response.schemaJson}
         onInvalidFormat={() => {
@@ -813,13 +950,15 @@ export function ResponseSchemaEditor({
         }}
         onValueChange={(value) => {
           clearJsonError(response.id, "schema");
+          const paginated = value.trim() ? response.paginated : false;
+          updateLiveSchemaIssue(
+            response.id,
+            parseResponseSchemaDraft(response, index, value, paginated),
+          );
           updateResponse(response.id, {
-            paginated: value.trim() ? response.paginated : false,
+            paginated,
             schemaGenerated: response.schemaGenerated
-              && (
-                value === emptyJsonObjectSchema
-                || value === formattedEmptyJsonObjectSchema
-              ),
+              && isGeneratedResponseSchemaJson(value, paginated),
             schemaJson: value,
           });
         }}
@@ -874,8 +1013,14 @@ export function ResponseSchemaEditor({
           : `${content.routeContract.paginationLabel} ${index + 1}`}
         name={`response-${response.id}-paginated`}
         onChange={(event) => {
+          const parsed = parseResponseSchemaDraft(response, index);
+          updateLiveSchemaIssue(response.id, parsed);
+          if (!parsed.valid || !parsed.value) return;
+          clearJsonError(response.id, "schema");
+          const paginated = event.currentTarget.checked;
           updateResponse(response.id, {
-            paginated: event.currentTarget.checked,
+            paginated,
+            schemaJson: prettyResponseSchemaJson(parsed.value, paginated),
           });
         }}
       />
@@ -1026,11 +1171,11 @@ export function ResponseSchemaEditor({
     if (response.paginated !== response.initialPaginated) {
       if (response.paginated) {
         normalized.paginated = true;
-        if (!normalized.schema && parsedSchema.value) {
-          normalized.schema = parsedSchema.value;
-        }
       } else {
         delete normalized.paginated;
+      }
+      if (!normalized.schema && parsedSchema.value) {
+        normalized.schema = parsedSchema.value;
       }
     }
     if (parsedSchema.value !== response.initialSchema) {
@@ -1071,28 +1216,13 @@ export function ResponseSchemaEditor({
     event.preventDefault();
     const form = event.currentTarget;
     const parsedRequestSchema: SchemaParseResult = showRequest
-      ? parseSchemaJson(
-          requestSchemaJson,
-          initialRequestSchema?.typeName
-            ?? contractTypeName(routeMethod, routePath, "Request"),
-          initialRequestSchemaJson,
-          initialRequestSchema,
-        )
+      ? parseRequestSchemaDraft()
       : { valid: true };
     const parsedRequestExample: JsonParseResult = showRequest
       ? parseJson(requestExampleJson)
       : { valid: true };
     const parsedResponseSchemas = responses.map((response, index) => (
-      parseSchemaJson(
-        response.schemaJson,
-        response.initialSchema?.typeName ?? contractTypeName(
-          routeMethod,
-          routePath,
-          responseTypeSuffix(index === primaryResponseIndex, response.status),
-        ),
-        prettySchemaJson(response.initialSchema),
-        response.initialSchema,
-      )
+      parseResponseSchemaDraft(response, index)
     ));
     const parsedResponseExamples = responses.map((response) => (
       parseJson(response.exampleJson)
@@ -1277,7 +1407,11 @@ export function ResponseSchemaEditor({
       }
       else delete nextContract.response;
     }
-    if (primaryPaginationChanged || primaryMirrorEligibilityChanged) {
+    if (
+      primaryPaginationChanged
+      || primaryMirrorEligibilityChanged
+      || primarySchemaChanged
+    ) {
       if (nextPrimaryCanMirror && primaryResponseDraft?.paginated) {
         nextContract.paginated = true;
       }
@@ -1407,6 +1541,10 @@ export function ResponseSchemaEditor({
           }}
           onValueChange={(value) => {
             clearJsonError("request", "schema");
+            updateLiveSchemaIssue(
+              "request",
+              parseRequestSchemaDraft(value),
+            );
             setIssue(null);
             setRequestSchemaJson(value);
           }}

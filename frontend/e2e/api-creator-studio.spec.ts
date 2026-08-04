@@ -88,7 +88,7 @@ test("keeps route, query parameters, status, and response type in the common GET
   await expect(dialog.getByRole("checkbox", {
     name: "Paginated response",
   })).toHaveAccessibleDescription(
-    "Wraps this type in items and adds totalHits, page, limit, and totalPages when exported.",
+    "Shows an items array plus fixed totalHits, page, limit, and totalPages fields in this schema.",
   );
   await expect(dialog.getByRole("checkbox", {
     name: "Paginated response 1",
@@ -107,7 +107,7 @@ test("keeps route, query parameters, status, and response type in the common GET
     .toHaveCount(0);
 });
 
-test("assists keyboard authoring without trapping focus @cross-browser-smoke", async ({
+test("inserts a typed field with Tab without trapping focus @cross-browser-smoke", async ({
   page,
 }) => {
   await page.goto(studioPath);
@@ -127,12 +127,27 @@ test("assists keyboard authoring without trapping focus @cross-browser-smoke", a
     (input as HTMLTextAreaElement).setSelectionRange(position, position);
   }, expectedCaret);
 
-  await page.keyboard.type('"id": {"type": "string"}');
+  await responseSchema.press("Tab");
   await expect(responseSchema).toHaveValue([
     "{",
     '  "type": "object",',
     '  "properties": {',
-    '    "id": {"type": "string"}',
+    '    "key": { "type": "string" }',
+    "  }",
+    "}",
+  ].join("\n"));
+  await expect.poll(() => responseSchema.evaluate((input) => (
+    (input as HTMLTextAreaElement).value.slice(
+      (input as HTMLTextAreaElement).selectionStart,
+      (input as HTMLTextAreaElement).selectionEnd,
+    )
+  ))).toBe("key");
+  await page.keyboard.type("id");
+  await expect(responseSchema).toHaveValue([
+    "{",
+    '  "type": "object",',
+    '  "properties": {',
+    '    "id": { "type": "string" }',
     "  }",
     "}",
   ].join("\n"));
@@ -171,9 +186,10 @@ test("creates, exports, and reopens a typed JSON contract with examples", async 
       roles: { type: "array", items: { type: "string" } },
     }),
   );
-  await dialog.getByRole("textbox", {
+  const responseSchema = dialog.getByRole("textbox", {
     name: "Response type (JSON Schema)",
-  }).fill(
+  });
+  await responseSchema.fill(
     objectSchemaJson({
       id: { type: "string" },
       profile: {
@@ -184,6 +200,9 @@ test("creates, exports, and reopens a typed JSON contract with examples", async 
     }),
   );
   await dialog.getByRole("checkbox", { name: "Paginated response" }).check();
+  await expect(responseSchema).toHaveValue(/"items": \{\n\s+"type": "array"/);
+  await expect(responseSchema).toHaveValue(/"totalHits": \{\n\s+"type": "number"/);
+  await expect(responseSchema).toHaveValue(/"totalPages": \{\n\s+"type": "number"/);
   await dialog.getByRole("button", {
     name: "Advanced settings",
   }).click();
@@ -311,10 +330,13 @@ test("reports invalid JSON Schema without losing the draft", async ({ page }) =>
     name: "Request type (JSON Schema)",
   });
   await requestSchema.fill('{"type":');
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "Complete the JSON Schema object.",
+  );
   await dialog.getByRole("button", { name: "Save" }).click();
 
   await expect(dialog.getByRole("alert")).toHaveText(
-    "Enter a complete JSON Schema object before saving.",
+    "Complete the JSON Schema object.",
   );
   await expect(requestSchema).toHaveAttribute("aria-invalid", "true");
   await expect(requestSchema).toBeFocused();

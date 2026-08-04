@@ -114,6 +114,10 @@ for (const colorScheme of colorSchemes) {
     await responseJson.fill(
       '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}',
     );
+    await responseDialog.getByRole("checkbox", {
+      name: "Paginated response",
+    }).check();
+    await expect(responseJson).toHaveValue(/"totalHits": \{/);
     await responseJson.evaluate((input) => {
       const field = input.closest("[data-json-input]");
       const scroller = input.closest("form")?.parentElement;

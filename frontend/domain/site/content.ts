@@ -225,7 +225,7 @@ export const contentByLocale = {
         expandSectionLabel: "Expand",
         formatJsonLabel: "Format JSON",
         requestBodyDescription:
-          "Object schemas only. Add fields inside properties and mandatory names in required. Braces, brackets, quotes, and indentation complete as you type.",
+          "Object schemas only. Add fields inside properties and mandatory names in required. Errors update while you type; braces, brackets, quotes, and indentation complete automatically.",
         requestBodyLabel: "Request type (JSON Schema)",
         requestExampleDescription:
           "Optional example payload. It stays separate from the request type.",
@@ -235,7 +235,7 @@ export const contentByLocale = {
         responseExampleLabel: "Response example (JSON)",
         responseGroupLabel: "Response",
         responseSectionDescription:
-          "Object schemas only. Add fields inside properties and mandatory names in required. Braces, brackets, quotes, and indentation complete as you type.",
+          "Object schemas only. On an empty properties line, Tab inserts a string field and selects its name; the next Tab leaves the editor. Errors update while you type.",
         responseSectionLabel: "Response type (JSON Schema)",
         responseTypeLabel: "Response type",
         routeContract: {
@@ -260,9 +260,9 @@ export const contentByLocale = {
             "This route conflicts with an existing generated type. Change the path or schema.",
           invalidExampleError: "Enter valid JSON before saving.",
           invalidSchemaError:
-            "Unsupported schema. Use an object with type, properties, required, and items.",
+            "Use a supported object schema. Each property needs a schema object such as { \"type\": \"string\" }.",
           invalidSchemaJsonError:
-            "Enter a complete JSON Schema object before saving.",
+            "Complete the JSON Schema object.",
           operationIdLabel: "Operation ID",
           parameterLocationLabel: "Parameter location",
           parameterLocationOptions: {
@@ -284,7 +284,7 @@ export const contentByLocale = {
             "Path parameters follow the route automatically. Add only the query parameters callers need.",
           parametersLabel: "Parameters",
           paginationDescription:
-            "Wraps this type in items and adds totalHits, page, limit, and totalPages when exported.",
+            "Shows an items array plus fixed totalHits, page, limit, and totalPages fields in this schema.",
           paginationLabel: "Paginated response",
           removeParameterLabel: "Remove parameter",
           removeResponseHeaderLabel: "Remove response header",
@@ -421,7 +421,7 @@ export const contentByLocale = {
         expandSectionLabel: "Ausklappen",
         formatJsonLabel: "JSON formatieren",
         requestBodyDescription:
-          "Nur Objektschemas. Ergänze Felder unter properties und Pflichtfelder unter required. Klammern, Anführungszeichen und Einrückungen werden beim Schreiben ergänzt.",
+          "Nur Objektschemas. Ergänze Felder unter properties und Pflichtfelder unter required. Fehler aktualisieren sich beim Schreiben; Klammern, Anführungszeichen und Einrückungen werden automatisch ergänzt.",
         requestBodyLabel: "Request-Typ (JSON Schema)",
         requestExampleDescription:
           "Optionaler Beispiel-Payload. Er bleibt vom Request-Typ getrennt.",
@@ -431,7 +431,7 @@ export const contentByLocale = {
         responseExampleLabel: "Response-Beispiel (JSON)",
         responseGroupLabel: "Antwort",
         responseSectionDescription:
-          "Nur Objektschemas. Ergänze Felder unter properties und Pflichtfelder unter required. Klammern, Anführungszeichen und Einrückungen werden beim Schreiben ergänzt.",
+          "Nur Objektschemas. Tab fügt in einer leeren properties-Zeile ein String-Feld ein und markiert dessen Namen; der nächste Tab verlässt den Editor. Fehler aktualisieren sich beim Schreiben.",
         responseSectionLabel: "Response-Typ (JSON Schema)",
         responseTypeLabel: "Antworttyp",
         routeContract: {
@@ -456,9 +456,9 @@ export const contentByLocale = {
             "Diese Route kollidiert mit einem bestehenden automatisch erzeugten Typ. Ändere Pfad oder Schema.",
           invalidExampleError: "Gib vor dem Speichern gültiges JSON ein.",
           invalidSchemaError:
-            "Nicht unterstütztes Schema. Verwende ein Objekt mit type, properties, required und items.",
+            "Verwende ein unterstütztes Objektschema. Jede Property benötigt ein Schemaobjekt wie { \"type\": \"string\" }.",
           invalidSchemaJsonError:
-            "Gib vor dem Speichern ein vollständiges JSON-Schema-Objekt ein.",
+            "Vervollständige das JSON-Schema-Objekt.",
           operationIdLabel: "Operations-ID",
           parameterLocationLabel: "Parameterort",
           parameterLocationOptions: {
@@ -480,7 +480,7 @@ export const contentByLocale = {
             "Pfadparameter folgen der Route automatisch. Ergänze nur benötigte Query-Parameter.",
           parametersLabel: "Parameter",
           paginationDescription:
-            "Umschließt diesen Typ beim Export mit items und ergänzt totalHits, page, limit und totalPages.",
+            "Zeigt in diesem Schema ein items-Array sowie feste Felder für totalHits, page, limit und totalPages.",
           paginationLabel: "Paginierte Antwort",
           removeParameterLabel: "Parameter entfernen",
           removeResponseHeaderLabel: "Antwort-Header entfernen",

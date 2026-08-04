@@ -34,10 +34,21 @@ type JsonInputProps = Omit<
   formatLabel: string;
   label: string;
   onInvalidFormat?: () => void;
+  onTabComplete?: (
+    context: JsonInputTabCompletionContext,
+  ) => JsonInputTabCompletion | null;
   onValueChange: (value: string) => void;
   tone?: "default" | "nested";
   value: string;
 };
+
+export type JsonInputTabCompletionContext = {
+  selectionEnd: number;
+  selectionStart: number;
+  value: string;
+};
+
+export type JsonInputTabCompletion = JsonInputTabCompletionContext;
 
 type PendingSelection = {
   end: number;
@@ -97,6 +108,7 @@ export const JsonInput = forwardRef<HTMLTextAreaElement, JsonInputProps>(
     label,
     onInvalidFormat,
     onKeyDown,
+    onTabComplete,
     onValueChange,
     rows = 4,
     tone = "default",
@@ -173,6 +185,30 @@ export const JsonInput = forwardRef<HTMLTextAreaElement, JsonInputProps>(
       const selectionEnd = input.selectionEnd ?? selectionStart;
       const hasSelection = selectionStart !== selectionEnd;
       const insideString = isInsideJsonString(currentValue, selectionStart);
+
+      if (
+        event.key === "Tab"
+        && !event.shiftKey
+        && !event.metaKey
+        && !event.ctrlKey
+        && !event.altKey
+        && !altGraph
+      ) {
+        const completion = onTabComplete?.({
+          selectionEnd,
+          selectionStart,
+          value: currentValue,
+        });
+        if (completion) {
+          event.preventDefault();
+          updateValue(
+            completion.value,
+            completion.selectionStart,
+            completion.selectionEnd,
+          );
+          return;
+        }
+      }
 
       if (event.key === "Enter" && !insideString) {
         event.preventDefault();
