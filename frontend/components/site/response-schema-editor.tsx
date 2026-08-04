@@ -9,7 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import {
-  inferApiResponseSchemaFromJson,
+  apiResponseSchemaFromJsonSchema,
+  apiResponseSchemaToJsonSchema,
+  type ApiResponseSchema,
 } from "@/domain/site/api-response-schema";
 import {
   apiParameterTypes,
@@ -70,24 +72,47 @@ type ResponseSchemaEditorProps = {
 type JsonParseResult =
   | { value?: ApiContractExample; valid: true }
   | { valid: false };
+type SchemaParseResult =
+  | { value?: ApiResponseSchema; valid: true }
+  | { reason: "json" | "schema"; valid: false };
 
 type ParameterDraft = ApiRouteParameter & { id: number };
 type ResponseHeaderDraft = ApiRouteHeader & { id: number };
 type ResponseDraft = {
   contentTypes: string;
   description: string;
+  exampleJson: string;
   headers: ResponseHeaderDraft[];
   id: number;
-  json: string;
+  initialPaginated: boolean;
+  initialSchema?: ApiResponseSchema;
   original?: ApiRouteResponse;
   paginated: boolean;
+  schemaJson: string;
   status: string;
 };
-type JsonIssue = "request" | number | null;
+type JsonIssue = {
+  input: "example" | "schema";
+  reason: "json" | "schema";
+  target: "request" | number;
+} | null;
 type SecurityMode = "inherit" | ApiSecurityScheme;
 
 const bodyMethods: readonly HttpMethod[] = ["POST", "PUT", "PATCH"];
 const additionalResponseStatuses = ["400", "401", "403", "404", "409", "422", "500"];
+const jsonSchemaPlaceholder = `{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" }
+  },
+  "required": ["id"]
+}`;
+
+function jsonIssueFieldName(issue: NonNullable<JsonIssue>): string {
+  return issue.target === "request"
+    ? `request-${issue.input}`
+    : `response-${issue.target}-${issue.input}`;
+}
 
 function parseJson(value: string): JsonParseResult {
   if (!value.trim()) return { valid: true };
@@ -101,8 +126,40 @@ function parseJson(value: string): JsonParseResult {
   }
 }
 
+function parseSchemaJson(
+  value: string,
+  typeName: string,
+  initialValue: string,
+  initialSchema?: ApiResponseSchema,
+): SchemaParseResult {
+  if (!value.trim()) return { valid: true };
+  if (value === initialValue && initialSchema) {
+    return { valid: true, value: initialSchema };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value) as unknown;
+  } catch {
+    return { reason: "json", valid: false };
+  }
+  const schema = apiResponseSchemaFromJsonSchema(
+    typeName,
+    parsed,
+    initialSchema,
+  );
+  return schema
+    ? { valid: true, value: schema }
+    : { reason: "schema", valid: false };
+}
+
 function prettyJson(value: ApiContractExample | undefined): string {
   return value === undefined ? "" : JSON.stringify(value, null, 2);
+}
+
+function prettySchemaJson(value: ApiResponseSchema | undefined): string {
+  return value === undefined
+    ? ""
+    : JSON.stringify(apiResponseSchemaToJsonSchema(value), null, 2);
 }
 
 function commaSeparatedValues(value: string): string[] {
@@ -160,25 +217,31 @@ function initialResponses(
 function responseDraft(
   response: ApiRouteResponse,
   id: number,
+  initialSchema = response.schema,
+  initialPaginated = response.paginated === true,
 ): ResponseDraft {
   return {
     contentTypes: response.contentTypes.join(", "),
     description: response.description,
+    exampleJson: prettyJson(response.example),
     headers: (response.headers ?? []).map((header, headerId) => ({
       ...header,
       id: headerId,
     })),
     id,
-    json: prettyJson(response.example),
+    initialPaginated,
+    ...(initialSchema ? { initialSchema } : {}),
     original: response,
-    paginated: response.paginated === true,
+    paginated: initialPaginated,
+    schemaJson: prettySchemaJson(initialSchema),
     status: response.status,
   };
 }
 
 function hasResponsePayload(response: ResponseDraft): boolean {
   return Boolean(
-    response.json.trim()
+    response.exampleJson.trim()
+    || response.schemaJson.trim()
     || response.original?.example !== undefined
     || response.original?.schema
     || response.paginated,
@@ -221,6 +284,10 @@ function responseTypeSuffix(primary: boolean, status: string): string {
   return `Response${normalizedStatus || "Additional"}`;
 }
 
+function canMirrorResponse(status: string, schema?: ApiResponseSchema): boolean {
+  return status !== "204" && /^2[0-9]{2}$/.test(status) && Boolean(schema);
+}
+
 type ToggleSectionProps = {
   children: ReactNode;
   collapseLabel: string;
@@ -241,6 +308,7 @@ function ToggleSection({
   open,
 }: ToggleSectionProps) {
   const headingId = useId();
+  const descriptionId = useId();
   const panelId = useId();
   return (
     <section className={styles.section} aria-labelledby={headingId}>
@@ -248,13 +316,17 @@ function ToggleSection({
         type="button"
         className={styles.sectionToggle}
         aria-controls={panelId}
+        aria-describedby={descriptionId}
         aria-expanded={open}
-        aria-label={`${label}: ${open ? collapseLabel : expandLabel}`}
+        aria-labelledby={headingId}
+        title={open ? collapseLabel : expandLabel}
         onClick={onToggle}
       >
         <span className={styles.sectionHeader}>
           <span id={headingId} className={styles.sectionTitle}>{label}</span>
-          <span className={styles.sectionDescription}>{description}</span>
+          <span id={descriptionId} className={styles.sectionDescription}>
+            {description}
+          </span>
         </span>
         <ChevronIcon />
       </button>
@@ -298,11 +370,18 @@ export function ResponseSchemaEditor({
   routeInputContent,
 }: ResponseSchemaEditorProps) {
   const initialSuggestions = deriveApiRouteSuggestions(route.method, route.path);
-  const initialRequestJson = prettyJson(route.requestBody?.example);
+  const initialRequestSchema = route.requestBody?.schema ?? route.request;
+  const initialRequestSchemaJson = prettySchemaJson(initialRequestSchema);
+  const initialRequestExampleJson = prettyJson(route.requestBody?.example);
+  const initialRequestRequired = route.requestBody?.required ?? !route.request;
   const initialResponseValues = initialResponses(
     route,
     initialSuggestions.responseStatus,
     content.routeContract.defaultResponseDescription,
+  );
+  const initialPrimaryResponseIndex = Math.max(
+    0,
+    initialResponseValues.findIndex((response) => /^2[0-9]{2}$/.test(response.status)),
   );
   const [routeMethod, setRouteMethod] = useState(route.method);
   const [routePath, setRoutePath] = useState(route.path);
@@ -319,20 +398,31 @@ export function ResponseSchemaEditor({
       id,
     }))
   ));
-  const [requestJson, setRequestJson] = useState(initialRequestJson);
+  const [requestSchemaJson, setRequestSchemaJson] = useState(
+    initialRequestSchemaJson,
+  );
+  const [requestExampleJson, setRequestExampleJson] = useState(
+    initialRequestExampleJson,
+  );
   const [requestRequired, setRequestRequired] = useState(
-    route.requestBody?.required ?? true,
+    initialRequestRequired,
   );
   const [requestContentTypes, setRequestContentTypes] = useState(
     route.requestBody?.contentTypes.join(", ") ?? "application/json",
   );
   const [responses, setResponses] = useState<ResponseDraft[]>(() => (
-    initialResponseValues.map(responseDraft)
+    initialResponseValues.map((response, index) => responseDraft(
+      response,
+      index,
+      response.schema ?? (index === initialPrimaryResponseIndex
+        ? route.response
+        : undefined),
+      response.paginated ?? (index === initialPrimaryResponseIndex
+        ? route.paginated === true
+        : false),
+    ))
   ));
-  const [primaryResponseId] = useState(() => Math.max(
-    0,
-    initialResponseValues.findIndex((response) => /^2[0-9]{2}$/.test(response.status)),
-  ));
+  const [primaryResponseId] = useState(initialPrimaryResponseIndex);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [securityMode, setSecurityMode] = useState<SecurityMode>(
     route.security?.scheme ?? "inherit",
@@ -356,13 +446,7 @@ export function ResponseSchemaEditor({
       ...response.headers.map((header) => header.id + 1),
     ), 0),
   );
-  const primaryResponseEditsRef = useRef({
-    json: false,
-    pagination: false,
-    status: false,
-  });
   const securityEditedRef = useRef(false);
-  const requestInputRef = useRef<HTMLTextAreaElement>(null);
   const routeInputRef = useRef<HTMLInputElement>(null);
   const issueId = useId();
   const showRequest = bodyMethods.includes(routeMethod)
@@ -383,9 +467,42 @@ export function ResponseSchemaEditor({
     setIssue(null);
   }
 
+  function jsonError(
+    target: "request" | number,
+    input: "example" | "schema",
+  ): string | undefined {
+    if (jsonIssue?.target !== target || jsonIssue.input !== input) return undefined;
+    if (jsonIssue.reason === "schema") {
+      return content.routeContract.invalidSchemaError;
+    }
+    return input === "schema"
+      ? content.routeContract.invalidSchemaJsonError
+      : content.routeContract.invalidExampleError;
+  }
+
+  function clearJsonError(
+    target: "request" | number,
+    input: "example" | "schema",
+  ) {
+    if (jsonIssue?.target === target && jsonIssue.input === input) {
+      setJsonIssue(null);
+    }
+  }
+
   function toggleAdvanced() {
     if (advancedOpen) {
-      const invalidControl = document.getElementById(formId)
+      const form = document.getElementById(formId);
+      if (form instanceof HTMLFormElement && jsonIssue) {
+        const jsonControl = form.elements.namedItem(jsonIssueFieldName(jsonIssue));
+        if (
+          jsonControl instanceof HTMLElement
+          && jsonControl.closest("[data-advanced-settings]")
+        ) {
+          jsonControl.focus();
+          return;
+        }
+      }
+      const invalidControl = form
         ?.querySelector<HTMLElement>("[data-advanced-settings] :invalid");
       if (invalidControl) {
         invalidControl.focus();
@@ -423,9 +540,6 @@ export function ResponseSchemaEditor({
       const wouldDiscardPayload = next.responseStatus === "204"
         && (hasResponsePayload(response) || Boolean(route.response || route.paginated));
       if (!matchesGeneratedPrimary || wouldDiscardPayload) return response;
-      if (response.status !== next.responseStatus) {
-        primaryResponseEditsRef.current.status = true;
-      }
       return {
         ...response,
         contentTypes: next.responseStatus === "204"
@@ -484,10 +598,12 @@ export function ResponseSchemaEditor({
       {
         contentTypes: "application/json",
         description: content.routeContract.defaultErrorResponseDescription,
+        exampleJson: "",
         headers: [],
         id: nextResponseIdRef.current++,
-        json: "",
+        initialPaginated: false,
         paginated: false,
+        schemaJson: "",
         status,
       },
     ]);
@@ -632,9 +748,6 @@ export function ResponseSchemaEditor({
           tone="nested"
           value={response.status}
           onChange={(event) => {
-            if (response.id === primaryResponseId) {
-              primaryResponseEditsRef.current.status = true;
-            }
             updateResponse(response.id, {
               status: event.currentTarget.value,
             });
@@ -644,7 +757,7 @@ export function ResponseSchemaEditor({
     );
   }
 
-  function renderResponseJson(response: ResponseDraft, index: number) {
+  function renderResponseSchema(response: ResponseDraft, index: number) {
     if (response.status === "204") return null;
     const label = index === primaryResponseIndex
       ? content.responseSectionLabel
@@ -655,24 +768,57 @@ export function ResponseSchemaEditor({
           ? renderResponseStatus(response, index)
           : undefined}
         description={content.responseSectionDescription}
-        error={jsonIssue === response.id
-          ? content.routeContract.invalidExampleError
-          : undefined}
+        error={jsonError(response.id, "schema")}
+        formatAriaLabel={`${content.formatJsonLabel}: ${label}`}
         formatLabel={content.formatJsonLabel}
         label={label}
-        name={`response-${response.id}-json`}
-        placeholder={'{\n  "id": "user_123",\n  "name": "Ada"\n}'}
+        name={`response-${response.id}-schema`}
+        placeholder={jsonSchemaPlaceholder}
+        rows={8}
         tone="nested"
-        value={response.json}
+        value={response.schemaJson}
         onInvalidFormat={() => {
-          setJsonIssue(response.id);
+          setJsonIssue({
+            input: "schema",
+            reason: "json",
+            target: response.id,
+          });
         }}
         onValueChange={(value) => {
-          if (jsonIssue === response.id) setJsonIssue(null);
-          if (response.id === primaryResponseId) {
-            primaryResponseEditsRef.current.json = true;
-          }
-          updateResponse(response.id, { json: value });
+          clearJsonError(response.id, "schema");
+          updateResponse(response.id, { schemaJson: value });
+        }}
+      />
+    );
+  }
+
+  function renderResponseExample(response: ResponseDraft, index: number) {
+    if (response.status === "204") return null;
+    const label = index === primaryResponseIndex
+      ? content.responseExampleLabel
+      : `${content.responseExampleLabel} ${index + 1}`;
+    return (
+      <JsonInput
+        className={styles.wideField}
+        description={content.responseExampleDescription}
+        error={jsonError(response.id, "example")}
+        formatAriaLabel={`${content.formatJsonLabel}: ${label}`}
+        formatLabel={content.formatJsonLabel}
+        label={label}
+        name={`response-${response.id}-example`}
+        placeholder={'{\n  "id": "user_123"\n}'}
+        tone="nested"
+        value={response.exampleJson}
+        onInvalidFormat={() => {
+          setJsonIssue({
+            input: "example",
+            reason: "json",
+            target: response.id,
+          });
+        }}
+        onValueChange={(value) => {
+          clearJsonError(response.id, "example");
+          updateResponse(response.id, { exampleJson: value });
         }}
       />
     );
@@ -750,6 +896,7 @@ export function ResponseSchemaEditor({
   function renderResponseAdvanced(response: ResponseDraft, index: number) {
     return (
       <div className={styles.responseAdvanced}>
+        {renderResponseExample(response, index)}
         <LabeledInput
           label={`${content.routeContract.responseDescriptionLabel} ${index + 1}`}
           name={`response-${response.id}-description`}
@@ -774,9 +921,6 @@ export function ResponseSchemaEditor({
           disabled={response.status === "204"}
           label={`${content.routeContract.paginationLabel} ${index + 1}`}
           onChange={(event) => {
-            if (response.id === primaryResponseId) {
-              primaryResponseEditsRef.current.pagination = true;
-            }
             updateResponse(response.id, {
               paginated: event.currentTarget.checked,
             });
@@ -789,8 +933,8 @@ export function ResponseSchemaEditor({
 
   function normalizeResponse(
     response: ResponseDraft,
-    parsed: JsonParseResult & { valid: true },
-    primary: boolean,
+    parsedSchema: SchemaParseResult & { valid: true },
+    parsedExample: JsonParseResult & { valid: true },
   ): ApiRouteResponse {
     const normalizedHeaders = response.headers
       .filter((header) => header.name.trim())
@@ -819,24 +963,28 @@ export function ResponseSchemaEditor({
       delete normalized.schema;
       return normalized;
     }
-    if (response.paginated) normalized.paginated = true;
-    else delete normalized.paginated;
-    if (response.json !== prettyJson(response.original?.example)) {
-      if (parsed.value === undefined) {
-        delete normalized.example;
+    if (response.paginated !== response.initialPaginated) {
+      if (response.paginated) {
+        normalized.paginated = true;
+        if (!normalized.schema && parsedSchema.value) {
+          normalized.schema = parsedSchema.value;
+        }
+      } else {
+        delete normalized.paginated;
+      }
+    }
+    if (parsedSchema.value !== response.initialSchema) {
+      if (parsedSchema.value === undefined) {
         delete normalized.schema;
       } else {
-        const existingTypeName = response.original?.schema?.typeName;
-        normalized.example = parsed.value;
-        normalized.schema = inferApiResponseSchemaFromJson(
-          existingTypeName ?? contractTypeName(
-            routeMethod,
-            routePath,
-            responseTypeSuffix(primary, response.status),
-          ),
-          parsed.value,
-        );
-        if (!normalized.schema) delete normalized.schema;
+        normalized.schema = parsedSchema.value;
+      }
+    }
+    if (response.exampleJson !== prettyJson(response.original?.example)) {
+      if (parsedExample.value === undefined) {
+        delete normalized.example;
+      } else {
+        normalized.example = parsedExample.value;
       }
     }
     return normalized;
@@ -862,26 +1010,82 @@ export function ResponseSchemaEditor({
   function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const parsedRequest: JsonParseResult = showRequest
-      ? parseJson(requestJson)
+    const parsedRequestSchema: SchemaParseResult = showRequest
+      ? parseSchemaJson(
+          requestSchemaJson,
+          initialRequestSchema?.typeName
+            ?? contractTypeName(routeMethod, routePath, "Request"),
+          initialRequestSchemaJson,
+          initialRequestSchema,
+        )
       : { valid: true };
-    const parsedResponses = responses.map((response) => parseJson(response.json));
-    if (!parsedRequest.valid || parsedResponses.some((result) => !result.valid)) {
-      const invalidResponseIndex = parsedResponses.findIndex((result) => !result.valid);
-      const invalidField = !parsedRequest.valid
-        ? "request"
-        : responses[invalidResponseIndex]?.id ?? null;
-      setJsonIssue(invalidField);
-      if (typeof invalidField === "number"
-        && invalidField !== primaryResponseId) {
+    const parsedRequestExample: JsonParseResult = showRequest
+      ? parseJson(requestExampleJson)
+      : { valid: true };
+    const parsedResponseSchemas = responses.map((response, index) => (
+      parseSchemaJson(
+        response.schemaJson,
+        response.initialSchema?.typeName ?? contractTypeName(
+          routeMethod,
+          routePath,
+          responseTypeSuffix(index === primaryResponseIndex, response.status),
+        ),
+        prettySchemaJson(response.initialSchema),
+        response.initialSchema,
+      )
+    ));
+    const parsedResponseExamples = responses.map((response) => (
+      parseJson(response.exampleJson)
+    ));
+    let invalidJsonIssue: JsonIssue = null;
+    if (!parsedRequestSchema.valid) {
+      invalidJsonIssue = {
+        input: "schema",
+        reason: parsedRequestSchema.reason,
+        target: "request",
+      };
+    } else if (!parsedRequestExample.valid) {
+      invalidJsonIssue = {
+        input: "example",
+        reason: "json",
+        target: "request",
+      };
+    } else {
+      for (let index = 0; index < responses.length; index += 1) {
+        const parsedSchema = parsedResponseSchemas[index];
+        const parsedExample = parsedResponseExamples[index];
+        const response = responses[index];
+        if (!response) continue;
+        if (parsedSchema && !parsedSchema.valid) {
+          invalidJsonIssue = {
+            input: "schema",
+            reason: parsedSchema.reason,
+            target: response.id,
+          };
+          break;
+        }
+        if (parsedExample && !parsedExample.valid) {
+          invalidJsonIssue = {
+            input: "example",
+            reason: "json",
+            target: response.id,
+          };
+          break;
+        }
+      }
+    }
+    if (invalidJsonIssue) {
+      setJsonIssue(invalidJsonIssue);
+      if (
+        invalidJsonIssue.input === "example"
+        || (typeof invalidJsonIssue.target === "number"
+          && invalidJsonIssue.target !== primaryResponseId)
+      ) {
         setAdvancedOpen(true);
       }
       queueMicrotask(() => {
-        if (invalidField === "request") requestInputRef.current?.focus();
-        else if (typeof invalidField === "number") {
-          const field = form.elements.namedItem(`response-${invalidField}-json`);
-          if (field instanceof HTMLElement) field.focus();
-        }
+        const field = form.elements.namedItem(jsonIssueFieldName(invalidJsonIssue));
+        if (field instanceof HTMLElement) field.focus();
       });
       return;
     }
@@ -889,8 +1093,8 @@ export function ResponseSchemaEditor({
     const normalizedResponses = responses.map((response, index) => (
       normalizeResponse(
         response,
-        parsedResponses[index] as JsonParseResult & { valid: true },
-        index === primaryResponseIndex,
+        parsedResponseSchemas[index] as SchemaParseResult & { valid: true },
+        parsedResponseExamples[index] as JsonParseResult & { valid: true },
       )
     ));
     if (new Set(normalizedResponses.map(({ status }) => status)).size
@@ -928,50 +1132,96 @@ export function ResponseSchemaEditor({
       else delete nextContract.security;
     }
 
-    const requestJsonChanged = requestJson !== initialRequestJson;
+    const parsedRequestSchemaValue = (
+      parsedRequestSchema as SchemaParseResult & { valid: true }
+    ).value;
+    const requestSchemaChanged = parsedRequestSchemaValue !== initialRequestSchema;
+    const requestExampleChanged = requestExampleJson !== initialRequestExampleJson;
+    const requestSettingsChanged = (
+      requestContentTypes !== (
+        route.requestBody?.contentTypes.join(", ") ?? "application/json"
+      )
+      || requestRequired !== initialRequestRequired
+    );
     if (!showRequest && !route.requestBody && !route.request) {
       delete nextContract.request;
       delete nextContract.requestBody;
-    } else if (requestJsonChanged && parsedRequest.value === undefined) {
-      delete nextContract.request;
-      delete nextContract.requestBody;
-    } else if (parsedRequest.value !== undefined && requestJsonChanged) {
-      const requestSchema = inferApiResponseSchemaFromJson(
-        route.requestBody?.schema?.typeName
-          ?? route.request?.typeName
-          ?? contractTypeName(routeMethod, routePath, "Request"),
-        parsedRequest.value,
-      );
-      if (requestSchema) nextContract.request = requestSchema;
-      else delete nextContract.request;
-      nextContract.requestBody = {
-        contentTypes: commaSeparatedValues(requestContentTypes),
-        example: parsedRequest.value,
-        required: requestRequired,
-        ...(requestSchema ? { schema: requestSchema } : {}),
-      };
-    } else if (route.requestBody) {
-      nextContract.requestBody = {
-        ...route.requestBody,
+    } else {
+      const parsedSchema = parsedRequestSchema as SchemaParseResult & { valid: true };
+      const parsedExample = parsedRequestExample as JsonParseResult & { valid: true };
+      if (requestSchemaChanged) {
+        if (parsedSchema.value) nextContract.request = parsedSchema.value;
+        else delete nextContract.request;
+      }
+      const requestBody = {
+        ...(route.requestBody ?? {}),
         contentTypes: commaSeparatedValues(requestContentTypes),
         required: requestRequired,
       };
+      if (requestSchemaChanged) {
+        if (parsedSchema.value) requestBody.schema = parsedSchema.value;
+        else delete requestBody.schema;
+      }
+      if (
+        !route.requestBody
+        && (requestExampleChanged || requestSettingsChanged)
+        && parsedSchema.value
+      ) {
+        requestBody.schema = parsedSchema.value;
+      }
+      if (requestExampleChanged) {
+        if (parsedExample.value !== undefined) {
+          requestBody.example = parsedExample.value;
+        } else {
+          delete requestBody.example;
+        }
+      }
+      if (
+        route.requestBody
+        || requestBody.schema !== undefined
+        || requestBody.example !== undefined
+        || requestSettingsChanged
+      ) {
+        nextContract.requestBody = requestBody;
+      } else {
+        delete nextContract.requestBody;
+      }
     }
 
     nextContract.responses = normalizedResponses;
-    const primaryCandidate = normalizedResponses[primaryResponseIndex];
-    const primaryResponse = primaryCandidate?.schema
-      && /^2[0-9]{2}$/.test(primaryCandidate.status)
-      ? primaryCandidate
+    const primaryParsedSchema = parsedResponseSchemas[primaryResponseIndex];
+    const primarySchema = primaryParsedSchema?.valid
+      ? primaryParsedSchema.value
       : undefined;
-    const primaryResponseEdits = primaryResponseEditsRef.current;
-    if (primaryResponse?.schema) nextContract.response = primaryResponse.schema;
-    else if (primaryResponseEdits.json || primaryResponseEdits.status) {
-      delete nextContract.response;
+    const primarySchemaChanged = primaryResponseDraft
+      ? primarySchema !== primaryResponseDraft.initialSchema
+      : false;
+    const initialPrimaryCanMirror = primaryResponseDraft
+      ? canMirrorResponse(
+          primaryResponseDraft.original?.status ?? "",
+          primaryResponseDraft.initialSchema,
+        )
+      : false;
+    const nextPrimaryCanMirror = primaryResponseDraft
+      ? canMirrorResponse(primaryResponseDraft.status, primarySchema)
+      : false;
+    const primaryMirrorEligibilityChanged =
+      initialPrimaryCanMirror !== nextPrimaryCanMirror;
+    const primaryPaginationChanged = primaryResponseDraft
+      ? primaryResponseDraft.paginated
+        !== primaryResponseDraft.initialPaginated
+      : false;
+    if (primarySchemaChanged || primaryMirrorEligibilityChanged) {
+      if (nextPrimaryCanMirror && primarySchema) {
+        nextContract.response = primarySchema;
+      }
+      else delete nextContract.response;
     }
-    if (primaryResponse?.paginated) nextContract.paginated = true;
-    else if (primaryResponseEdits.pagination || primaryResponseEdits.status) {
-      delete nextContract.paginated;
+    if (primaryPaginationChanged || primaryMirrorEligibilityChanged) {
+      if (nextPrimaryCanMirror && primaryResponseDraft?.paginated) {
+        nextContract.paginated = true;
+      }
+      else delete nextContract.paginated;
     }
 
     const result = onSave(nextContract, { method: routeMethod, path: routePath });
@@ -1071,7 +1321,6 @@ export function ResponseSchemaEditor({
 
       {showRequest ? (
         <JsonInput
-          ref={requestInputRef}
           accessory={(
             <CheckboxWithLabel
               checked={requestRequired}
@@ -1080,22 +1329,26 @@ export function ResponseSchemaEditor({
             />
           )}
           description={content.requestBodyDescription}
-          error={jsonIssue === "request"
-            ? content.routeContract.invalidExampleError
-            : undefined}
+          error={jsonError("request", "schema")}
+          formatAriaLabel={`${content.formatJsonLabel}: ${content.requestBodyLabel}`}
           formatLabel={content.formatJsonLabel}
           label={content.requestBodyLabel}
-          name="request-json"
-          placeholder={'{\n  "name": "Ada"\n}'}
+          name="request-schema"
+          placeholder={jsonSchemaPlaceholder}
+          rows={8}
           tone="nested"
-          value={requestJson}
+          value={requestSchemaJson}
           onInvalidFormat={() => {
-            setJsonIssue("request");
+            setJsonIssue({
+              input: "schema",
+              reason: "json",
+              target: "request",
+            });
           }}
           onValueChange={(value) => {
-            if (jsonIssue === "request") setJsonIssue(null);
+            clearJsonError("request", "schema");
             setIssue(null);
-            setRequestJson(value);
+            setRequestSchemaJson(value);
           }}
         />
       ) : null}
@@ -1117,7 +1370,7 @@ export function ResponseSchemaEditor({
               </div>
               {renderResponseStatus(primaryResponseDraft, primaryResponseIndex)}
             </div>
-          ) : renderResponseJson(primaryResponseDraft, primaryResponseIndex)}
+          ) : renderResponseSchema(primaryResponseDraft, primaryResponseIndex)}
         </section>
       ) : null}
 
@@ -1264,14 +1517,42 @@ export function ResponseSchemaEditor({
           </div>
 
           {showRequest ? (
-            <LabeledInput
-              label={content.routeContract.requestContentTypesLabel}
-              name="request-content-types"
-              placeholder={content.routeContract.contentTypesHint}
-              required={Boolean(route.requestBody || requestJson.trim())}
-              value={requestContentTypes}
-              onChange={(event) => setRequestContentTypes(event.currentTarget.value)}
-            />
+            <div className={styles.advancedSubsection}>
+              <JsonInput
+                description={content.requestExampleDescription}
+                error={jsonError("request", "example")}
+                formatAriaLabel={`${content.formatJsonLabel}: ${content.requestExampleLabel}`}
+                formatLabel={content.formatJsonLabel}
+                label={content.requestExampleLabel}
+                name="request-example"
+                placeholder={'{\n  "name": "Ada"\n}'}
+                tone="nested"
+                value={requestExampleJson}
+                onInvalidFormat={() => {
+                  setJsonIssue({
+                    input: "example",
+                    reason: "json",
+                    target: "request",
+                  });
+                }}
+                onValueChange={(value) => {
+                  clearJsonError("request", "example");
+                  setRequestExampleJson(value);
+                }}
+              />
+              <LabeledInput
+                label={content.routeContract.requestContentTypesLabel}
+                name="request-content-types"
+                placeholder={content.routeContract.contentTypesHint}
+                required={Boolean(
+                  route.requestBody
+                  || requestSchemaJson.trim()
+                  || requestExampleJson.trim()
+                )}
+                value={requestContentTypes}
+                onChange={(event) => setRequestContentTypes(event.currentTarget.value)}
+              />
+            </div>
           ) : null}
 
           {responses.map((response, index) => {
@@ -1281,11 +1562,11 @@ export function ResponseSchemaEditor({
                 key={response.id}
                 className={styles.advancedResponseCard}
                 role="group"
-                aria-label={`${content.responseSectionLabel} ${index + 1}`}
+                aria-label={`${content.responseGroupLabel} ${index + 1}`}
               >
                 <div className={styles.subsectionHeader}>
                   <span className={styles.label}>
-                    {content.responseSectionLabel} {index + 1}
+                    {content.responseGroupLabel} {index + 1}
                   </span>
                   {!primary ? (
                     <IconButton
@@ -1297,7 +1578,7 @@ export function ResponseSchemaEditor({
                   ) : null}
                 </div>
                 {!primary ? renderResponseStatus(response, index) : null}
-                {!primary ? renderResponseJson(response, index) : null}
+                {!primary ? renderResponseSchema(response, index) : null}
                 {renderResponseAdvanced(response, index)}
               </div>
             );

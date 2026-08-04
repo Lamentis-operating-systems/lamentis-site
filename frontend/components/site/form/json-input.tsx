@@ -26,6 +26,7 @@ type JsonInputProps = Omit<
   className?: string;
   description: string;
   error?: string;
+  formatAriaLabel?: string;
   formatLabel: string;
   label: string;
   onInvalidFormat?: () => void;
@@ -40,6 +41,7 @@ export const JsonInput = forwardRef<HTMLTextAreaElement, JsonInputProps>(
     className,
     description,
     error,
+    formatAriaLabel,
     formatLabel,
     id,
     label,
@@ -85,6 +87,7 @@ export const JsonInput = forwardRef<HTMLTextAreaElement, JsonInputProps>(
           <div className={styles.actions}>
             {accessory}
             <button
+              aria-label={formatAriaLabel}
               className={styles.formatAction}
               disabled={!value.trim()}
               type="button"

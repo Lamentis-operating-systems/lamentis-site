@@ -43,14 +43,384 @@ export type ApiResponseSchema = {
   typeName: string;
 };
 
-function jsonValueType(value: unknown): ApiResponseFieldType {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
-  if (typeof value === "string") return "string";
-  if (typeof value === "number") return "number";
-  if (typeof value === "boolean") return "boolean";
-  if (typeof value === "object") return "object";
-  return "unknown";
+type JsonSchemaObject = Record<string, unknown>;
+
+const jsonSchemaFieldKeywords = new Set([
+  "default",
+  "description",
+  "enum",
+  "examples",
+  "items",
+  "maximum",
+  "maxLength",
+  "minimum",
+  "minLength",
+  "pattern",
+  "properties",
+  "required",
+  "type",
+]);
+
+function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOnlyJsonSchemaFieldKeywords(value: JsonSchemaObject): boolean {
+  return Object.keys(value).every((key) => jsonSchemaFieldKeywords.has(key));
+}
+
+function hasSameStringValues(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((item, index) => item === sortedRight[index]);
+}
+
+function parseJsonSchemaAnnotations(
+  value: JsonSchemaObject,
+  type: ApiResponseFieldType,
+  existingField?: ApiResponseField,
+): Omit<
+  ApiResponseField,
+  "arrayItemType" | "name" | "objectSchema" | "optional" | "type"
+> | undefined {
+  if (
+    (value.description !== undefined && (
+      typeof value.description !== "string" || !value.description.trim()
+    ))
+    || (value.default !== undefined && (
+      typeof value.default !== "string" || !value.default.trim()
+    ))
+    || (value.examples !== undefined && (
+      !Array.isArray(value.examples)
+      || value.examples.length !== 1
+      || typeof value.examples[0] !== "string"
+      || !value.examples[0].trim()
+    ))
+    || (value.enum !== undefined && (
+      !Array.isArray(value.enum)
+      || value.enum.length === 0
+      || value.enum.some((item) => typeof item !== "string" || !item.trim())
+      || (
+        type !== "string"
+        && type !== "unknown"
+        && !(
+          existingField?.type === type
+          && existingField.enumValues
+          && hasSameStringValues(existingField.enumValues, value.enum as string[])
+        )
+      )
+    ))
+    || (value.minimum !== undefined && (
+      typeof value.minimum !== "number" || !Number.isFinite(value.minimum)
+      || type !== "number"
+    ))
+    || (value.maximum !== undefined && (
+      typeof value.maximum !== "number" || !Number.isFinite(value.maximum)
+      || type !== "number"
+    ))
+    || (value.minLength !== undefined && (
+      typeof value.minLength !== "number"
+      || !Number.isSafeInteger(value.minLength) || value.minLength < 0
+      || type !== "string"
+    ))
+    || (value.maxLength !== undefined && (
+      typeof value.maxLength !== "number"
+      || !Number.isSafeInteger(value.maxLength) || value.maxLength < 0
+      || type !== "string"
+    ))
+    || (value.pattern !== undefined && (
+      typeof value.pattern !== "string" || !value.pattern.trim()
+      || type !== "string"
+    ))
+  ) {
+    return undefined;
+  }
+
+  const minimum = value.minimum as number | undefined;
+  const maximum = value.maximum as number | undefined;
+  const minLength = value.minLength as number | undefined;
+  const maxLength = value.maxLength as number | undefined;
+  if (
+    minimum !== undefined && maximum !== undefined && minimum > maximum
+    || minLength !== undefined && maxLength !== undefined && minLength > maxLength
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(typeof value.default === "string" ? { defaultValue: value.default } : {}),
+    ...(typeof value.description === "string"
+      ? { description: value.description }
+      : {}),
+    ...(Array.isArray(value.enum) ? { enumValues: value.enum as string[] } : {}),
+    ...(Array.isArray(value.examples) ? { example: value.examples[0] as string } : {}),
+    ...(maximum !== undefined ? { maximum } : {}),
+    ...(maxLength !== undefined ? { maxLength } : {}),
+    ...(minimum !== undefined ? { minimum } : {}),
+    ...(minLength !== undefined ? { minLength } : {}),
+    ...(typeof value.pattern === "string" ? { pattern: value.pattern } : {}),
+  };
+}
+
+function jsonSchemaRequiredProperties(
+  value: JsonSchemaObject,
+  propertyNames: readonly string[],
+): Set<string> | undefined {
+  if (value.required === undefined) return new Set();
+  if (
+    !Array.isArray(value.required)
+    || value.required.some((item) => typeof item !== "string")
+    || new Set(value.required).size !== value.required.length
+    || value.required.some((item) => !propertyNames.includes(String(item)))
+  ) {
+    return undefined;
+  }
+  return new Set(value.required as string[]);
+}
+
+function apiResponseSchemaFromJsonSchemaObject(
+  typeName: string,
+  value: JsonSchemaObject,
+  existingSchema?: ApiResponseSchema,
+): ApiResponseSchema | undefined {
+  if (
+    value.type !== "object"
+    || Object.keys(value).some((key) => (
+      key !== "type" && key !== "properties" && key !== "required"
+    ))
+    || !isJsonSchemaObject(value.properties)
+  ) {
+    return undefined;
+  }
+
+  const properties = (value.properties ?? {}) as JsonSchemaObject;
+  const propertyNames = Object.keys(properties);
+  if (propertyNames.some((name) => !name)) return undefined;
+  const required = jsonSchemaRequiredProperties(value, propertyNames);
+  if (!required) return undefined;
+
+  const fields: ApiResponseField[] = [];
+  for (const name of propertyNames) {
+    const field = apiResponseFieldFromJsonSchema(
+      name,
+      properties[name],
+      typeName,
+      !required.has(name),
+      existingSchema?.fields.find((candidate) => candidate.name === name),
+    );
+    if (!field) return undefined;
+    fields.push(field);
+  }
+  return { fields, typeName };
+}
+
+function apiResponseArrayItemFromJsonSchema(
+  name: string,
+  value: unknown,
+  parentTypeName: string,
+  existingField?: ApiResponseField,
+): Pick<ApiResponseField, "arrayItemType" | "objectSchema"> | undefined {
+  if (!isJsonSchemaObject(value)) return undefined;
+  if (Object.keys(value).length === 0) return { arrayItemType: "unknown" };
+  if (value.type === "array" || Object.keys(value).some((key) => (
+    key !== "type" && key !== "properties" && key !== "required"
+  ))) {
+    return undefined;
+  }
+  if (value.type === "object") {
+    if (value.properties === undefined) {
+      return existingField?.type === "array"
+        && existingField.arrayItemType === "object"
+        && !existingField.objectSchema
+        && value.required === undefined
+        ? { arrayItemType: "object" }
+        : undefined;
+    }
+    const nestedTypeName = existingField?.objectSchema?.typeName
+      ?? `${parentTypeName}${nestedTypeSegment(name)}`;
+    const objectSchema = apiResponseSchemaFromJsonSchemaObject(
+      nestedTypeName,
+      value,
+      existingField?.objectSchema,
+    );
+    return objectSchema ? { arrayItemType: "object", objectSchema } : undefined;
+  }
+  if (
+    value.type === "string"
+    || value.type === "number"
+    || value.type === "boolean"
+    || value.type === "null"
+  ) {
+    return { arrayItemType: value.type };
+  }
+  return undefined;
+}
+
+function apiResponseFieldFromJsonSchema(
+  name: string,
+  value: unknown,
+  parentTypeName: string,
+  optional: boolean,
+  existingField?: ApiResponseField,
+): ApiResponseField | undefined {
+  if (!isJsonSchemaObject(value) || !hasOnlyJsonSchemaFieldKeywords(value)) {
+    return undefined;
+  }
+
+  const type = Object.keys(value).length === 0 || value.type === undefined
+    ? "unknown"
+    : value.type;
+  if (
+    value.type === "unknown"
+    || type !== "string"
+    && type !== "number"
+    && type !== "boolean"
+    && type !== "object"
+    && type !== "array"
+    && type !== "null"
+    && type !== "unknown"
+  ) {
+    return undefined;
+  }
+  const annotations = parseJsonSchemaAnnotations(value, type, existingField);
+  if (!annotations) return undefined;
+
+  if (type === "object") {
+    if (value.items !== undefined) return undefined;
+    if (value.properties === undefined) {
+      return existingField?.type === "object"
+        && !existingField.objectSchema
+        && value.required === undefined
+        ? { ...annotations, name, optional, type }
+        : undefined;
+    }
+    const nestedTypeName = existingField?.objectSchema?.typeName
+      ?? `${parentTypeName}${nestedTypeSegment(name)}`;
+    const objectSchema = apiResponseSchemaFromJsonSchemaObject(
+      nestedTypeName,
+      {
+        type: "object",
+        properties: value.properties,
+        ...(value.required !== undefined ? { required: value.required } : {}),
+      },
+      existingField?.objectSchema,
+    );
+    return objectSchema
+      ? { ...annotations, name, objectSchema, optional, type }
+      : undefined;
+  }
+  if (type === "array") {
+    if (
+      value.items === undefined
+      || value.properties !== undefined
+      || value.required !== undefined
+    ) {
+      return undefined;
+    }
+    const item = apiResponseArrayItemFromJsonSchema(
+      name,
+      value.items,
+      parentTypeName,
+      existingField,
+    );
+    return item
+      ? { ...annotations, ...item, name, optional, type }
+      : undefined;
+  }
+  if (
+    value.items !== undefined
+    || value.properties !== undefined
+    || value.required !== undefined
+  ) {
+    return undefined;
+  }
+  return { ...annotations, name, optional, type };
+}
+
+/**
+ * Converts the supported JSON Schema 2020-12 object subset into the persisted
+ * API contract model. Unsupported keywords fail closed so authoring never
+ * silently drops contract semantics.
+ */
+export function apiResponseSchemaFromJsonSchema(
+  typeName: string,
+  value: unknown,
+  existingSchema?: ApiResponseSchema,
+): ApiResponseSchema | undefined {
+  if (!isValidTypeScriptTypeName(typeName) || !isJsonSchemaObject(value)) {
+    return undefined;
+  }
+  const schema = apiResponseSchemaFromJsonSchemaObject(
+    typeName,
+    value,
+    existingSchema,
+  );
+  if (
+    !schema
+    || !(existingSchema
+      ? isValidPersistedApiResponseSchema(schema)
+      : isValidApiResponseSchema(schema))
+  ) {
+    return undefined;
+  }
+  return existingSchema
+    && apiResponseSchemaSignature(existingSchema) === apiResponseSchemaSignature(schema)
+    ? existingSchema
+    : schema;
+}
+
+function jsonSchemaAnnotationsFromApiResponseField(
+  field: ApiResponseField,
+): JsonSchemaObject {
+  return {
+    ...(field.defaultValue ? { default: field.defaultValue } : {}),
+    ...(field.description ? { description: field.description } : {}),
+    ...(field.enumValues ? { enum: field.enumValues } : {}),
+    ...(field.example ? { examples: [field.example] } : {}),
+    ...(field.maximum !== undefined ? { maximum: field.maximum } : {}),
+    ...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {}),
+    ...(field.minimum !== undefined ? { minimum: field.minimum } : {}),
+    ...(field.minLength !== undefined ? { minLength: field.minLength } : {}),
+    ...(field.pattern ? { pattern: field.pattern } : {}),
+  };
+}
+
+function apiResponseFieldToJsonSchema(field: ApiResponseField): JsonSchemaObject {
+  const annotations = jsonSchemaAnnotationsFromApiResponseField(field);
+  if (field.type === "object" && field.objectSchema) {
+    return { ...apiResponseSchemaToJsonSchema(field.objectSchema), ...annotations };
+  }
+  if (field.type === "array") {
+    const items = field.arrayItemType === "object" && field.objectSchema
+      ? apiResponseSchemaToJsonSchema(field.objectSchema)
+      : field.arrayItemType === "unknown" || !field.arrayItemType
+        ? {}
+        : { type: field.arrayItemType };
+    return { type: "array", items, ...annotations };
+  }
+  if (field.type === "unknown") return annotations;
+  return { type: field.type, ...annotations };
+}
+
+/** Returns a standard JSON Schema object for the persisted contract subset. */
+export function apiResponseSchemaToJsonSchema(
+  schema: ApiResponseSchema,
+): JsonSchemaObject {
+  const properties = Object.fromEntries(schema.fields.map((field) => (
+    [field.name, apiResponseFieldToJsonSchema(field)]
+  )));
+  const required = schema.fields
+    .filter((field) => !field.optional)
+    .map((field) => field.name);
+  return {
+    type: "object",
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+  };
 }
 
 function nestedTypeSegment(value: string): string {
@@ -60,94 +430,6 @@ function nestedTypeSegment(value: string): string {
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
     .join("");
   return segment && !/^[0-9]/.test(segment) ? segment : `Field${segment}`;
-}
-
-function inferJsonField(
-  name: string,
-  values: readonly unknown[],
-  parentTypeName: string,
-  optional: boolean,
-): ApiResponseField {
-  const valueTypes = new Set(values.map(jsonValueType));
-  const type = valueTypes.size === 1
-    ? [...valueTypes][0] ?? "unknown"
-    : "unknown";
-  const nestedTypeName = `${parentTypeName}${nestedTypeSegment(name)}`;
-
-  if (type === "object") {
-    const objects = values.filter((value): value is Record<string, unknown> => (
-      typeof value === "object" && value !== null && !Array.isArray(value)
-    ));
-    return {
-      name,
-      objectSchema: inferJsonObjectSchema(nestedTypeName, objects),
-      optional,
-      type,
-    };
-  }
-
-  if (type === "array") {
-    const items = values.flatMap((value) => Array.isArray(value) ? value : []);
-    const itemTypes = new Set(items.map(jsonValueType));
-    const inferredItemType = itemTypes.size === 1
-      ? ([...itemTypes][0] ?? "unknown")
-      : "unknown";
-    const arrayItemType = inferredItemType === "array"
-      ? "unknown"
-      : inferredItemType;
-    const objectItems = arrayItemType === "object"
-      ? items.filter((value): value is Record<string, unknown> => (
-          typeof value === "object" && value !== null && !Array.isArray(value)
-        ))
-      : [];
-    return {
-      arrayItemType,
-      name,
-      ...(arrayItemType === "object"
-        ? { objectSchema: inferJsonObjectSchema(nestedTypeName, objectItems) }
-        : {}),
-      optional,
-      type,
-    };
-  }
-
-  return { name, optional, type };
-}
-
-function inferJsonObjectSchema(
-  typeName: string,
-  objects: readonly Record<string, unknown>[],
-): ApiResponseSchema {
-  const propertyNames = [...new Set(objects.flatMap(Object.keys))];
-  return {
-    fields: propertyNames.map((name) => {
-      const values = objects.flatMap((object) => (
-        Object.hasOwn(object, name) ? [object[name]] : []
-      ));
-      return inferJsonField(
-        name,
-        values,
-        typeName,
-        values.length < objects.length,
-      );
-    }),
-    typeName,
-  };
-}
-
-export function inferApiResponseSchemaFromJson(
-  typeName: string,
-  value: unknown,
-): ApiResponseSchema | undefined {
-  if (
-    typeof value !== "object"
-    || value === null
-    || Array.isArray(value)
-    || !isValidTypeScriptTypeName(typeName)
-  ) {
-    return undefined;
-  }
-  return inferJsonObjectSchema(typeName, [value as Record<string, unknown>]);
 }
 
 export const typeScriptIdentifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;

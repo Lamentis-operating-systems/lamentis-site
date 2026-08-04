@@ -127,10 +127,12 @@ test("all overlay edges and corners preserve their opposite axes", async ({
   }
 
   const responseJson = dialog.getByRole("textbox", {
-    name: "Response JSON",
+    name: "Response type (JSON Schema)",
   });
-  await responseJson.fill('{"resizable":true}');
-  await expect(responseJson).toHaveValue('{"resizable":true}');
+  await responseJson.fill(
+    '{"type":"object","properties":{"resizable":{"type":"boolean"}},"required":["resizable"]}',
+  );
+  await expect(responseJson).toHaveValue(/"resizable"/);
   await dialog.getByRole("button", {
     name: "Close the response editor",
   }).click();

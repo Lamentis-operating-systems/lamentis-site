@@ -40,6 +40,11 @@ export type ResponseSchemaEditorContent = {
   formatJsonLabel: string;
   requestBodyDescription: string;
   requestBodyLabel: string;
+  requestExampleDescription: string;
+  requestExampleLabel: string;
+  responseExampleDescription: string;
+  responseExampleLabel: string;
+  responseGroupLabel: string;
   responseSectionDescription: string;
   responseSectionLabel: string;
   responseTypeLabel: string;
@@ -61,6 +66,8 @@ export type ResponseSchemaEditorContent = {
     duplicateResponseStatusError: string;
     invalidContractError: string;
     invalidExampleError: string;
+    invalidSchemaError: string;
+    invalidSchemaJsonError: string;
     operationIdLabel: string;
     parameterLocationLabel: string;
     parameterLocationOptions: Record<ApiParameterLocation, string>;
@@ -211,17 +218,24 @@ export const contentByLocale = {
       pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
         advancedDescription:
-          "Override generated identifiers, authentication, media types, and header or cookie parameters.",
+          "Add examples or override generated identifiers, authentication, media types, and protocol details.",
         advancedLabel: "Advanced settings",
         collapseSectionLabel: "Collapse",
         expandSectionLabel: "Expand",
         formatJsonLabel: "Format JSON",
         requestBodyDescription:
-          "Paste one JSON example. The request type is inferred automatically.",
-        requestBodyLabel: "Request JSON",
+          "Object schemas only: type, properties, required, and items; primitives, nested objects, and arrays.",
+        requestBodyLabel: "Request type (JSON Schema)",
+        requestExampleDescription:
+          "Optional example payload. It stays separate from the request type.",
+        requestExampleLabel: "Request example (JSON)",
+        responseExampleDescription:
+          "Optional example payload. It stays separate from the response type.",
+        responseExampleLabel: "Response example (JSON)",
+        responseGroupLabel: "Response",
         responseSectionDescription:
-          "Paste one JSON example. The response type is inferred automatically.",
-        responseSectionLabel: "Response JSON",
+          "Object schemas only: type, properties, required, and items; primitives, nested objects, and arrays.",
+        responseSectionLabel: "Response type (JSON Schema)",
         responseTypeLabel: "Response type",
         routeContract: {
           addHeaderParameterLabel: "Add header or cookie parameter",
@@ -242,8 +256,12 @@ export const contentByLocale = {
           duplicateResponseStatusError:
             "Response status codes must be unique.",
           invalidContractError:
-            "This route conflicts with an existing generated type. Change the path or JSON shape.",
+            "This route conflicts with an existing generated type. Change the path or schema.",
           invalidExampleError: "Enter valid JSON before saving.",
+          invalidSchemaError:
+            "Unsupported schema. Use an object with type, properties, required, and items.",
+          invalidSchemaJsonError:
+            "Enter a complete JSON Schema object before saving.",
           operationIdLabel: "Operation ID",
           parameterLocationLabel: "Parameter location",
           parameterLocationOptions: {
@@ -394,17 +412,24 @@ export const contentByLocale = {
         "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
         advancedDescription:
-          "Überschreibe erzeugte Kennungen, Authentifizierung, Medientypen sowie Header- oder Cookie-Parameter.",
+          "Ergänze Beispiele oder überschreibe erzeugte Kennungen, Authentifizierung, Medientypen und Protokolldetails.",
         advancedLabel: "Erweiterte Einstellungen",
         collapseSectionLabel: "Einklappen",
         expandSectionLabel: "Ausklappen",
         formatJsonLabel: "JSON formatieren",
         requestBodyDescription:
-          "Füge ein JSON-Beispiel ein. Der Anfragetyp wird automatisch abgeleitet.",
-        requestBodyLabel: "Request-JSON",
+          "Nur Objektschemas: type, properties, required und items; primitive Typen, verschachtelte Objekte und Arrays.",
+        requestBodyLabel: "Request-Typ (JSON Schema)",
+        requestExampleDescription:
+          "Optionaler Beispiel-Payload. Er bleibt vom Request-Typ getrennt.",
+        requestExampleLabel: "Request-Beispiel (JSON)",
+        responseExampleDescription:
+          "Optionaler Beispiel-Payload. Er bleibt vom Response-Typ getrennt.",
+        responseExampleLabel: "Response-Beispiel (JSON)",
+        responseGroupLabel: "Antwort",
         responseSectionDescription:
-          "Füge ein JSON-Beispiel ein. Der Antworttyp wird automatisch abgeleitet.",
-        responseSectionLabel: "Response-JSON",
+          "Nur Objektschemas: type, properties, required und items; primitive Typen, verschachtelte Objekte und Arrays.",
+        responseSectionLabel: "Response-Typ (JSON Schema)",
         responseTypeLabel: "Antworttyp",
         routeContract: {
           addHeaderParameterLabel: "Header- oder Cookie-Parameter hinzufügen",
@@ -425,8 +450,12 @@ export const contentByLocale = {
           duplicateResponseStatusError:
             "HTTP-Statuscodes der Antworten müssen eindeutig sein.",
           invalidContractError:
-            "Diese Route kollidiert mit einem bestehenden automatisch erzeugten Typ. Ändere Pfad oder JSON-Struktur.",
+            "Diese Route kollidiert mit einem bestehenden automatisch erzeugten Typ. Ändere Pfad oder Schema.",
           invalidExampleError: "Gib vor dem Speichern gültiges JSON ein.",
+          invalidSchemaError:
+            "Nicht unterstütztes Schema. Verwende ein Objekt mit type, properties, required und items.",
+          invalidSchemaJsonError:
+            "Gib vor dem Speichern ein vollständiges JSON-Schema-Objekt ein.",
           operationIdLabel: "Operations-ID",
           parameterLocationLabel: "Parameterort",
           parameterLocationOptions: {

@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ApiCreatorStudio } from "@/components/site/api-creator-studio";
 import { ResponseSchemaEditor } from "@/components/site/response-schema-editor";
@@ -48,6 +48,47 @@ vi.mock("@/domain/site/browser-download", () => ({
 
 function renderWithOverlay(ui: ReactNode) {
   return render(<OverlayProvider>{ui}</OverlayProvider>);
+}
+
+function objectSchemaJson(
+  properties: Record<string, unknown>,
+  required: string[] = Object.keys(properties),
+): string {
+  return JSON.stringify({
+    type: "object",
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+  });
+}
+
+function formattedObjectSchemaJson(
+  properties: Record<string, unknown>,
+  required: string[] = Object.keys(properties),
+): string {
+  return JSON.stringify(JSON.parse(objectSchemaJson(properties, required)), null, 2);
+}
+
+function renderResponseEditor(
+  props: Pick<
+    ComponentProps<typeof ResponseSchemaEditor>,
+    "formId" | "onSave" | "route"
+  >,
+) {
+  return render(
+    <ResponseSchemaEditor
+      {...props}
+      content={apiCreatorStudioProps.responseEditor}
+      getRouteValidationReason={() => null}
+      routeInputContent={{
+        duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+        invalidPathError: apiCreatorStudioProps.invalidPathError,
+        label: apiCreatorStudioProps.label,
+        methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+        pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+        placeholder: apiCreatorStudioProps.placeholder,
+      }}
+    />,
+  );
 }
 
 function TestActionIcon({ testId }: { testId: string }) {
@@ -721,7 +762,7 @@ describe("search page", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("creates and edits a route with the compact JSON authoring flow", async () => {
+  it("creates and edits a route with common JSON Schema authoring", async () => {
     renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const method = screen.getByRole("button", { name: "HTTP method GET" });
@@ -740,19 +781,19 @@ describe("search page", () => {
       name: "Define this API route",
     });
     expect(within(dialog).getByRole("button", {
-      name: "Advanced settings: Expand",
+      name: "Advanced settings",
     })).toHaveAttribute("aria-expanded", "false");
     expect(within(dialog).queryByRole("textbox", {
       name: "Response type",
     })).not.toBeInTheDocument();
-    const requestJson = within(dialog).getByRole("textbox", {
-      name: "Request JSON",
+    const requestSchema = within(dialog).getByRole("textbox", {
+      name: "Request type (JSON Schema)",
     });
-    const responseJson = within(dialog).getByRole("textbox", {
-      name: "Response JSON",
+    const responseSchema = within(dialog).getByRole("textbox", {
+      name: "Response type (JSON Schema)",
     });
-    expect(requestJson).toBeVisible();
-    expect(responseJson).toBeVisible();
+    expect(requestSchema).toBeVisible();
+    expect(responseSchema).toBeVisible();
 
     fireEvent.click(within(dialog).getByRole("button", {
       name: "Add query parameter",
@@ -784,11 +825,16 @@ describe("search page", () => {
     fireEvent.click(within(within(dialog).getByRole("list", {
       name: "HTTP method",
     })).getByRole("button", { name: "PATCH" }));
-    fireEvent.change(requestJson, {
-      target: { value: '{"title":"Draft"}' },
+    fireEvent.change(requestSchema, {
+      target: { value: objectSchemaJson({ title: { type: "string" } }) },
     });
-    fireEvent.change(responseJson, {
-      target: { value: '{"id":"post_1","published":false}' },
+    fireEvent.change(responseSchema, {
+      target: {
+        value: objectSchemaJson({
+          id: { type: "string" },
+          published: { type: "boolean" },
+        }),
+      },
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
@@ -810,7 +856,6 @@ describe("search page", () => {
       path: "/users/{uuid}/posts",
       requestBody: {
         contentTypes: ["application/json"],
-        example: { title: "Draft" },
         required: true,
         schema: {
           fields: [{ name: "title", optional: false, type: "string" }],
@@ -833,13 +878,19 @@ describe("search page", () => {
       ],
       responses: [{
         contentTypes: ["application/json"],
-        example: { id: "post_1", published: false },
+        schema: {
+          fields: [
+            { name: "id", optional: false, type: "string" },
+            { name: "published", optional: false, type: "boolean" },
+          ],
+          typeName: "PatchUsersByUuidPostsResponse",
+        },
         status: "200",
       }],
     }]);
   });
 
-  it("rejects invalid JSON and focuses the field that needs attention", async () => {
+  it("rejects invalid and unsupported schemas and focuses the field", async () => {
     renderWithOverlay(<ApiCreatorStudio {...apiCreatorStudioProps} />);
 
     const method = screen.getByRole("button", { name: "HTTP method GET" });
@@ -856,29 +907,40 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Define this API route",
     });
-    const responseJson = within(dialog).getByRole("textbox", {
-      name: "Response JSON",
+    const responseSchema = within(dialog).getByRole("textbox", {
+      name: "Response type (JSON Schema)",
     });
-    fireEvent.change(responseJson, { target: { value: '{"id":' } });
+    fireEvent.change(responseSchema, { target: { value: '{"type":' } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Enter valid JSON before saving.",
+        "Enter a complete JSON Schema object before saving.",
       );
-      expect(responseJson).toHaveAttribute("aria-invalid", "true");
-      expect(responseJson).toHaveFocus();
+      expect(responseSchema).toHaveAttribute("aria-invalid", "true");
+      expect(responseSchema).toHaveFocus();
     });
 
-    fireEvent.change(responseJson, { target: { value: '{"id":"user_1"}' } });
+    fireEvent.change(responseSchema, { target: { value: '{"id":"string"}' } });
     expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "Unsupported schema. Use an object with type, properties, required, and items.",
+      );
+      expect(responseSchema).toHaveFocus();
+    });
+
+    fireEvent.change(responseSchema, {
+      target: { value: objectSchemaJson({ id: { type: "string" } }) },
+    });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("listitem")).toHaveTextContent(
       "Response type: PostUsersResponse",
     ));
   });
 
-  it("infers request and response models from plain JSON", () => {
+  it("saves nested schemas and keeps examples independent", () => {
     const onSave = vi.fn(() => "saved" as const);
     render(
       <ResponseSchemaEditor
@@ -898,12 +960,68 @@ describe("search page", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Request JSON" }), {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Request type (JSON Schema)",
+    }), {
+      target: {
+        value: objectSchemaJson({
+          query: { type: "string" },
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                score: { type: "number" },
+              },
+              required: ["id"],
+            },
+          },
+        }),
+      },
+    });
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }), {
+      target: {
+        value: objectSchemaJson({
+          results: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                "display-name": { type: "string" },
+              },
+              required: ["id", "display-name"],
+            },
+          },
+        }),
+      },
+    });
+    const advancedToggle = screen.getByRole("button", {
+      name: "Advanced settings",
+    });
+    fireEvent.click(advancedToggle);
+    const requestExample = screen.getByRole("textbox", {
+      name: "Request example (JSON)",
+    });
+    fireEvent.change(requestExample, { target: { value: '{"query":' } });
+    fireEvent.click(screen.getByRole("button", {
+      name: "Format JSON: Request example (JSON)",
+    }));
+    expect(requestExample).toHaveAttribute("aria-invalid", "true");
+    fireEvent.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+    expect(requestExample).toHaveFocus();
+    fireEvent.change(requestExample, {
       target: {
         value: '{"query":"docs","items":[{"id":"a"},{"id":"b","score":2}]}',
       },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: "Response JSON" }), {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response example (JSON)",
+    }), {
       target: { value: '{"results":[{"id":"a","display-name":"Ada"}]}' },
     });
     fireEvent.submit(document.querySelector("#json-contract-form")!);
@@ -912,6 +1030,15 @@ describe("search page", () => {
       operationId: "createSearch",
       parameters: [],
       request: expect.objectContaining({
+        fields: [
+          { name: "query", optional: false, type: "string" },
+          expect.objectContaining({
+            arrayItemType: "object",
+            name: "items",
+            optional: false,
+            type: "array",
+          }),
+        ],
         typeName: "PostSearchRequest",
       }),
       requestBody: expect.objectContaining({
@@ -922,6 +1049,12 @@ describe("search page", () => {
         required: true,
       }),
       response: expect.objectContaining({
+        fields: [expect.objectContaining({
+          arrayItemType: "object",
+          name: "results",
+          optional: false,
+          type: "array",
+        })],
         typeName: "PostSearchResponse",
       }),
       responses: [expect.objectContaining({
@@ -955,10 +1088,10 @@ describe("search page", () => {
     );
 
     fireEvent.click(screen.getByRole("button", {
-      name: "Advanced settings: Expand",
+      name: "Advanced settings",
     }));
     expect(screen.getByRole("button", {
-      name: "Advanced settings: Collapse",
+      name: "Advanced settings",
     })).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.change(screen.getByRole("textbox", { name: "Summary" }), {
@@ -983,7 +1116,12 @@ describe("search page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add response" }));
     fireEvent.change(screen.getByRole("textbox", {
-      name: "Response JSON 2",
+      name: "Response type (JSON Schema) 2",
+    }), {
+      target: { value: objectSchemaJson({ code: { type: "string" } }) },
+    });
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response example (JSON) 2",
     }), { target: { value: '{"code":"invalid"}' } });
     fireEvent.submit(document.querySelector("#advanced-contract-form")!);
 
@@ -1056,10 +1194,12 @@ describe("search page", () => {
     );
 
     expect(screen.getByRole("button", {
-      name: "Advanced settings: Expand",
+      name: "Advanced settings",
     })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("API details")).not.toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: "Request JSON" }))
+    expect(screen.queryByRole("textbox", {
+      name: "Request type (JSON Schema)",
+    }))
       .not.toBeInTheDocument();
     fireEvent.submit(document.querySelector("#legacy-contract-form")!);
 
@@ -1080,6 +1220,418 @@ describe("search page", () => {
       },
       tags: ["sessions"],
     }), { method: "HEAD", path: "/sessions" });
+  });
+
+  it("preserves legacy response mirrors across a successful status edit", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "LegacySessionResponse",
+    };
+    renderResponseEditor({
+      formId: "legacy-status-form",
+      onSave,
+      route: {
+        id: 21,
+        method: "HEAD",
+        paginated: true,
+        path: "/sessions",
+        response: schema,
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          status: "200",
+        }],
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings",
+    }));
+    expect(screen.getByRole("checkbox", { name: "Paginated response 1" }))
+      .toBeChecked();
+    fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
+      target: { value: "201" },
+    });
+    fireEvent.submit(document.querySelector("#legacy-status-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      paginated: true,
+      response: schema,
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        status: "201",
+      }],
+    }), { method: "HEAD", path: "/sessions" });
+  });
+
+  it("removes legacy response mirrors when its status becomes no-content", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "LegacySessionResponse",
+    };
+    renderResponseEditor({
+      formId: "legacy-no-content-form",
+      onSave,
+      route: {
+        id: 22,
+        method: "HEAD",
+        paginated: true,
+        path: "/sessions",
+        response: schema,
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          status: "200",
+        }],
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
+      target: { value: "204" },
+    });
+    fireEvent.submit(document.querySelector("#legacy-no-content-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      responses: [{
+        contentTypes: [],
+        description: "Successful response",
+        status: "204",
+      }],
+    }), { method: "HEAD", path: "/sessions" });
+    expect(onSave).toHaveBeenCalledWith(expect.not.objectContaining({
+      paginated: expect.anything(),
+    }), expect.anything());
+    expect(onSave).toHaveBeenCalledWith(expect.not.objectContaining({
+      response: expect.anything(),
+    }), expect.anything());
+  });
+
+  it("keeps a reformatted legacy request optional and mirror-free", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [
+        { name: "id", optional: false, type: "string" as const },
+        { name: "name", optional: false, type: "string" as const },
+      ],
+      typeName: "LegacyRequest",
+    };
+    renderResponseEditor({
+      formId: "legacy-request-form",
+      onSave,
+      route: {
+        id: 23,
+        method: "POST",
+        path: "/sessions",
+        request: schema,
+      },
+    });
+
+    expect(screen.getByRole("checkbox", { name: "Request body required" }))
+      .not.toBeChecked();
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Request type (JSON Schema)",
+    }), {
+      target: {
+        value: objectSchemaJson({
+          name: { type: "string" },
+          id: { type: "string" },
+        }, ["name", "id"]),
+      },
+    });
+    fireEvent.submit(document.querySelector("#legacy-request-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      request: schema,
+    }), { method: "POST", path: "/sessions" });
+    expect(onSave).toHaveBeenCalledWith(expect.not.objectContaining({
+      requestBody: expect.anything(),
+    }), expect.anything());
+  });
+
+  it("keeps a reformatted response schema out of the legacy mirror", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [
+        { name: "id", optional: false, type: "string" as const },
+        { name: "name", optional: false, type: "string" as const },
+      ],
+      typeName: "SessionResponse",
+    };
+    renderResponseEditor({
+      formId: "response-reformat-form",
+      onSave,
+      route: {
+        id: 24,
+        method: "GET",
+        path: "/sessions",
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          schema,
+          status: "200",
+        }],
+      },
+    });
+
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }), {
+      target: {
+        value: objectSchemaJson({
+          name: { type: "string" },
+          id: { type: "string" },
+        }, ["name", "id"]),
+      },
+    });
+    fireEvent.submit(document.querySelector("#response-reformat-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      responses: [expect.objectContaining({ schema })],
+    }), { method: "GET", path: "/sessions" });
+    expect(onSave).toHaveBeenCalledWith(expect.not.objectContaining({
+      response: expect.anything(),
+    }), expect.anything());
+  });
+
+  it("materializes a visible legacy response schema when enabling pagination", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "LegacySessionResponse",
+    };
+    renderResponseEditor({
+      formId: "legacy-pagination-form",
+      onSave,
+      route: {
+        id: 25,
+        method: "GET",
+        path: "/sessions",
+        response: schema,
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          status: "200",
+        }],
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced settings" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Paginated response 1" }));
+    fireEvent.submit(document.querySelector("#legacy-pagination-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      paginated: true,
+      response: schema,
+      responses: [expect.objectContaining({
+        paginated: true,
+        schema,
+      })],
+    }), { method: "GET", path: "/sessions" });
+  });
+
+  it("materializes a visible legacy request schema with new body settings", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "LegacyRequest",
+    };
+    renderResponseEditor({
+      formId: "legacy-request-settings-form",
+      onSave,
+      route: {
+        id: 26,
+        method: "POST",
+        path: "/sessions",
+        request: schema,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Request body required" }));
+    fireEvent.submit(document.querySelector("#legacy-request-settings-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      request: schema,
+      requestBody: {
+        contentTypes: ["application/json"],
+        required: true,
+        schema,
+      },
+    }), { method: "POST", path: "/sessions" });
+  });
+
+  it("removes only the response type when its schema input is cleared", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [{ name: "id", optional: false, type: "string" as const }],
+      typeName: "ProfileResponse",
+    };
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="clear-schema-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{
+          id: 18,
+          method: "GET",
+          path: "/profiles/{id}",
+          response: schema,
+          responses: [{
+            contentTypes: ["application/json"],
+            description: "Successful response",
+            example: { id: "profile_1" },
+            schema,
+            status: "200",
+          }],
+        }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }), { target: { value: "" } });
+    fireEvent.submit(document.querySelector("#clear-schema-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responses: [{
+          contentTypes: ["application/json"],
+          description: "Successful response",
+          example: { id: "profile_1" },
+          status: "200",
+        }],
+      }),
+      { method: "GET", path: "/profiles/{id}" },
+    );
+    expect(onSave).toHaveBeenCalledWith(
+      expect.not.objectContaining({ response: expect.anything() }),
+      expect.anything(),
+    );
+  });
+
+  it("changes an Advanced example without rewriting its schema", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    const schema = {
+      fields: [{
+        description: "Stable identifier",
+        maxLength: 40,
+        name: "id",
+        optional: false,
+        type: "string" as const,
+      }],
+      typeName: "ProfileResponse",
+    };
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="example-only-edit-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{
+          id: 19,
+          method: "GET",
+          path: "/profiles",
+          responses: [{
+            contentTypes: ["application/json"],
+            description: "Successful response",
+            example: { id: "profile_1" },
+            schema,
+            status: "200",
+          }],
+        }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings",
+    }));
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response example (JSON)",
+    }), { target: { value: '{"id":"profile_2"}' } });
+    fireEvent.submit(document.querySelector("#example-only-edit-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responses: [expect.objectContaining({
+          example: { id: "profile_2" },
+          schema,
+        })],
+      }),
+      { method: "GET", path: "/profiles" },
+    );
+    expect(onSave).toHaveBeenCalledWith(
+      expect.not.objectContaining({ response: expect.anything() }),
+      expect.anything(),
+    );
+  });
+
+  it("keeps an example-only legacy response schema-less", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="example-only-legacy-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{
+          id: 20,
+          method: "GET",
+          path: "/legacy-example",
+          responses: [{
+            contentTypes: ["application/json"],
+            description: "Successful response",
+            example: { id: "legacy_1" },
+            status: "200",
+          }],
+        }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings",
+    }));
+    expect(screen.getByRole("textbox", { name: "Response example (JSON)" }))
+      .toHaveValue('{\n  "id": "legacy_1"\n}');
+    fireEvent.submit(document.querySelector("#example-only-legacy-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      responses: [{
+        contentTypes: ["application/json"],
+        description: "Successful response",
+        example: { id: "legacy_1" },
+        status: "200",
+      }],
+    }), { method: "GET", path: "/legacy-example" });
   });
 
   it("keeps an existing response payload when the method suggests no content", () => {
@@ -1127,7 +1679,13 @@ describe("search page", () => {
 
     expect(screen.getByRole("textbox", { name: "HTTP status" }))
       .toHaveValue("200");
-    expect(screen.getByRole("textbox", { name: "Response JSON" }))
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue(formattedObjectSchemaJson({ id: { type: "string" } }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings",
+    }));
+    expect(screen.getByRole("textbox", { name: "Response example (JSON)" }))
       .toHaveValue('{\n  "id": "session_1"\n}');
     fireEvent.submit(document.querySelector("#method-change-contract-form")!);
 
@@ -1194,17 +1752,29 @@ describe("search page", () => {
       />,
     );
 
-    expect(screen.getByRole("textbox", { name: "Response JSON" }))
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue(formattedObjectSchemaJson({ id: { type: "string" } }));
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings",
+    }));
+    expect(screen.getByRole("textbox", { name: "Response example (JSON)" }))
       .toHaveValue('{\n  "id": "session_1"\n}');
     fireEvent.submit(document.querySelector("#response-order-form")!);
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-      response: expect.objectContaining({ typeName: "SessionResponse" }),
       responses: [
         expect.objectContaining({ status: "401" }),
-        expect.objectContaining({ status: "200" }),
+        expect.objectContaining({
+          schema: expect.objectContaining({ typeName: "SessionResponse" }),
+          status: "200",
+        }),
       ],
     }), { method: "GET", path: "/sessions" });
+    expect(onSave).toHaveBeenCalledWith(
+      expect.not.objectContaining({ response: expect.anything() }),
+      expect.anything(),
+    );
   });
 
   it("supports a compact no-content response without a body editor", () => {
@@ -1227,18 +1797,24 @@ describe("search page", () => {
       />,
     );
 
-    const responseJson = screen.getByRole("textbox", { name: "Response JSON" });
-    fireEvent.change(responseJson, { target: { value: '{"ok":true}' } });
+    const responseSchema = screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    });
+    const schemaValue = objectSchemaJson({ ok: { type: "boolean" } });
+    fireEvent.change(responseSchema, { target: { value: schemaValue } });
     fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
       target: { value: "204" },
     });
-    expect(screen.queryByRole("textbox", { name: "Response JSON" }))
+    expect(screen.queryByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }))
       .not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
       target: { value: "200" },
     });
-    expect(screen.getByRole("textbox", { name: "Response JSON" }))
-      .toHaveValue('{"ok":true}');
+    expect(screen.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    })).toHaveValue(schemaValue);
     fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
       target: { value: "204" },
     });
@@ -1264,10 +1840,12 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Define this API route",
     });
-    const responseJson = within(dialog).getByRole("textbox", {
-      name: "Response JSON",
+    const responseSchema = within(dialog).getByRole("textbox", {
+      name: "Response type (JSON Schema)",
     });
-    fireEvent.change(responseJson, { target: { value: '{"name":"Ada"}' } });
+    fireEvent.change(responseSchema, {
+      target: { value: objectSchemaJson({ name: { type: "string" } }) },
+    });
 
     window.localStorage.setItem(
       apiRoutesStorage.key,
@@ -1385,8 +1963,8 @@ describe("search page", () => {
         + "This HTTP method and path already exist.",
       );
       expect(within(dialog).getByRole("textbox", {
-        name: "Response JSON",
-      })).toHaveValue("");
+        name: "Response type (JSON Schema)",
+      })).toHaveValue(formattedObjectSchemaJson({}, []));
     });
     expect(JSON.parse(
       window.localStorage.getItem(apiRoutesStorage.key) ?? "[]",

@@ -21,6 +21,7 @@ describe("shared form controls", () => {
         ref={ref}
         description="Paste a representative payload."
         error="Enter valid JSON."
+        formatAriaLabel="Format response JSON"
         formatLabel="Format JSON"
         label="Response JSON"
         name="response-json"
@@ -40,12 +41,13 @@ describe("shared form controls", () => {
     expect(input).toHaveAttribute("autocomplete", "off");
     expect(input).toHaveAttribute("autocorrect", "off");
 
-    fireEvent.click(screen.getByRole("button", { name: "Format JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "Format response JSON" }));
     expect(onValueChange).toHaveBeenCalledWith('{\n  "name": "Ada"\n}');
 
     view.rerender(
       <JsonInput
         description="Paste a representative payload."
+        formatAriaLabel="Format response JSON"
         formatLabel="Format JSON"
         label="Response JSON"
         name="response-json"
@@ -54,7 +56,7 @@ describe("shared form controls", () => {
         onValueChange={onValueChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Format JSON" }));
+    fireEvent.click(screen.getByRole("button", { name: "Format response JSON" }));
     expect(onInvalidFormat).toHaveBeenCalledTimes(1);
     expect(input).toHaveFocus();
   });

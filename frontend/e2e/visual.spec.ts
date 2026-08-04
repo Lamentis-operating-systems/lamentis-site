@@ -103,11 +103,15 @@ for (const colorScheme of colorSchemes) {
     });
     await expect(responseDialog).toBeVisible();
     const requestJson = responseDialog.getByRole("textbox", {
-      name: "Request JSON",
+      name: "Request type (JSON Schema)",
     });
-    await requestJson.fill('{"name":"Ada"}');
-    await responseDialog.getByRole("textbox", { name: "Response JSON" }).fill(
-      '{"id":"user_123","name":"Ada"}',
+    await requestJson.fill(
+      '{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}',
+    );
+    await responseDialog.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    }).fill(
+      '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}',
     );
     await requestJson.evaluate((input) => {
       const field = input.closest("[data-json-input]");

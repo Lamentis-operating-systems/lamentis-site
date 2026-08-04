@@ -15,6 +15,17 @@ const studioPath = routePath({
   routeId: "apiCreatorStudio",
 });
 
+function objectSchemaJson(
+  properties: Record<string, unknown>,
+  required: string[] = Object.keys(properties),
+): string {
+  return JSON.stringify({
+    type: "object",
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+  });
+}
+
 async function seedRoutes(
   page: Page,
   routes: readonly ApiRouteContract[],
@@ -45,7 +56,7 @@ async function selectMethod(page: Page, method: string): Promise<void> {
     .getByRole("button", { name: method }).click();
 }
 
-test("keeps route, query parameters, status, and response JSON in the common GET flow", async ({
+test("keeps route, query parameters, status, and response type in the common GET flow", async ({
   page,
 }) => {
   await page.goto(studioPath);
@@ -57,22 +68,29 @@ test("keeps route, query parameters, status, and response JSON in the common GET
 
   const dialog = page.getByRole("dialog", { name: "Define this API route" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("textbox", { name: "Request JSON" }))
+  await expect(dialog.getByRole("textbox", {
+    name: "Request type (JSON Schema)",
+  }))
     .toHaveCount(0);
-  await expect(dialog.getByRole("textbox", { name: "Response JSON" }))
+  await expect(dialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
+  }))
     .toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "HTTP status" }))
     .toHaveValue("200");
   await expect(dialog.getByRole("button", { name: "Add query parameter" }))
     .toBeVisible();
   await expect(dialog.getByRole("button", {
-    name: "Advanced settings: Expand",
+    name: "Advanced settings",
   })).toHaveAttribute("aria-expanded", "false");
-  await expect(dialog.getByRole("textbox", { name: "Response type" }))
+  await expect(dialog.getByRole("textbox", {
+    exact: true,
+    name: "Response type",
+  }))
     .toHaveCount(0);
 });
 
-test("creates, exports, and reopens an inferred JSON contract", async ({
+test("creates, exports, and reopens a typed JSON contract with examples", async ({
   page,
 }) => {
   await page.goto(studioPath);
@@ -84,12 +102,33 @@ test("creates, exports, and reopens an inferred JSON contract", async ({
   await routeInput.press("Enter");
 
   const dialog = page.getByRole("dialog", { name: "Define this API route" });
-  await dialog.getByRole("textbox", { name: "Request JSON" }).fill(
-    '{"name":"Ada","roles":["admin"]}',
+  await dialog.getByRole("textbox", {
+    name: "Request type (JSON Schema)",
+  }).fill(
+    objectSchemaJson({
+      name: { type: "string" },
+      roles: { type: "array", items: { type: "string" } },
+    }),
   );
-  await dialog.getByRole("textbox", { name: "Response JSON" }).fill(
-    '{"id":"user_1","profile":{"display-name":"Ada"}}',
+  await dialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
+  }).fill(
+    objectSchemaJson({
+      id: { type: "string" },
+      profile: {
+        type: "object",
+        properties: { "display-name": { type: "string" } },
+        required: ["display-name"],
+      },
+    }),
   );
+  await dialog.getByRole("button", {
+    name: "Advanced settings",
+  }).click();
+  await dialog.getByRole("textbox", { name: "Request example (JSON)" })
+    .fill('{"name":"Ada","roles":["admin"]}');
+  await dialog.getByRole("textbox", { name: "Response example (JSON)" })
+    .fill('{"id":"user_1","profile":{"display-name":"Ada"}}');
   await dialog.getByRole("button", { name: "Save" }).click();
 
   const route = page.getByRole("list", { name: "API routes" })
@@ -112,10 +151,21 @@ test("creates, exports, and reopens an inferred JSON contract", async ({
   await page.getByRole("button", { name: "Route actions /users" }).click();
   await page.getByRole("button", { name: "Edit /users" }).click();
   const editDialog = page.getByRole("dialog", { name: "Edit this route" });
-  await expect(editDialog.getByRole("textbox", { name: "Request JSON" }))
-    .toHaveValue(/"name": "Ada"/);
-  await expect(editDialog.getByRole("textbox", { name: "Response JSON" }))
-    .toHaveValue(/"id": "user_1"/);
+  await expect(editDialog.getByRole("textbox", {
+    name: "Request type (JSON Schema)",
+  })).toHaveValue(/"name": \{\n\s+"type": "string"/);
+  await expect(editDialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
+  })).toHaveValue(/"profile": \{/);
+  await editDialog.getByRole("button", {
+    name: "Advanced settings",
+  }).click();
+  await expect(editDialog.getByRole("textbox", {
+    name: "Request example (JSON)",
+  })).toHaveValue(/"name": "Ada"/);
+  await expect(editDialog.getByRole("textbox", {
+    name: "Response example (JSON)",
+  })).toHaveValue(/"id": "user_1"/);
 });
 
 test("saves query input and explicit advanced route overrides", async ({
@@ -134,7 +184,7 @@ test("saves query input and explicit advanced route overrides", async ({
   await dialog.getByRole("textbox", { name: "Parameter name 1" })
     .fill("include");
   await dialog.getByRole("button", {
-    name: "Advanced settings: Expand",
+    name: "Advanced settings",
   }).click();
   await dialog.getByRole("button", {
     name: "Route authentication Use API default",
@@ -145,7 +195,10 @@ test("saves query input and explicit advanced route overrides", async ({
     exact: true,
     name: "Add response",
   }).click();
-  await dialog.getByRole("textbox", { name: "Response JSON 2" })
+  await dialog.getByRole("textbox", {
+    name: "Response type (JSON Schema) 2",
+  }).fill(objectSchemaJson({ code: { type: "string" } }));
+  await dialog.getByRole("textbox", { name: "Response example (JSON) 2" })
     .fill('{"code":"invalid"}');
   await dialog.getByRole("button", { name: "Save" }).click();
 
@@ -164,6 +217,10 @@ test("saves query input and explicit advanced route overrides", async ({
       {
         description: "Error response",
         example: { code: "invalid" },
+        schema: {
+          fields: [{ name: "code", optional: false, type: "string" }],
+          typeName: "PostSessionsResponse400",
+        },
         status: "400",
       },
     ],
@@ -171,7 +228,7 @@ test("saves query input and explicit advanced route overrides", async ({
   });
 });
 
-test("reports invalid JSON without losing the draft", async ({ page }) => {
+test("reports invalid JSON Schema without losing the draft", async ({ page }) => {
   await page.goto(studioPath);
   await selectMethod(page, "POST");
   const routeInput = page.getByRole("textbox", {
@@ -181,16 +238,18 @@ test("reports invalid JSON without losing the draft", async ({ page }) => {
   await routeInput.press("Enter");
 
   const dialog = page.getByRole("dialog", { name: "Define this API route" });
-  const requestJson = dialog.getByRole("textbox", { name: "Request JSON" });
-  await requestJson.fill('{"title":');
+  const requestSchema = dialog.getByRole("textbox", {
+    name: "Request type (JSON Schema)",
+  });
+  await requestSchema.fill('{"type":');
   await dialog.getByRole("button", { name: "Save" }).click();
 
   await expect(dialog.getByRole("alert")).toHaveText(
-    "Enter valid JSON before saving.",
+    "Enter a complete JSON Schema object before saving.",
   );
-  await expect(requestJson).toHaveAttribute("aria-invalid", "true");
-  await expect(requestJson).toBeFocused();
-  await expect(requestJson).toHaveValue('{"title":');
+  await expect(requestSchema).toHaveAttribute("aria-invalid", "true");
+  await expect(requestSchema).toBeFocused();
+  await expect(requestSchema).toHaveValue('{"type":');
 });
 
 test("keeps an invalid Advanced control visible", async ({
@@ -205,18 +264,18 @@ test("keeps an invalid Advanced control visible", async ({
 
   const dialog = page.getByRole("dialog", { name: "Define this API route" });
   const advancedToggle = dialog.getByRole("button", {
-    name: "Advanced settings: Expand",
+    name: "Advanced settings",
   });
   await advancedToggle.click();
   await dialog.getByRole("button", {
     name: "Add header or cookie parameter",
   }).click();
   await dialog.getByRole("button", {
-    name: "Advanced settings: Collapse",
+    name: "Advanced settings",
   }).click();
 
   await expect(dialog.getByRole("button", {
-    name: "Advanced settings: Collapse",
+    name: "Advanced settings",
   })).toHaveAttribute("aria-expanded", "true");
   await expect(dialog.getByRole("textbox", { name: "Parameter name 1" }))
     .toBeFocused();
@@ -233,7 +292,9 @@ test("offers a compact no-content response", async ({ page }) => {
 
   const dialog = page.getByRole("dialog", { name: "Define this API route" });
   await dialog.getByRole("textbox", { name: "HTTP status" }).fill("204");
-  await expect(dialog.getByRole("textbox", { name: "Response JSON" }))
+  await expect(dialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
+  }))
     .toHaveCount(0);
   await dialog.getByRole("button", { name: "Save" }).click();
 
@@ -293,7 +354,7 @@ test("preserves legacy details that are no longer editable", async ({ page }) =>
 
   const dialog = page.getByRole("dialog", { name: "Edit this route" });
   await expect(dialog.getByRole("button", {
-    name: "Advanced settings: Expand",
+    name: "Advanced settings",
   })).toHaveAttribute("aria-expanded", "false");
   await dialog.getByRole("button", { name: "Save" }).click();
   const routes = await page.evaluate((key) => (
@@ -345,6 +406,7 @@ test("keeps duplicate route identities blocked before opening the editor", async
   await routeInput.fill("users");
   await routeInput.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Define this API route" });
+  await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
 

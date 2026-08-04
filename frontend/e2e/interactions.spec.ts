@@ -301,7 +301,7 @@ test("shared controls use their intended interaction states", async ({
   });
   await expect(responseDialog).toBeVisible();
   const responseJson = responseDialog.getByRole("textbox", {
-    name: "Response JSON",
+    name: "Response type (JSON Schema)",
   });
   await responseJson.hover();
   await expect(responseJson.locator("..")).toHaveCSS(
@@ -310,8 +310,10 @@ test("shared controls use their intended interaction states", async ({
   );
   await responseJson.focus();
   await expect(responseJson).toBeFocused();
-  await responseJson.fill('{"ok":true}');
-  await expect(responseJson).toHaveValue('{"ok":true}');
+  await responseJson.fill(
+    '{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}',
+  );
+  await expect(responseJson).toHaveValue(/"ok"/);
   await page.keyboard.press("Escape");
   await expect(responseDialog).not.toBeVisible();
 
