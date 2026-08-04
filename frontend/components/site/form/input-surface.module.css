@@ -8,10 +8,10 @@
   width: 100%;
   min-width: 0;
   min-height: var(--control-height-large);
-  align-items: center;
+  align-items: var(--input-surface-align-items, center);
   gap: var(--space-3);
-  padding-inline: var(--space-5);
-  border-radius: var(--radius-full);
+  padding-inline: var(--input-surface-padding-inline, var(--space-5));
+  border-radius: var(--input-surface-radius, var(--radius-full));
   background: var(--color-field-background);
   color: var(--color-text-muted);
   transition-property: box-shadow;

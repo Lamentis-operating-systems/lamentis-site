@@ -1,3 +1,20 @@
+.surface {
+  --input-surface-align-items: stretch;
+  --input-surface-padding-inline: var(--space-4);
+  --input-surface-radius: var(--radius-medium);
+
+  box-shadow: var(--shadow-control-border);
+}
+
+.surface:has(textarea:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-text);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.surface:has(textarea[aria-invalid="true"]) {
+  outline: var(--control-border-width) solid var(--color-danger);
+}
+
 .textarea {
   width: 100%;
   min-width: 0;
@@ -16,7 +33,17 @@
   tab-size: 2;
 }
 
+.textareaFixed {
+  resize: none;
+}
+
 .textarea::placeholder {
   color: var(--control-placeholder);
   opacity: 1;
+}
+
+@media (forced-colors: active) {
+  .surface:has(textarea[aria-invalid="true"]) {
+    outline: var(--focus-ring-width) solid CanvasText;
+  }
 }

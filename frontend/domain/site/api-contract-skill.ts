@@ -428,10 +428,12 @@ function renderRouteContract(
         );
       }
       lines.push(
-        `- Security: ${variant.security && variant.security.scheme !== "none"
-          ? `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
-              variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
-            }`
+        `- Security: ${variant.security
+          ? variant.security.scheme === "none"
+            ? "None (explicit route override)"
+            : `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
+                variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
+              }`
           : hasDefaultSecurity ? "Inherit API default" : "None"}`,
         `- Cache policy: ${variant.behavior?.cache ?? "Unspecified"}`,
         `- Idempotency: ${variant.behavior?.idempotency ?? "Unspecified"}`,

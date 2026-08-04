@@ -102,12 +102,21 @@ for (const colorScheme of colorSchemes) {
       name: "Define this API route",
     });
     await expect(responseDialog).toBeVisible();
-    await responseDialog.getByRole("textbox", { name: "Request JSON" }).fill(
-      '{"name":"Ada"}',
-    );
+    const requestJson = responseDialog.getByRole("textbox", {
+      name: "Request JSON",
+    });
+    await requestJson.fill('{"name":"Ada"}');
     await responseDialog.getByRole("textbox", { name: "Response JSON" }).fill(
       '{"id":"user_123","name":"Ada"}',
     );
+    await requestJson.evaluate((input) => {
+      const field = input.closest("[data-json-input]");
+      const scroller = input.closest("form")?.parentElement;
+      if (!field || !scroller) return;
+      scroller.scrollTop += field.getBoundingClientRect().top
+        - scroller.getBoundingClientRect().top
+        - 16;
+    });
     await settlePage(page);
 
     expect(pageErrors).toEqual([]);

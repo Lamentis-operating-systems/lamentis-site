@@ -4,12 +4,61 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CheckboxWithLabel } from "@/components/site/form/checkbox-with-label";
+import { JsonInput } from "@/components/site/form/json-input";
 import { TextInput } from "@/components/site/form/text-input";
 import { SelectMenu } from "@/components/site/select-menu";
 
 describe("shared form controls", () => {
+  it("owns JSON field semantics, formatting, and invalid-format feedback", () => {
+    const ref = createRef<HTMLTextAreaElement>();
+    const onInvalidFormat = vi.fn();
+    const onValueChange = vi.fn();
+    const view = render(
+      <JsonInput
+        ref={ref}
+        description="Paste a representative payload."
+        error="Enter valid JSON."
+        formatLabel="Format JSON"
+        label="Response JSON"
+        name="response-json"
+        value={'{"name":"Ada"}'}
+        onInvalidFormat={onInvalidFormat}
+        onValueChange={onValueChange}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Response JSON" });
+    expect(ref.current).toBe(input);
+    expect(input).toHaveAccessibleDescription(
+      "Paste a representative payload. Enter valid JSON.",
+    );
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAttribute("autocapitalize", "off");
+    expect(input).toHaveAttribute("autocomplete", "off");
+    expect(input).toHaveAttribute("autocorrect", "off");
+
+    fireEvent.click(screen.getByRole("button", { name: "Format JSON" }));
+    expect(onValueChange).toHaveBeenCalledWith('{\n  "name": "Ada"\n}');
+
+    view.rerender(
+      <JsonInput
+        description="Paste a representative payload."
+        formatLabel="Format JSON"
+        label="Response JSON"
+        name="response-json"
+        value={'{"name":'}
+        onInvalidFormat={onInvalidFormat}
+        onValueChange={onValueChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Format JSON" }));
+    expect(onInvalidFormat).toHaveBeenCalledTimes(1);
+    expect(input).toHaveFocus();
+  });
+
   it("forwards native text-input semantics through the shared surface", () => {
     render(
       <TextInput

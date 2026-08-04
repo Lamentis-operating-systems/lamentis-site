@@ -1,0 +1,84 @@
+.field {
+  display: grid;
+  min-width: 0;
+  container-type: inline-size;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  min-width: 0;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.actions {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.label {
+  color: var(--color-text);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-compact);
+}
+
+.description,
+.error {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--line-body);
+}
+
+.description {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.formatAction {
+  min-height: var(--control-height);
+  border: 0;
+  border-radius: var(--radius-full);
+  padding-inline: var(--space-4);
+  background: var(--color-field-menu-background);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.formatAction:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+  opacity: var(--opacity-toggle-inactive);
+}
+
+.formatAction:hover:not(:disabled),
+.formatAction:focus-visible:not(:disabled) {
+  box-shadow: var(--shadow-control-border);
+}
+
+@container (width <= 32rem) {
+  .header {
+    display: grid;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+}

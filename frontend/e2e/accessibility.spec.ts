@@ -67,6 +67,7 @@ test("the open response overlay has no WCAG A or AA violations", async ({
 test("the JSON request and response editors have contextual accessible names", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(studioPath);
   await page.getByRole("button", { name: "HTTP method GET" }).click();
@@ -81,16 +82,27 @@ test("the JSON request and response editors have contextual accessible names", a
   const dialog = page.getByRole("dialog", {
     name: "Define this API route",
   });
-  await expect(dialog.getByRole("heading", { name: "Request JSON" }))
-    .toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "Request JSON" }))
-    .toBeVisible();
-  await expect(dialog.getByRole("heading", { name: "Response JSON" }))
     .toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "Response JSON" }))
     .toBeVisible();
-  await expect(dialog.getByRole("button", { name: "HTTP status 201" }))
-    .toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "HTTP status" }))
+    .toHaveValue("201");
+  const advancedToggle = dialog.getByRole("button", {
+    name: "Advanced settings: Expand",
+  });
+  await advancedToggle.focus();
+  await expect.poll(async () => advancedToggle.evaluate((element) => ({
+    style: getComputedStyle(element).outlineStyle,
+    width: getComputedStyle(element).outlineWidth,
+  }))).toEqual({ style: "solid", width: "2px" });
+  await advancedToggle.click();
+  await expect(dialog.getByRole("button", {
+    name: "Advanced settings: Collapse",
+  })).toHaveAttribute("aria-expanded", "true");
+  expect(await dialog.evaluate((element) => (
+    element.scrollWidth <= element.clientWidth
+  ))).toBe(true);
 
   const result = await new AxeBuilder({ page })
     .withTags([...wcagConformanceTags])

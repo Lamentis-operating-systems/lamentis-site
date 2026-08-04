@@ -15,6 +15,11 @@ import {
   type RouteRef,
   type SiteRouteId,
 } from "./routes";
+import type {
+  ApiParameterLocation,
+  ApiParameterType,
+  ApiSecurityScheme,
+} from "./api-route";
 
 export type RouteCopy = {
   title: string;
@@ -28,19 +33,62 @@ export type SearchContent = {
 };
 
 export type ResponseSchemaEditorContent = {
+  advancedDescription: string;
+  advancedLabel: string;
+  collapseSectionLabel: string;
+  expandSectionLabel: string;
+  formatJsonLabel: string;
   requestBodyDescription: string;
   requestBodyLabel: string;
   responseSectionDescription: string;
   responseSectionLabel: string;
   responseTypeLabel: string;
   routeContract: {
+    addHeaderParameterLabel: string;
+    addResponseHeaderLabel: string;
+    addQueryParameterLabel: string;
+    addResponseLabel: string;
+    authLocationLabel: string;
+    authNameLabel: string;
+    authenticationLabel: string;
+    advancedParametersDescription: string;
+    advancedParametersLabel: string;
+    contentTypesHint: string;
+    deprecatedLabel: string;
+    descriptionLabel: string;
+    defaultErrorResponseDescription: string;
     defaultResponseDescription: string;
     duplicateResponseStatusError: string;
-    requestExampleLabel: string;
-    responseExampleLabel: string;
     invalidContractError: string;
     invalidExampleError: string;
+    operationIdLabel: string;
+    parameterLocationLabel: string;
+    parameterLocationOptions: Record<ApiParameterLocation, string>;
+    parameterNameLabel: string;
+    parameterTypeLabel: string;
+    parameterTypeOptions: Record<ApiParameterType, string>;
+    parametersDescription: string;
+    parametersLabel: string;
+    paginationLabel: string;
+    removeParameterLabel: string;
+    removeResponseHeaderLabel: string;
+    removeResponseLabel: string;
+    requestContentTypesLabel: string;
+    requestRequiredLabel: string;
+    requiredLabel: string;
+    responseContentTypesLabel: string;
+    responseDescriptionLabel: string;
+    responseHeaderDescriptionLabel: string;
+    responseHeaderNameLabel: string;
+    responseHeadersLabel: string;
     responseStatusLabel: string;
+    securityNameHint: string;
+    securitySchemeLabel: string;
+    securitySchemeOptions: Record<"inherit" | ApiSecurityScheme, string>;
+    securityScopesLabel: string;
+    summaryLabel: string;
+    tagsHint: string;
+    tagsLabel: string;
   };
   routeLabel: string;
   saveLabel: string;
@@ -162,6 +210,12 @@ export const contentByLocale = {
       methodSelectorLabel: "HTTP method",
       pathPrefixHint: "A leading slash is added automatically.",
       responseEditor: {
+        advancedDescription:
+          "Override generated identifiers, authentication, media types, and header or cookie parameters.",
+        advancedLabel: "Advanced settings",
+        collapseSectionLabel: "Collapse",
+        expandSectionLabel: "Expand",
+        formatJsonLabel: "Format JSON",
         requestBodyDescription:
           "Paste one JSON example. The request type is inferred automatically.",
         requestBodyLabel: "Request JSON",
@@ -170,15 +224,74 @@ export const contentByLocale = {
         responseSectionLabel: "Response JSON",
         responseTypeLabel: "Response type",
         routeContract: {
+          addHeaderParameterLabel: "Add header or cookie parameter",
+          addResponseHeaderLabel: "Add response header",
+          addQueryParameterLabel: "Add query parameter",
+          addResponseLabel: "Add response",
+          authLocationLabel: "Credential location",
+          authNameLabel: "Credential name",
+          authenticationLabel: "Authentication override",
+          advancedParametersDescription:
+            "Add protocol-level header or cookie parameters only when the route needs them.",
+          advancedParametersLabel: "Header and cookie parameters",
+          contentTypesHint: "Comma-separated media types",
+          deprecatedLabel: "Deprecated route",
+          descriptionLabel: "Description",
+          defaultErrorResponseDescription: "Error response",
           defaultResponseDescription: "Successful response",
           duplicateResponseStatusError:
             "Response status codes must be unique.",
-          requestExampleLabel: "Request JSON",
-          responseExampleLabel: "Response JSON",
           invalidContractError:
             "This route conflicts with an existing generated type. Change the path or JSON shape.",
           invalidExampleError: "Enter valid JSON before saving.",
+          operationIdLabel: "Operation ID",
+          parameterLocationLabel: "Parameter location",
+          parameterLocationOptions: {
+            path: "path",
+            query: "query",
+            header: "header",
+            cookie: "cookie",
+          },
+          parameterNameLabel: "Parameter name",
+          parameterTypeLabel: "Parameter type",
+          parameterTypeOptions: {
+            string: "string",
+            number: "number",
+            integer: "integer",
+            boolean: "boolean",
+            array: "array",
+          },
+          parametersDescription:
+            "Path parameters follow the route automatically. Add only the query parameters callers need.",
+          parametersLabel: "Parameters",
+          paginationLabel: "Paginated response",
+          removeParameterLabel: "Remove parameter",
+          removeResponseHeaderLabel: "Remove response header",
+          removeResponseLabel: "Remove response",
+          requestContentTypesLabel: "Request content types",
+          requestRequiredLabel: "Request body required",
+          requiredLabel: "Required",
+          responseContentTypesLabel: "Response content types",
+          responseDescriptionLabel: "Response description",
+          responseHeaderDescriptionLabel: "Header description",
+          responseHeaderNameLabel: "Response header name",
+          responseHeadersLabel: "Response headers",
           responseStatusLabel: "HTTP status",
+          securityNameHint: "Header, query parameter, or cookie name",
+          securitySchemeLabel: "Route authentication",
+          securitySchemeOptions: {
+            inherit: "Use API default",
+            none: "No authentication",
+            bearer: "Bearer token",
+            basic: "HTTP Basic",
+            apiKey: "API key",
+            cookie: "Cookie session",
+            oauth2: "OAuth 2",
+          },
+          securityScopesLabel: "OAuth scopes",
+          summaryLabel: "Summary",
+          tagsHint: "Comma-separated tags",
+          tagsLabel: "Tags",
         },
         routeLabel: "Route",
         saveLabel: "Save",
@@ -280,6 +393,12 @@ export const contentByLocale = {
       pathPrefixHint:
         "Ein führender Schrägstrich wird automatisch ergänzt.",
       responseEditor: {
+        advancedDescription:
+          "Überschreibe erzeugte Kennungen, Authentifizierung, Medientypen sowie Header- oder Cookie-Parameter.",
+        advancedLabel: "Erweiterte Einstellungen",
+        collapseSectionLabel: "Einklappen",
+        expandSectionLabel: "Ausklappen",
+        formatJsonLabel: "JSON formatieren",
         requestBodyDescription:
           "Füge ein JSON-Beispiel ein. Der Anfragetyp wird automatisch abgeleitet.",
         requestBodyLabel: "Request-JSON",
@@ -288,15 +407,74 @@ export const contentByLocale = {
         responseSectionLabel: "Response-JSON",
         responseTypeLabel: "Antworttyp",
         routeContract: {
+          addHeaderParameterLabel: "Header- oder Cookie-Parameter hinzufügen",
+          addResponseHeaderLabel: "Antwort-Header hinzufügen",
+          addQueryParameterLabel: "Query-Parameter hinzufügen",
+          addResponseLabel: "Antwort hinzufügen",
+          authLocationLabel: "Zugangsdaten-Ort",
+          authNameLabel: "Zugangsdaten-Name",
+          authenticationLabel: "Authentifizierung überschreiben",
+          advancedParametersDescription:
+            "Ergänze Header- oder Cookie-Parameter nur, wenn diese Route sie benötigt.",
+          advancedParametersLabel: "Header- und Cookie-Parameter",
+          contentTypesHint: "Kommagetrennte Medientypen",
+          deprecatedLabel: "Veraltete Route",
+          descriptionLabel: "Beschreibung",
+          defaultErrorResponseDescription: "Fehlerantwort",
           defaultResponseDescription: "Erfolgreiche Antwort",
           duplicateResponseStatusError:
             "HTTP-Statuscodes der Antworten müssen eindeutig sein.",
-          requestExampleLabel: "Request-JSON",
-          responseExampleLabel: "Response-JSON",
           invalidContractError:
             "Diese Route kollidiert mit einem bestehenden automatisch erzeugten Typ. Ändere Pfad oder JSON-Struktur.",
           invalidExampleError: "Gib vor dem Speichern gültiges JSON ein.",
+          operationIdLabel: "Operations-ID",
+          parameterLocationLabel: "Parameterort",
+          parameterLocationOptions: {
+            path: "Pfad",
+            query: "Query",
+            header: "Header",
+            cookie: "Cookie",
+          },
+          parameterNameLabel: "Parametername",
+          parameterTypeLabel: "Parametertyp",
+          parameterTypeOptions: {
+            string: "string",
+            number: "number",
+            integer: "integer",
+            boolean: "boolean",
+            array: "array",
+          },
+          parametersDescription:
+            "Pfadparameter folgen der Route automatisch. Ergänze nur benötigte Query-Parameter.",
+          parametersLabel: "Parameter",
+          paginationLabel: "Paginierte Antwort",
+          removeParameterLabel: "Parameter entfernen",
+          removeResponseHeaderLabel: "Antwort-Header entfernen",
+          removeResponseLabel: "Antwort entfernen",
+          requestContentTypesLabel: "Request-Inhaltstypen",
+          requestRequiredLabel: "Request-Body erforderlich",
+          requiredLabel: "Erforderlich",
+          responseContentTypesLabel: "Response-Inhaltstypen",
+          responseDescriptionLabel: "Antwortbeschreibung",
+          responseHeaderDescriptionLabel: "Headerbeschreibung",
+          responseHeaderNameLabel: "Antwort-Headername",
+          responseHeadersLabel: "Antwort-Header",
           responseStatusLabel: "HTTP-Status",
+          securityNameHint: "Header-, Query-Parameter- oder Cookie-Name",
+          securitySchemeLabel: "Routen-Authentifizierung",
+          securitySchemeOptions: {
+            inherit: "API-Standard verwenden",
+            none: "Keine Authentifizierung",
+            bearer: "Bearer-Token",
+            basic: "HTTP Basic",
+            apiKey: "API-Schlüssel",
+            cookie: "Cookie-Sitzung",
+            oauth2: "OAuth 2",
+          },
+          securityScopesLabel: "OAuth-Bereiche",
+          summaryLabel: "Zusammenfassung",
+          tagsHint: "Kommagetrennte Tags",
+          tagsLabel: "Schlagwörter",
         },
         routeLabel: "Route",
         saveLabel: "Speichern",

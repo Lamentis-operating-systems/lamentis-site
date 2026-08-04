@@ -10,14 +10,30 @@ type TextAreaProps = Omit<
   "className"
 > & {
   className?: string;
+  resize?: "none" | "vertical";
   tone?: "default" | "nested";
 };
 
 export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
-  function TextArea({ className, tone = "default", ...props }, ref) {
+  function TextArea({
+    className,
+    resize = "vertical",
+    tone = "default",
+    ...props
+  }, ref) {
     return (
-      <InputSurface className={className} tone={tone}>
-        <textarea {...props} ref={ref} className={styles.textarea} />
+      <InputSurface
+        className={[styles.surface, className ?? ""].filter(Boolean).join(" ")}
+        tone={tone}
+      >
+        <textarea
+          {...props}
+          ref={ref}
+          className={[
+            styles.textarea,
+            resize === "none" ? styles.textareaFixed : "",
+          ].filter(Boolean).join(" ")}
+        />
       </InputSurface>
     );
   },

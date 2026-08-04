@@ -24,7 +24,7 @@ const apiParameterLocations = [
   "header",
   "cookie",
 ] as const;
-const apiParameterTypes = [
+export const apiParameterTypes = [
   "string",
   "number",
   "integer",
@@ -58,11 +58,11 @@ const apiIdempotencyPolicies = [
   "idempotency-key",
 ] as const;
 
-type ApiParameterLocation = (typeof apiParameterLocations)[number];
-type ApiParameterType = (typeof apiParameterTypes)[number];
+export type ApiParameterLocation = (typeof apiParameterLocations)[number];
+export type ApiParameterType = (typeof apiParameterTypes)[number];
 type ApiQueryArraySerialization =
   (typeof apiQueryArraySerializations)[number];
-type ApiSecurityScheme = (typeof apiSecuritySchemes)[number];
+export type ApiSecurityScheme = (typeof apiSecuritySchemes)[number];
 type ApiCachePolicy = (typeof apiCachePolicies)[number];
 type ApiIdempotencyPolicy = (typeof apiIdempotencyPolicies)[number];
 
@@ -84,7 +84,7 @@ export type ApiRouteParameter = {
   type: ApiParameterType;
 };
 
-type ApiRouteHeader = {
+export type ApiRouteHeader = {
   description?: string;
   name: string;
   type: ApiParameterType;

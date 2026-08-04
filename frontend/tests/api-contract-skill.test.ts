@@ -372,4 +372,22 @@ describe("API-contract agent skill", () => {
     expect(skill).toContain('"code": "INVALID_LIMIT"');
     expect(skill).toContain("Security: Inherit API default");
   });
+
+  it("distinguishes an explicitly public route from inherited API security", () => {
+    const skill = generateApiContractsAgentSkill([{
+      id: 0,
+      method: "GET",
+      path: "/health",
+      security: { scheme: "none" },
+    }], {
+      basePath: "/api",
+      security: { scheme: "bearer" },
+      title: "Health API",
+      version: "1.0.0",
+    });
+
+    expect(skill).toContain("Default security: bearer");
+    expect(skill).toContain("Security: None (explicit route override)");
+    expect(skill).not.toContain("Security: Inherit API default");
+  });
 });

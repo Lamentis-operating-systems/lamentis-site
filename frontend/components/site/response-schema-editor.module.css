@@ -10,58 +10,263 @@
   width: 100%;
 }
 
-.jsonEditors {
+.section,
+.advancedSubsection,
+.responseCard,
+.responseAdvanced,
+.advancedResponseCard {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--space-5);
 }
 
-.jsonSection {
+.section,
+.responseCard {
+  gap: var(--space-4);
+}
+
+.sectionHeader,
+.field,
+.advancedSubsection,
+.responseAdvanced,
+.advancedResponseCard {
+  gap: var(--space-2);
+}
+
+.sectionHeader,
+.field {
   display: grid;
   min-width: 0;
-  gap: var(--space-3);
 }
 
-.sectionHeader {
-  display: grid;
-  min-width: 0;
-  gap: var(--space-1);
-}
-
-.sectionTitle {
-  margin: 0;
+.sectionTitle,
+.label {
   color: var(--color-text);
   font-size: var(--text-label);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-compact);
 }
 
-.sectionDescription {
+.sectionTitle,
+.sectionDescription,
+.error {
   margin: 0;
-  color: var(--color-text-muted);
+}
+
+.sectionDescription,
+.error,
+.parameterLocation {
   font-size: var(--text-caption);
   line-height: var(--line-body);
 }
 
-.responseHeader {
+.sectionDescription,
+.parameterLocation {
+  color: var(--color-text-muted);
+}
+
+.subsectionHeader,
+.noContentResponse {
+  display: flex;
+  min-width: 0;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.subsectionHeader svg,
+.parameterRow svg,
+.responseHeaderRow svg,
+.addResponse svg,
+.sectionToggle > svg {
+  width: var(--icon-size-control);
+  height: var(--icon-size-control);
+}
+
+.rows {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
   gap: var(--space-3);
 }
 
-.error {
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--text-caption);
-  line-height: var(--line-body);
+.parameterRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns:
+    minmax(7rem, 1.2fr)
+    minmax(4.5rem, 0.45fr)
+    minmax(7rem, 0.75fr)
+    auto
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
 }
 
-@container (width <= 42rem) {
-  .jsonEditors {
+.parameterLocation {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actionSpacer {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+.noContentResponse {
+  align-items: start;
+}
+
+.statusField {
+  display: grid;
+  width: var(--response-property-field-min-width);
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.fieldGrid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.wideField {
+  grid-column: 1 / -1;
+}
+
+.sectionToggle {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) var(--control-height);
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sectionToggle:hover,
+.sectionToggle:active {
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  transform: none;
+}
+
+.sectionToggle:focus-visible {
+  border-radius: var(--radius-small);
+  outline: var(--focus-ring-width) solid var(--color-text);
+  outline-offset: var(--focus-ring-offset);
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.sectionToggle > svg {
+  justify-self: end;
+  color: var(--color-text-muted);
+  transform: rotate(-90deg);
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing);
+}
+
+.sectionToggle[aria-expanded="true"] > svg {
+  transform: rotate(0deg);
+}
+
+.advancedContent {
+  display: grid;
+  min-width: 0;
+  padding-block-start: var(--space-5);
+  gap: var(--space-7);
+}
+
+.advancedSubsection,
+.advancedResponseCard {
+  gap: var(--space-4);
+}
+
+.advancedResponseCard {
+  border-block-start: var(--control-border-width) solid var(--color-border);
+  padding-block-start: var(--space-5);
+}
+
+.responseAdvanced {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.responseAdvanced > .advancedSubsection {
+  grid-column: 1 / -1;
+}
+
+.responseHeaderRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns:
+    minmax(8rem, 1fr)
+    minmax(7rem, 0.65fr)
+    minmax(8rem, 1fr)
+    var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.addResponse {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--control-height-large);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-full);
+  padding-inline: var(--space-5);
+  gap: var(--space-2);
+  background: var(--color-field-menu-background);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+
+.addResponse:hover,
+.addResponse:focus-visible {
+  box-shadow: var(--shadow-control-border);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+@container (width <= 34rem) {
+  .parameterRow,
+  .responseHeaderRow,
+  .fieldGrid,
+  .responseAdvanced {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .parameterRow > :last-child {
+    justify-self: end;
+  }
+
+  .wideField,
+  .responseAdvanced > .advancedSubsection {
+    grid-column: auto;
+  }
+
+  .noContentResponse {
+    display: grid;
+  }
+
+  .statusField {
+    width: 100%;
   }
 }

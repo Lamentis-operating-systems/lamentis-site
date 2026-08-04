@@ -739,7 +739,9 @@ describe("search page", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Define this API route",
     });
-    expect(within(dialog).queryByText("Advanced settings")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", {
+      name: "Advanced settings: Expand",
+    })).toHaveAttribute("aria-expanded", "false");
     expect(within(dialog).queryByRole("textbox", {
       name: "Response type",
     })).not.toBeInTheDocument();
@@ -751,6 +753,27 @@ describe("search page", () => {
     });
     expect(requestJson).toBeVisible();
     expect(responseJson).toBeVisible();
+
+    fireEvent.click(within(dialog).getByRole("button", {
+      name: "Add query parameter",
+    }));
+    const parameterNames = within(dialog).getAllByRole("textbox", {
+      name: /Parameter name/,
+    });
+    fireEvent.change(parameterNames.at(-1)!, {
+      target: { value: "limit" },
+    });
+    const parameterTypeButtons = within(dialog).getAllByRole("button", {
+      name: /Parameter type .* string/,
+    });
+    fireEvent.click(parameterTypeButtons.at(-1)!);
+    fireEvent.click(within(within(dialog).getByRole("list", {
+      name: /Parameter type 2/,
+    })).getByRole("button", { name: "integer" }));
+    const requiredParameters = within(dialog).getAllByRole("checkbox", {
+      name: "Required",
+    });
+    fireEvent.click(requiredParameters.at(-1)!);
 
     const routeGroup = within(dialog).getByRole("group", {
       name: "API endpoint path",
@@ -794,6 +817,20 @@ describe("search page", () => {
           typeName: "PatchUsersByUuidPostsRequest",
         },
       },
+      parameters: [
+        expect.objectContaining({
+          location: "path",
+          name: "uuid",
+          required: true,
+          type: "string",
+        }),
+        expect.objectContaining({
+          location: "query",
+          name: "limit",
+          required: true,
+          type: "integer",
+        }),
+      ],
       responses: [{
         contentTypes: ["application/json"],
         example: { id: "post_1", published: false },
@@ -897,6 +934,83 @@ describe("search page", () => {
     }), { method: "POST", path: "/search" });
   });
 
+  it("saves explicit advanced overrides and an additional error response", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="advanced-contract-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{ id: 14, method: "POST", path: "/sessions" }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Advanced settings: Expand",
+    }));
+    expect(screen.getByRole("button", {
+      name: "Advanced settings: Collapse",
+    })).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Summary" }), {
+      target: { value: "Create a session" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Tags" }), {
+      target: { value: "sessions, auth" },
+    });
+    fireEvent.click(screen.getByRole("button", {
+      name: "Route authentication Use API default",
+    }));
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "Route authentication",
+    })).getByRole("button", { name: "No authentication" }));
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Add header or cookie parameter",
+    }));
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Parameter name 1",
+    }), { target: { value: "X-Request-ID" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add response" }));
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Response JSON 2",
+    }), { target: { value: '{"code":"invalid"}' } });
+    fireEvent.submit(document.querySelector("#advanced-contract-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      parameters: [expect.objectContaining({
+        location: "header",
+        name: "X-Request-ID",
+        required: false,
+        type: "string",
+      })],
+      responses: [
+        expect.objectContaining({ status: "201" }),
+        expect.objectContaining({
+          description: "Error response",
+          example: { code: "invalid" },
+          schema: expect.objectContaining({
+            typeName: "PostSessionsResponse400",
+          }),
+          status: "400",
+        }),
+      ],
+      security: { scheme: "none" },
+      tags: ["sessions", "auth"],
+      title: "Create a session",
+    }), { method: "POST", path: "/sessions" });
+  });
+
   it("preserves existing hidden contract details while simplifying the editor", () => {
     const onSave = vi.fn(() => "saved" as const);
     render(
@@ -909,11 +1023,24 @@ describe("search page", () => {
           behavior: { cache: "private", rateLimit: "100/min" },
           id: 13,
           method: "HEAD",
+          paginated: true,
           path: "/sessions",
+          response: {
+            fields: [{
+              name: "id",
+              optional: false,
+              type: "string",
+            }],
+            typeName: "LegacySessionResponse",
+          },
+          responses: [{
+            contentTypes: ["application/json"],
+            description: "Successful response",
+            status: "200",
+          }],
           security: {
-            location: "cookie",
-            name: "session_id",
-            scheme: "cookie",
+            scheme: "bearer",
+            scopes: ["legacy:read"],
           },
           tags: ["sessions"],
         }}
@@ -928,7 +1055,9 @@ describe("search page", () => {
       />,
     );
 
-    expect(screen.queryByText("Advanced settings")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {
+      name: "Advanced settings: Expand",
+    })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("API details")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Request JSON" }))
       .not.toBeInTheDocument();
@@ -936,13 +1065,146 @@ describe("search page", () => {
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       behavior: { cache: "private", rateLimit: "100/min" },
+      paginated: true,
+      response: {
+        fields: [{
+          name: "id",
+          optional: false,
+          type: "string",
+        }],
+        typeName: "LegacySessionResponse",
+      },
       security: {
-        location: "cookie",
-        name: "session_id",
-        scheme: "cookie",
+        scheme: "bearer",
+        scopes: ["legacy:read"],
       },
       tags: ["sessions"],
     }), { method: "HEAD", path: "/sessions" });
+  });
+
+  it("keeps an existing response payload when the method suggests no content", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="method-change-contract-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{
+          id: 16,
+          method: "GET",
+          path: "/sessions/{id}",
+          responses: [{
+            contentTypes: ["application/json"],
+            description: "Successful response",
+            example: { id: "session_1" },
+            schema: {
+              fields: [{
+                name: "id",
+                optional: false,
+                type: "string",
+              }],
+              typeName: "SessionResponse",
+            },
+            status: "200",
+          }],
+        }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "HTTP method GET" }));
+    fireEvent.click(within(screen.getByRole("list", {
+      name: "HTTP method",
+    })).getByRole("button", { name: "DELETE" }));
+
+    expect(screen.getByRole("textbox", { name: "HTTP status" }))
+      .toHaveValue("200");
+    expect(screen.getByRole("textbox", { name: "Response JSON" }))
+      .toHaveValue('{\n  "id": "session_1"\n}');
+    fireEvent.submit(document.querySelector("#method-change-contract-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      responses: [expect.objectContaining({
+        example: { id: "session_1" },
+        schema: expect.objectContaining({ typeName: "SessionResponse" }),
+        status: "200",
+      })],
+    }), { method: "DELETE", path: "/sessions/{id}" });
+  });
+
+  it("keeps a non-first success response as the stable common response", () => {
+    const onSave = vi.fn(() => "saved" as const);
+    render(
+      <ResponseSchemaEditor
+        content={apiCreatorStudioProps.responseEditor}
+        formId="response-order-form"
+        getRouteValidationReason={() => null}
+        onSave={onSave}
+        route={{
+          id: 15,
+          method: "GET",
+          path: "/sessions",
+          responses: [
+            {
+              contentTypes: ["application/json"],
+              description: "Unauthorized",
+              example: { code: "unauthorized" },
+              schema: {
+                fields: [{
+                  name: "code",
+                  optional: false,
+                  type: "string",
+                }],
+                typeName: "ErrorResponse",
+              },
+              status: "401",
+            },
+            {
+              contentTypes: ["application/json"],
+              description: "Successful response",
+              example: { id: "session_1" },
+              schema: {
+                fields: [{
+                  name: "id",
+                  optional: false,
+                  type: "string",
+                }],
+                typeName: "SessionResponse",
+              },
+              status: "200",
+            },
+          ],
+        }}
+        routeInputContent={{
+          duplicatePathError: apiCreatorStudioProps.duplicatePathError,
+          invalidPathError: apiCreatorStudioProps.invalidPathError,
+          label: apiCreatorStudioProps.label,
+          methodSelectorLabel: apiCreatorStudioProps.methodSelectorLabel,
+          pathPrefixHint: apiCreatorStudioProps.pathPrefixHint,
+          placeholder: apiCreatorStudioProps.placeholder,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Response JSON" }))
+      .toHaveValue('{\n  "id": "session_1"\n}');
+    fireEvent.submit(document.querySelector("#response-order-form")!);
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      response: expect.objectContaining({ typeName: "SessionResponse" }),
+      responses: [
+        expect.objectContaining({ status: "401" }),
+        expect.objectContaining({ status: "200" }),
+      ],
+    }), { method: "GET", path: "/sessions" });
   });
 
   it("supports a compact no-content response without a body editor", () => {
@@ -965,13 +1227,21 @@ describe("search page", () => {
       />,
     );
 
-    const status = screen.getByRole("button", { name: "HTTP status 200" });
-    fireEvent.click(status);
-    fireEvent.click(within(screen.getByRole("list", {
-      name: "HTTP status",
-    })).getByRole("button", { name: "204" }));
+    const responseJson = screen.getByRole("textbox", { name: "Response JSON" });
+    fireEvent.change(responseJson, { target: { value: '{"ok":true}' } });
+    fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
+      target: { value: "204" },
+    });
     expect(screen.queryByRole("textbox", { name: "Response JSON" }))
       .not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
+      target: { value: "200" },
+    });
+    expect(screen.getByRole("textbox", { name: "Response JSON" }))
+      .toHaveValue('{"ok":true}');
+    fireEvent.change(screen.getByRole("textbox", { name: "HTTP status" }), {
+      target: { value: "204" },
+    });
 
     fireEvent.submit(document.querySelector("#no-content-form")!);
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
