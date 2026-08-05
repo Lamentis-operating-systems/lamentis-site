@@ -90,15 +90,42 @@ for (const colorScheme of colorSchemes) {
       locale: "en",
       routeId: "apiCreatorStudio",
     }));
+    await page.getByRole("button", { name: "HTTP method GET" }).click();
+    await page.getByRole("list", { name: "HTTP method" })
+      .getByRole("button", { name: "POST" }).click();
     const routeInput = page.getByRole("textbox", {
       name: "API endpoint path",
     });
     await routeInput.fill("accounts/{accountid}");
     await routeInput.press("Enter");
     const responseDialog = page.getByRole("dialog", {
-      name: "Add a data structure to this route",
+      name: "Define this API route",
     });
     await expect(responseDialog).toBeVisible();
+    const requestJson = responseDialog.getByRole("textbox", {
+      name: "Request type (JSON Schema)",
+    });
+    await requestJson.fill(
+      '{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}',
+    );
+    const responseJson = responseDialog.getByRole("textbox", {
+      name: "Response type (JSON Schema)",
+    });
+    await responseJson.fill(
+      '{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["id","name"]}',
+    );
+    await responseDialog.getByRole("checkbox", {
+      name: "Paginated response",
+    }).check();
+    await expect(responseJson).toHaveValue(/"totalHits": \{/);
+    await responseJson.evaluate((input) => {
+      const field = input.closest("[data-json-input]");
+      const scroller = input.closest("form")?.parentElement;
+      if (!field || !scroller) return;
+      scroller.scrollTop += field.getBoundingClientRect().top
+        - scroller.getBoundingClientRect().top
+        - 16;
+    });
     await settlePage(page);
 
     expect(pageErrors).toEqual([]);

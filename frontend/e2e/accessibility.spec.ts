@@ -55,7 +55,7 @@ test("the open response overlay has no WCAG A or AA violations", async ({
     name: "API endpoint path",
   }).press("Enter");
   await expect(page.getByRole("dialog", {
-    name: "Add a data structure to this route",
+    name: "Define this API route",
   })).toBeVisible();
 
   const result = await new AxeBuilder({ page })
@@ -64,68 +64,54 @@ test("the open response overlay has no WCAG A or AA violations", async ({
   expect(result.violations).toEqual([]);
 });
 
-test("the materialized nested object editor has contextual accessible names", async ({
+test("the JSON Schema request and response editors have contextual names", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(studioPath);
+  await page.getByRole("button", { name: "HTTP method GET" }).click();
+  await page.getByRole("list", { name: "HTTP method" })
+    .getByRole("button", { name: "POST" }).click();
   const routeInput = page.getByRole("textbox", {
     name: "API endpoint path",
   });
   await routeInput.fill("profiles");
   await routeInput.press("Enter");
 
-  const responseDialog = page.getByRole("dialog", {
-    name: "Add a data structure to this route",
+  const dialog = page.getByRole("dialog", {
+    name: "Define this API route",
   });
-  await responseDialog.getByRole("button", {
-    name: "Response type: Expand",
-  }).click();
-  await responseDialog.getByRole("button", { name: "Add property" }).click();
-  const rootProperty = responseDialog.getByRole("textbox", {
-    name: "Property name 1",
+  await expect(dialog.getByRole("textbox", {
+    name: "Request type (JSON Schema)",
+  }))
+    .toBeVisible();
+  await expect(dialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
+  }))
+    .toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "HTTP status" }))
+    .toHaveValue("201");
+  const advancedToggle = dialog.getByRole("button", {
+    name: "Advanced settings",
   });
-  await expect(rootProperty).toBeFocused();
-  await rootProperty.fill("profile");
-  await responseDialog.getByRole("button", {
-    name: "Property type 1 string",
-  }).click();
-  await responseDialog.getByRole("list", {
-    name: "Property type 1",
-  }).getByRole("button", { name: "object" }).click();
-  await responseDialog.getByRole("button", {
-    name: "Add property 1",
-  }).click();
-
-  const nestedProperty = responseDialog.getByRole("textbox", {
-    name: "Property name 1.1",
-  });
-  await expect(nestedProperty).toBeVisible();
-  await expect(nestedProperty).toBeFocused();
-  await expect(responseDialog.getByRole("button", {
-    name: "Property type 1.1 string",
-  })).toBeVisible();
-  await expect(responseDialog.getByRole("button", {
-    name: "Remove property 1",
-    exact: true,
-  })).toHaveCount(1);
-  await expect(responseDialog.getByRole("button", {
-    name: "Remove property 1.1",
-    exact: true,
-  })).toHaveCount(1);
+  await advancedToggle.focus();
+  await expect.poll(async () => advancedToggle.evaluate((element) => ({
+    style: getComputedStyle(element).outlineStyle,
+    width: getComputedStyle(element).outlineWidth,
+  }))).toEqual({ style: "solid", width: "2px" });
+  await advancedToggle.click();
+  await expect(dialog.getByRole("button", {
+    name: "Advanced settings",
+  })).toHaveAttribute("aria-expanded", "true");
+  expect(await dialog.evaluate((element) => (
+    element.scrollWidth <= element.clientWidth
+  ))).toBe(true);
 
   const result = await new AxeBuilder({ page })
     .withTags([...wcagConformanceTags])
     .analyze();
   expect(result.violations).toEqual([]);
-
-  await responseDialog.getByRole("button", {
-    name: "Remove property 1.1",
-    exact: true,
-  }).click();
-  await expect(responseDialog.getByRole("button", {
-    name: "Add property 1",
-  })).toBeFocused();
 });
 
 test("route validation exposes its canonical prefix and error reasons", async ({
@@ -152,7 +138,7 @@ test("route validation exposes its canonical prefix and error reasons", async ({
   await routeInput.fill("users");
   await routeInput.press("Enter");
   const responseDialog = page.getByRole("dialog", {
-    name: "Add a data structure to this route",
+    name: "Define this API route",
   });
   await expect(responseDialog).toBeVisible();
   await page.keyboard.press("Escape");

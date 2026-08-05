@@ -297,36 +297,23 @@ test("shared controls use their intended interaction states", async ({
   ).toMatch(/1px inset/);
   await routeInput.press("Enter");
   const responseDialog = page.getByRole("dialog", {
-    name: "Add a data structure to this route",
+    name: "Define this API route",
   });
   await expect(responseDialog).toBeVisible();
-  await responseDialog.getByRole("button", {
-    name: "Response type: Expand",
-  }).click();
-  await responseDialog.getByRole("button", { name: "Add property" }).click();
-  const optionalProperty = responseDialog.getByRole("button", {
-    name: "Optional 1",
+  const responseJson = responseDialog.getByRole("textbox", {
+    name: "Response type (JSON Schema)",
   });
-  await expect(optionalProperty).toHaveAttribute("data-variant", "transparent");
-  await optionalProperty.hover();
-  await expect(optionalProperty).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
+  await responseJson.hover();
+  await expect(responseJson.locator("..")).toHaveCSS(
+    "box-shadow",
+    /inset/,
   );
-  await expect(optionalProperty).toHaveCSS("box-shadow", "none");
-  await optionalProperty.focus();
-  await expect(optionalProperty).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
+  await responseJson.focus();
+  await expect(responseJson).toBeFocused();
+  await responseJson.fill(
+    '{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}',
   );
-  await expect(optionalProperty).toHaveCSS("box-shadow", "none");
-  await optionalProperty.click();
-  await expect(optionalProperty).toHaveAttribute("aria-pressed", "true");
-  await expect(optionalProperty).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
-  );
-  await expect(optionalProperty).toHaveCSS("box-shadow", "none");
+  await expect(responseJson).toHaveValue(/"ok"/);
   await page.keyboard.press("Escape");
   await expect(responseDialog).not.toBeVisible();
 

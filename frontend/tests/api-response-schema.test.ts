@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  apiPaginatedResponseItemJsonSchema,
+  apiPaginatedResponseSchema,
+  apiResponseSchemaFromJsonSchema,
   apiResponseSchemaSignature,
+  apiResponseSchemaToJsonSchema,
   areApiResponseSchemasEquivalent,
   canonicalizeApiResponseSchema,
   hasIncompatibleApiResponseSchema,
@@ -12,6 +16,58 @@ import {
 } from "@/domain/site/api-response-schema";
 
 describe("API response schemas", () => {
+  it("builds the deterministic paginated response envelope", () => {
+    const response: ApiResponseSchema = {
+      fields: [{ name: "id", optional: false, type: "string" }],
+      typeName: "UserResponse",
+    };
+
+    expect(apiPaginatedResponseSchema(response)).toEqual({
+      fields: [
+        {
+          arrayItemType: "object",
+          name: "items",
+          objectSchema: response,
+          optional: false,
+          type: "array",
+        },
+        { name: "totalHits", optional: false, type: "number" },
+        { name: "page", optional: false, type: "number" },
+        { name: "limit", optional: false, type: "number" },
+        { name: "totalPages", optional: false, type: "number" },
+      ],
+      typeName: "UserResponsePage",
+    });
+  });
+
+  it("extracts only the exact paginated JSON Schema envelope", () => {
+    const response: ApiResponseSchema = {
+      fields: [{ name: "id", optional: false, type: "string" }],
+      typeName: "UserResponse",
+    };
+    const itemSchema = apiResponseSchemaToJsonSchema(response);
+    const envelope = apiResponseSchemaToJsonSchema(
+      apiPaginatedResponseSchema(response),
+    );
+    const properties = envelope.properties as Record<string, unknown>;
+
+    expect(apiPaginatedResponseItemJsonSchema(envelope)).toEqual(itemSchema);
+    expect(apiPaginatedResponseItemJsonSchema({
+      ...envelope,
+      properties: {
+        ...properties,
+        totalHits: { type: "string" },
+      },
+    })).toBeUndefined();
+    expect(apiPaginatedResponseItemJsonSchema({
+      ...envelope,
+      properties: {
+        ...properties,
+        cursor: { type: "string" },
+      },
+    })).toBeUndefined();
+  });
+
   it("rejects reserved TypeScript declaration names", () => {
     expect(isValidTypeScriptTypeName("UserResponse")).toBe(true);
     for (const reservedName of [
@@ -94,6 +150,179 @@ describe("API response schemas", () => {
       }],
       typeName: "InvalidResponse",
     })).toBe(false);
+  });
+
+  it("round-trips the supported JSON Schema object subset", () => {
+    const schema: ApiResponseSchema = {
+      fields: [
+        {
+          defaultValue: "anonymous",
+          description: "Public display name",
+          enumValues: ["anonymous", "member"],
+          example: "member",
+          maxLength: 40,
+          minLength: 2,
+          name: "display-name",
+          optional: false,
+          pattern: "^[a-z]+$",
+          type: "string",
+        },
+        {
+          arrayItemType: "object",
+          name: "items",
+          objectSchema: {
+            fields: [
+              { name: "id", optional: false, type: "string" },
+              { name: "score", optional: true, type: "number" },
+            ],
+            typeName: "SearchItem",
+          },
+          optional: true,
+          type: "array",
+        },
+        {
+          arrayItemType: "unknown",
+          name: "metadata",
+          optional: true,
+          type: "array",
+        },
+      ],
+      typeName: "SearchResponse",
+    };
+
+    const jsonSchema = apiResponseSchemaToJsonSchema(schema);
+    expect(jsonSchema).toEqual({
+      properties: {
+        "display-name": {
+          default: "anonymous",
+          description: "Public display name",
+          enum: ["anonymous", "member"],
+          examples: ["member"],
+          maxLength: 40,
+          minLength: 2,
+          pattern: "^[a-z]+$",
+          type: "string",
+        },
+        items: {
+          items: {
+            properties: {
+              id: { type: "string" },
+              score: { type: "number" },
+            },
+            required: ["id"],
+            type: "object",
+          },
+          type: "array",
+        },
+        metadata: { items: {}, type: "array" },
+      },
+      required: ["display-name"],
+      type: "object",
+    });
+    expect(apiResponseSchemaFromJsonSchema(
+      schema.typeName,
+      jsonSchema,
+      schema,
+    )).toBe(schema);
+  });
+
+  it("round-trips existing opaque fields without enabling new opaque authoring", () => {
+    const legacySchema: ApiResponseSchema = {
+      fields: [
+        {
+          enumValues: ["enabled"],
+          name: "active",
+          optional: false,
+          type: "boolean",
+        },
+        { name: "profile", optional: false, type: "object" },
+        {
+          arrayItemType: "object",
+          name: "items",
+          optional: true,
+          type: "array",
+        },
+        { name: "label", optional: false, type: "string" },
+      ],
+      typeName: "LegacyResponse",
+    };
+    const jsonSchema = apiResponseSchemaToJsonSchema(legacySchema);
+
+    expect(isValidPersistedApiResponseSchema(legacySchema)).toBe(true);
+    expect(apiResponseSchemaFromJsonSchema(
+      legacySchema.typeName,
+      jsonSchema,
+      legacySchema,
+    )).toBe(legacySchema);
+
+    const edited = apiResponseSchemaFromJsonSchema(
+      legacySchema.typeName,
+      {
+        ...jsonSchema,
+        properties: {
+          ...(jsonSchema.properties as Record<string, unknown>),
+          label: { type: "number" },
+        },
+      },
+      legacySchema,
+    );
+    expect(edited).toEqual({
+      ...legacySchema,
+      fields: [
+        ...legacySchema.fields.slice(0, 3),
+        { name: "label", optional: false, type: "number" },
+      ],
+    });
+
+    expect(apiResponseSchemaFromJsonSchema("NewResponse", {
+      properties: { profile: { type: "object" } },
+      type: "object",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("NewResponse", {
+      properties: {
+        items: { items: { type: "object" }, type: "array" },
+      },
+      type: "object",
+    })).toBeUndefined();
+  });
+
+  it("rejects shorthand and unsupported JSON Schema semantics", () => {
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      id: "string",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      properties: {
+        id: { type: "integer" },
+      },
+      type: "object",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      properties: {
+        id: { type: ["string", "null"] },
+      },
+      type: "object",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      properties: {
+        tags: { items: { type: "array" }, type: "array" },
+      },
+      type: "object",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      additionalProperties: false,
+      properties: {},
+      type: "object",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      properties: { value: { type: "unknown" } },
+      type: "object",
+    })).toBeUndefined();
+    expect(apiResponseSchemaFromJsonSchema("UserResponse", {
+      properties: {
+        active: { enum: ["enabled"], type: "boolean" },
+      },
+      type: "object",
+    })).toBeUndefined();
   });
 
   it("compares schemas canonically without depending on field order", () => {

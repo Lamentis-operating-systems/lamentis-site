@@ -3,6 +3,7 @@
 
   --font-interface: var(--font-inter), -apple-system, "BlinkMacSystemFont",
     "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Arial", sans-serif;
+  --font-mono: "SFMono-Regular", "SF Mono", "Roboto Mono", monospace;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;

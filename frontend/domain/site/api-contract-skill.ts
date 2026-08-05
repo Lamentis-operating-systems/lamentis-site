@@ -10,9 +10,11 @@ import {
 } from "./api-route";
 import { parseApiRoutePath } from "./api-route-path";
 import {
+  apiPaginatedResponseSchema,
   apiResponseSchemaSignature,
   canonicalizeApiResponseSchema,
   collectApiResponseSchemas,
+  typeScriptIdentifierPattern,
   type ApiResponseField,
   type ApiResponseSchema,
 } from "./api-response-schema";
@@ -80,32 +82,13 @@ function routeVariantSignature(variant: CanonicalRouteVariant): string {
   return JSON.stringify(variant);
 }
 
-function paginationSchema(response: ApiResponseSchema): ApiResponseSchema {
-  return {
-    fields: [
-      {
-        arrayItemType: "object",
-        name: "items",
-        objectSchema: response,
-        optional: false,
-        type: "array",
-      },
-      { name: "totalHits", optional: false, type: "number" },
-      { name: "page", optional: false, type: "number" },
-      { name: "limit", optional: false, type: "number" },
-      { name: "totalPages", optional: false, type: "number" },
-    ],
-    typeName: `${response.typeName}Page`,
-  };
-}
-
 function responseModelName(variant: CanonicalRouteVariant): string | null {
   const primary = variant.responses.find((response) => (
     response.schema && /^2[0-9]{2}$/.test(response.status)
   )) ?? variant.responses.find((response) => response.schema);
   if (!primary?.schema) return null;
   return primary.paginated
-    ? paginationSchema(primary.schema).typeName
+    ? apiPaginatedResponseSchema(primary.schema).typeName
     : primary.schema.typeName;
 }
 
@@ -183,7 +166,9 @@ function responseModelGroups(
   for (const route of routes) {
     const responseSchemas = apiRouteResponses(route).flatMap((response) => (
       response.schema
-        ? [response.paginated ? paginationSchema(response.schema) : response.schema]
+        ? [response.paginated
+            ? apiPaginatedResponseSchema(response.schema)
+            : response.schema]
         : []
     ));
     const rootSchemas = [
@@ -238,7 +223,9 @@ function renderTypeScriptModel(schema: ApiResponseSchema): string {
   }
 
   const fields = schema.fields.map((field) => (
-    `  ${field.name}${field.optional ? "?" : ""}: ${
+    `  ${typeScriptIdentifierPattern.test(field.name)
+      ? field.name
+      : JSON.stringify(field.name)}${field.optional ? "?" : ""}: ${
       typeScriptFieldType(field)
     };`
   ));
@@ -400,7 +387,7 @@ function renderRouteContract(
           ...variant.responses.flatMap((response) => {
             const responseName = response.schema
               ? response.paginated
-                ? paginationSchema(response.schema).typeName
+                ? apiPaginatedResponseSchema(response.schema).typeName
                 : response.schema.typeName
               : null;
             return [
@@ -425,10 +412,12 @@ function renderRouteContract(
         );
       }
       lines.push(
-        `- Security: ${variant.security && variant.security.scheme !== "none"
-          ? `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
-              variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
-            }`
+        `- Security: ${variant.security
+          ? variant.security.scheme === "none"
+            ? "None (explicit route override)"
+            : `${variant.security.scheme}${variant.security.name ? ` (\`${variant.security.name}\`)` : ""}${
+                variant.security.scopes?.length ? `; scopes ${variant.security.scopes.map((scope) => `\`${scope}\``).join(", ")}` : ""
+              }`
           : hasDefaultSecurity ? "Inherit API default" : "None"}`,
         `- Cache policy: ${variant.behavior?.cache ?? "Unspecified"}`,
         `- Idempotency: ${variant.behavior?.idempotency ?? "Unspecified"}`,

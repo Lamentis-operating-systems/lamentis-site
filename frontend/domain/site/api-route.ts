@@ -18,7 +18,7 @@ export const httpMethods = [
 
 export type HttpMethod = (typeof httpMethods)[number];
 
-export const apiParameterLocations = [
+const apiParameterLocations = [
   "path",
   "query",
   "header",
@@ -31,7 +31,7 @@ export const apiParameterTypes = [
   "boolean",
   "array",
 ] as const;
-export const apiQueryArraySerializations = [
+const apiQueryArraySerializations = [
   "repeat",
   "comma",
   "space",
@@ -45,13 +45,13 @@ export const apiSecuritySchemes = [
   "cookie",
   "oauth2",
 ] as const;
-export const apiCachePolicies = [
+const apiCachePolicies = [
   "unspecified",
   "no-store",
   "private",
   "public",
 ] as const;
-export const apiIdempotencyPolicies = [
+const apiIdempotencyPolicies = [
   "unspecified",
   "idempotent",
   "non-idempotent",
@@ -60,11 +60,11 @@ export const apiIdempotencyPolicies = [
 
 export type ApiParameterLocation = (typeof apiParameterLocations)[number];
 export type ApiParameterType = (typeof apiParameterTypes)[number];
-export type ApiQueryArraySerialization =
+type ApiQueryArraySerialization =
   (typeof apiQueryArraySerializations)[number];
 export type ApiSecurityScheme = (typeof apiSecuritySchemes)[number];
-export type ApiCachePolicy = (typeof apiCachePolicies)[number];
-export type ApiIdempotencyPolicy = (typeof apiIdempotencyPolicies)[number];
+type ApiCachePolicy = (typeof apiCachePolicies)[number];
+type ApiIdempotencyPolicy = (typeof apiIdempotencyPolicies)[number];
 
 export type ApiRouteParameter = {
   defaultValue?: string;
